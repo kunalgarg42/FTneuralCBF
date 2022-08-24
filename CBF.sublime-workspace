@@ -1,0 +1,397 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"state",
+				"state_diff"
+			],
+			[
+				"sta",
+				"state_diff"
+			],
+			[
+				"dsd",
+				"dsdt_nominal"
+			],
+			[
+				"s",
+				"state0"
+			],
+			[
+				"h",
+				"h_next"
+			],
+			[
+				"gra",
+				"grad_h"
+			],
+			[
+				"co",
+				"Conv1d"
+			],
+			[
+				"n",
+				"num_mid"
+			],
+			[
+				"con",
+				"constraints"
+			],
+			[
+				"loss_a",
+				"loss_action"
+			],
+			[
+				"los_de",
+				"loss_deriv_mid"
+			],
+			[
+				"loss_de",
+				"loss_deriv_dang"
+			],
+			[
+				"lo",
+				"loss_h_dang"
+			],
+			[
+				"los",
+				"loss_h_safe"
+			],
+			[
+				"ob",
+				"obstacle"
+			],
+			[
+				"sa",
+				"safe_count"
+			],
+			[
+				"st",
+				"state_next_with_grad"
+			],
+			[
+				"St",
+				"state_next_nominal"
+			],
+			[
+				"d",
+				"dsdt_nominal"
+			],
+			[
+				"re",
+				"reshape"
+			],
+			[
+				"fw",
+				"fw_dyn"
+			],
+			[
+				"da",
+				"dang_count"
+			],
+			[
+				"md",
+				"mid_count"
+			],
+			[
+				"buffer_",
+				"buffer_safe"
+			],
+			[
+				"dan",
+				"dang_dist"
+			],
+			[
+				"nu",
+				"num_mid"
+			],
+			[
+				"num",
+				"num_dang"
+			],
+			[
+				"f",
+				"float"
+			],
+			[
+				"aij",
+				"aij_m"
+			],
+			[
+				"arr",
+				"array"
+			],
+			[
+				"plo",
+				"matplotlib"
+			],
+			[
+				"error_",
+				"error_conn"
+			],
+			[
+				"mask_",
+				"mask_conn"
+			],
+			[
+				"h_",
+				"h_conn"
+			],
+			[
+				"loss_list_",
+				"loss_list_conn"
+			],
+			[
+				"acc_dang_",
+				"acc_dang_conn"
+			],
+			[
+				"loss_dang_",
+				"loss_dang_conn"
+			],
+			[
+				"o",
+				"k_obstacle"
+			],
+			[
+				"loa",
+				"loss_alpha"
+			],
+			[
+				"al",
+				"alpha_optimizer"
+			],
+			[
+				"x",
+				"x_cost_"
+			],
+			[
+				"cons",
+				"constant"
+			],
+			[
+				"u",
+				"uDes"
+			],
+			[
+				"new",
+				"new_form"
+			],
+			[
+				"ne",
+				"new_form"
+			],
+			[
+				"X",
+				"Xf"
+			]
+		]
+	},
+	"buffers":
+	[
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 124.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/home/kunal/MIT_REALM/Research/fault_tol_control/qp_control/FxTS_GF.py",
+		"/home/kunal/MIT_REALM/Research/fault_tol_control/qp_control/ML_with_grad_example.py",
+		"/home/kunal/MIT_REALM/certrol/macbf/drones/config.py",
+		"/home/kunal/MIT_REALM/certrol/macbf/drones/core.py",
+		"/home/kunal/MIT_REALM/certrol/macbf/drones/train_conn.py",
+		"/home/kunal/MIT_REALM/certrol/macbf/drones/evaluate_conn.py",
+		"/home/kunal/MIT_REALM/Research/MAConn/code/example.py",
+		"/home/kunal/MIT_REALM/Research/MAConn/code/NNfuncgrad.py",
+		"/home/kunal/MIT_REALM/Research/MAConn/code/ML_with_grad_example.py",
+		"/home/kunal/MIT_REALM/Research/MAConn/code/NNfuncgrad",
+		"/home/kunal/MIT_REALM/Research/crazyflie/crazyswarm/ros_ws/src/crazyswarm/scripts/waypoints_simple.py",
+		"/home/kunal/MIT_REALM/Research/crazyflie/crazyswarm/ros_ws/src/crazyswarm/scripts/hello_world.py",
+		"/home/kunal/MIT_REALM/neural_clbf/neural_clbf/setup/aerobench.py",
+		"/home/kunal/MIT_REALM/certrol/macbf/macbf/cars/core.py",
+		"/home/kunal/MIT_REALM/certrol/macbf/drones/evaluate.py",
+		"/home/kunal/MIT_REALM/certrol/macbf/drones/train.py",
+		"/home/kunal/MIT_REALM/certrol/macbf/drones/FxTS_GF.py",
+		"/home/kunal/MIT_REALM/certrol/sablas/modules/dataset.py",
+		"/home/kunal/MIT_REALM/certrol/macbf/macbf/drones/train.py",
+		"/home/kunal/MIT_REALM/certrol/sablas/scripts/test_ship.py",
+		"/home/kunal/MIT_REALM/certrol/sablas/scripts/train_ship.py",
+		"/home/kunal/MIT_REALM/certrol/sablas/scripts/test_dicar.py",
+		"/home/kunal/MIT_REALM/certrol/sablas/scripts/train_dicar.py",
+		"/home/kunal/MIT_REALM/certrol/macbf/macbf/cars/train.py",
+		"/home/kunal/MIT_REALM/certrol/sablas/envs/env_dicar.py",
+		"/home/kunal/MIT_REALM/certrol/sablas/modules/FxTS_GF.py",
+		"/home/kunal/MIT_REALM/certrol/sablas/modules/FxTS-GF.py",
+		"/home/kunal/catkin_ws/src/segway_sim/src/low_level_node.cpp",
+		"/home/kunal/catkin_ws/src/segway_sim/plotUtils/readNewBag.py",
+		"/home/kunal/catkin_ws/src/segway_sim/src/pyFun/MOMDP.py",
+		"/home/kunal/catkin_ws/src/segway_sim/src/pyFun/main.py",
+		"/home/kunal/catkin_ws/src/segway_sim/src/momdp_node.py",
+		"/home/kunal/catkin_ws/src/multirate-mpc-cbf/include/mpc/low_level_class.hpp",
+		"/home/kunal/catkin_ws/src/multirate-mpc-cbf/include/mpc/segway_example.hpp",
+		"/home/kunal/catkin_ws/src/segway_sim/launch/main.launch",
+		"/home/kunal/catkin_ws/src/segway_sim/src/low_level_node_old.cpp",
+		"/home/kunal/catkin_ws/src/multirate-mpc-cbf/include/mpc/low_level_class_working_FxTS.hpp",
+		"/home/kunal/catkin_ws/src/multirate-mpc-cbf/include/mpc/low_level_class_old.hpp",
+		"/home/kunal/catkin_ws/src/segway_sim/src/mpc_node.cpp",
+		"/home/kunal/catkin_ws/src/segway_sim/include/segway_sim/dynamics.hpp",
+		"/home/kunal/catkin_ws/src/segway_sim/src/ekf_node.cpp",
+		"/home/kunal/catkin_ws/src/segway_sim/src/integrator_node.cpp",
+		"/home/kunal/catkin_ws/src/segway_sim/src/controller_node.cpp",
+		"/home/kunal/catkin_ws/src/multirate-mpc-cbf/include/mpc/low_level_class_not_working.hpp",
+		"/home/kunal/catkin_ws/src/segway_sim/plotUtils/readBag.py",
+		"/home/kunal/catkin_ws/src/segway_sim/include/segway_sim/low_level_node.hpp",
+		"/home/kunal/catkin_ws/error_log.txt"
+	],
+	"find":
+	{
+		"height": 26.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": true,
+		"find_history":
+		[
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"scrollbar_highlights": true,
+		"show_context": true,
+		"use_buffer2": true,
+		"use_gitignore": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"sheets":
+			[
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 26.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "",
+	"project": "CBF.sublime-project",
+	"replace":
+	{
+		"height": 48.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 150.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}
