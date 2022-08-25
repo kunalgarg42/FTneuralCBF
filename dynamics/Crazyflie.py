@@ -64,10 +64,13 @@ class CrazyFlies(ControlAffineSystemNew):
 
     def __init__(
         self,
-        nominal_params: Scenario,
+        x: torch.Tensor,
+        nominal_params,
         dt: float = 0.01,
         controller_dt: Optional[float] = None,
     ):
+        self.x = x
+        self.params = nominal_params
         """
         Initialize the quadrotor.
 
@@ -79,9 +82,9 @@ class CrazyFlies(ControlAffineSystemNew):
         raises:
             ValueError if nominal_params are not valid for this system
         """
-        super().__init__(nominal_params, dt, controller_dt)
+        super().__init__(X, nominal_params, dt, controller_dt)
 
-    def validate_params(self, params: Scenario) -> bool:
+    def validate_params(self, params) -> bool:
         """Check if a given set of parameters is valid
 
         args:
@@ -206,7 +209,7 @@ class CrazyFlies(ControlAffineSystemNew):
 
         return goal_mask
 
-    def _f(self, x: torch.Tensor, params: Scenario):
+    def _f(self, x: torch.Tensor, params):
         """
         Return the control-independent part of the control-affine dynamics.
 
@@ -264,7 +267,7 @@ class CrazyFlies(ControlAffineSystemNew):
 
         return f
 
-    def _g(self, x: torch.Tensor, params: Scenario):
+    def _g(self, x: torch.Tensor, params):
         """
         Return the control-independent part of the control-affine dynamics.
 
@@ -313,9 +316,9 @@ class CrazyFlies(ControlAffineSystemNew):
         """ Return the equilibrium state.
             We want total thrust equals m*g.
         """
-        u_eq[0, CrazyFlies.F_1] = self.nominal_params["m"] * grav / 4
-        u_eq[0, CrazyFlies.F_2] = self.nominal_params["m"] * grav / 4
-        u_eq[0, CrazyFlies.F_3] = self.nominal_params["m"] * grav / 4
-        u_eq[0, CrazyFlies.F_4] = self.nominal_params["m"] * grav / 4
+        u_eq[0, CrazyFlies.F_1] = self.nominal_params["m"] * 9.81 / 4
+        u_eq[0, CrazyFlies.F_2] = self.nominal_params["m"] * 9.81 / 4
+        u_eq[0, CrazyFlies.F_3] = self.nominal_params["m"] * 9.81 / 4
+        u_eq[0, CrazyFlies.F_4] = self.nominal_params["m"] * 9.81 / 4
 
         return u_eq
