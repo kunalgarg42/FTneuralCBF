@@ -131,10 +131,16 @@ class FixedWing(ControlAffineSystemNew):
         valid = valid and "Cx0" in params
         valid = valid and "Cxq" in params
 
-
-
         # Make sure all parameters are physically valid
         valid = valid and params["m"] > 0
+        valid = valid and params["Ixx"] > 0
+        valid = valid and params["Iyy"] > 0
+        valid = valid and params["Izz"] > 0
+        valid = valid and params["Ixz"] > 0
+        valid = valid and params["S"] > 0
+        valid = valid and params["b"] > 0
+        valid = valid and params["bar_c"] > 0
+        valid = valid and params["rho"] > 0
 
         return valid
 

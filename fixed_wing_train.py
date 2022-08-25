@@ -52,6 +52,7 @@ x0 = torch.tensor([[50.0,
 dt = 0.01
 n_state = 9
 m_control = 4
+fault = 1
 
 nominal_params = {
 	"m": 1.0, 
@@ -94,13 +95,16 @@ nominal_params = {
 state = []
 goal = []
 
+
+fault_control_index = 1
+
 def main():
 	dynamics = FixedWing(x = x0, nominal_params = nominal_params, dt = dt, controller_dt= dt)
 	nn_controller = NNController_new(n_state=9, m_control=4)
 	cbf = CBF(n_state=9, m_control=2)
 	alpha = alpha_param(n_state=9)
 	dataset = Dataset_with_Grad(n_state=9, m_control=4, n_pos=1,safe_alpha = 0.3, dang_alpha = 0.4)
-	trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=9, m_control = 4, j_const = 2, dyn = dynamics, n_pos=1, dt = dt, safe_alpha = 0.3, dang_alpha = 0.4, action_loss_weight=0.1, params = nominal_params)
+	trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=9, m_control = 4, j_const = 2, dyn = dynamics, n_pos=1, dt = dt, safe_alpha = 0.3, dang_alpha = 0.4, action_loss_weight=0.1, params = nominal_params, fault = fault, fault_control_index = fault_control_index)
 	state = x0
 	goal = xg
 	goal = np.array(goal).reshape(1,9)
@@ -117,39 +121,39 @@ def main():
 
 	for i in range(config.TRAIN_STEPS):
 		if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
-			state = (state + x0) / 2 + torch.rand(1,n_state)
-			state[0,1] = sm[1] + torch.rand(1) * 0.1
+			state[0,1] = sm[1] + torch.rand(1) * 0.01
 
 		for j in range(n_state):
-			if state[0,j]<sl[j]:
-				state[0,j] = sl[j]
-			if state[0,j]>sm[j]:
+			if state[0,j] < -1.0e1:
+				state[0,j] = x0[0,0]
+			if state[0,j] > 1.0e4:
 				state[0,j] = sm[j]
 		
 		
-		# print(state)
-		fx = dynamics._f(state ,params = nominal_params)
-		gx = dynamics._g(state ,params = nominal_params)
+		fx = dynamics._f(state , params = nominal_params)
+		gx = dynamics._g(state , params = nominal_params)
 		
 		u_nominal = trainer.nominal_controller(state = state, goal = goal, u_norm_max = 5, dyn = dynamics, constraints = constraints)
 
+
+		for j in range(m_control):
+			if u_nominal[0,j] < ul[j]:
+				u_nominal[0,j] = ul[j]
+			if u_nominal[0,j] > um[j]:
+				u_nominal[0,j] = um[j]
+
 		u = nn_controller(torch.tensor(state,dtype = torch.float32), torch.tensor(u_nominal,dtype = torch.float32))
-		# u = nn_controller(torch.tensor(state.clone().detach(),dtype = torch.float32), torch.tensor(u_nominal.clone().detach(), dtype = torch.float32))
 
 		u = torch.squeeze(u.detach().cpu())
+
+		if fault == 1:
+			u[fault_control_index] = torch.rand(1) * 5
 
 		if torch.isnan(torch.sum(u)):
 			i = i-1
 			continue
 
-		for j in range(m_control):
-			if u[j]<ul[j]:
-				u[j] = ul[j]
-			if u[j] > um[j]:
-				u[j] = um[j]
-
 		gxu = torch.matmul(gx,u.reshape(m_control,1))
-
 
 		dx = fx.reshape(1,n_state) + gxu.reshape(1,n_state)
 

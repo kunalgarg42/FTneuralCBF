@@ -34,7 +34,9 @@ class Trainer(object):
                  dang_alpha=0.4, 
                  action_loss_weight=0.08,
                  gpu_id=-1,
-                 lr_decay_stepsize=-1):
+                 lr_decay_stepsize=-1,
+                 fault = 0,
+                 fault_control_index = -1):
 
         self.params = params
         self.n_state = n_state
@@ -45,6 +47,8 @@ class Trainer(object):
         self.cbf = cbf
         self.alpha = alpha
         self.dataset = dataset
+        self.fault = fault
+        self.fault_control_index = fault_control_index
         
         self.controller_optimizer = torch.optim.Adam(
             self.controller.parameters(), lr=5e-4, weight_decay=1e-5)
@@ -237,7 +241,7 @@ class Trainer(object):
         
         return loss_np, acc_np
 
-    def train_cbf_and_controller(self, batch_size=102, opt_iter=100, eps=0.1, eps_deriv=0.03, eps_action=0.2):
+    def train_cbf_and_controller(self, batch_size=1024, opt_iter=100, eps=0.1, eps_deriv=0.03, eps_action=0.2):
 
         loss_np = 0.0
         acc_np = np.zeros((5,), dtype=np.float32)
@@ -256,14 +260,14 @@ class Trainer(object):
              
             h , grad_h = self.cbf.V_with_jacobian(state)
 
-            dsdt_nominal = self.nominal_dynamics(state, u, batch_size)
+            dsdt = self.nominal_dynamics(state, u.reshape(batch_size,self.m_control,1), batch_size)
             
-            dsdt_nominal = torch.reshape(dsdt_nominal,(batch_size,self.n_state))
+            dsdt = torch.reshape(dsdt,(batch_size,self.n_state))
 
 
             alpha  = self.alpha(state)
 
-            dot_h = torch.matmul(grad_h.reshape(batch_size,1, self.n_state),dsdt_nominal.reshape(batch_size,self.n_state,1))
+            dot_h = torch.matmul(grad_h.reshape(batch_size,1, self.n_state),dsdt.reshape(batch_size,self.n_state,1))
             dot_h = dot_h.reshape(batch_size,1)
 
 
@@ -360,10 +364,19 @@ class Trainer(object):
         returns:
             dsdt (n_state,)
         """
+
         m_control = self.m_control
         fx = self.dyn._f(state,self.params)
         gx = self.dyn._g(state, self.params)
-        u = u.clone().detach().requires_grad_(True).reshape(batch_size,m_control,1)
+
+        for j in range(self.m_control):
+            if self.fault == 1 and self.fault_control_index == j:
+                u[:,j] = u[:,j].clone().detach().reshape(batch_size,1)
+            else:
+                u[:,j] = u[:,j].clone().detach().requires_grad_(True).reshape(batch_size,1)
+        
+        # if self.fault == 1 and self.fault_control_index > -1:
+            # u[:,self.fault_control_index] = u[:,self.fault_control_index].detach()
 
         dsdt = fx + torch.matmul(gx,u)
 
@@ -416,11 +429,9 @@ class Trainer(object):
             B = np.array(B)
             u = solve_qp(Q, F, A, B, solver="osqp")
 
-        for i in range(self.m_control):
-            if u[i]<ul[i]:
-                u[i] = ul[i]
-            if u[i]>um[i]:
-                u[i] = um[i]
+        if (u is None):
+            u = np.array(um) / 2
+            u = u.reshape(1,m_control)
 
         u_nominal = torch.tensor([u[0:self.m_control]]).reshape(1,m_control)
 
