@@ -11,6 +11,7 @@ from scipy.sparse import vstack, csr_matrix, csc_matrix
 from qp_control.FxTS_GF import FxTS_Momentum 
 
 from pytictoc import TicToc
+torch.autograd.set_detect_anomaly(True)
 
 t = TicToc() 
 
@@ -18,9 +19,6 @@ t = TicToc()
 class Trainer(object):
 
     def __init__(self, 
-                 # state, 
-                 # obstacle, 
-                 # goal,
                  controller, 
                  cbf, 
                  alpha,
@@ -37,11 +35,7 @@ class Trainer(object):
                  action_loss_weight=0.08,
                  gpu_id=-1,
                  lr_decay_stepsize=-1):
-        
 
-        # self.state = state
-        # self.obstacle = obstacle
-        # self.goal = goal
         self.params = params
         self.n_state = n_state
         self.m_control = m_control
@@ -51,20 +45,19 @@ class Trainer(object):
         self.cbf = cbf
         self.alpha = alpha
         self.dataset = dataset
-        # self.nominal_dynamics = nominal_dynamics
         
-        # self.controller_optimizer = torch.optim.Adam(
-        #     self.controller.parameters(), lr=5e-4, weight_decay=1e-5)
-        # self.cbf_optimizer = torch.optim.Adam(
-        #     self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
-        # self.alpha_optimizer = torch.optim.Adam(
-        #     self.alpha.parameters(),lr = 1e-4, weight_decay = 1e-5)
-        self.controller_optimizer = FxTS_Momentum(
-            self.controller.parameters(), lr=5e-4,momentum = 0.2)
-        self.cbf_optimizer = FxTS_Momentum(
-            self.cbf.parameters(), lr=1e-4,momentum = 0.2)
-        self.alpha_optimizer = FxTS_Momentum(
-            self.alpha.parameters(), lr=5e-4,momentum = 0.2)
+        self.controller_optimizer = torch.optim.Adam(
+            self.controller.parameters(), lr=5e-4, weight_decay=1e-5)
+        self.cbf_optimizer = torch.optim.Adam(
+            self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
+        self.alpha_optimizer = torch.optim.Adam(
+            self.alpha.parameters(),lr = 1e-4, weight_decay = 1e-5)
+        # self.controller_optimizer = FxTS_Momentum(
+        #     self.controller.parameters(), lr=5e-4,momentum = 0.2)
+        # self.cbf_optimizer = FxTS_Momentum(
+        #     self.cbf.parameters(), lr=1e-4,momentum = 0.2)
+        # self.alpha_optimizer = FxTS_Momentum(
+        #     self.alpha.parameters(), lr=5e-4,momentum = 0.2)
 
         self.n_pos = n_pos
         self.dt = dt
@@ -86,38 +79,51 @@ class Trainer(object):
 
     def train_cbf(self, batch_size=256, opt_iter=500, eps=0.1):
 
+
         loss_np = 0.0
         acc_np = np.zeros((5,), dtype=np.float32)
         
         for i in range(opt_iter):
-            # state (bs, n_state), obstacle (bs, k_obstacle, n_state)
-            # u_nominal (bs, m_control), state_next (bs, n_state)
-            state, obstacle, u_nominal, state_next, state_error = self.dataset.sample_data(batch_size)
-            state = torch.from_numpy(state)
-            obstacle = torch.from_numpy(obstacle)
-            state_next = torch.from_numpy(state_next)
+            grad_h, state, u, u_nominal, state_next = self.dataset.sample_data(batch_size)
+            u_nominal = torch.from_numpy(u_nominal)
 
             if self.gpu_id >= 0:
+                grad_h = grad_h.cuda(self.gpu_id)
                 state = state.cuda(self.gpu_id)
-                obstacle = obstacle.cuda(self.gpu_id)
+                u = u.cuda(self.gpu_id)
+                u_nominal = u_nominal.cuda(self.gpu_id)
                 state_next = state_next.cuda(self.gpu_id)
 
-            safe_mask, dang_mask, mid_mask = self.get_mask(state, obstacle)
-            h = self.cbf(state, obstacle)
-            alpha  = self.alpha(state,obstacle)
+            safe_mask, dang_mask, mid_mask = self.get_mask(state)
+             
+            h , _ = self.cbf.V_with_jacobian(state)
+
+
+            dsdt_nominal = self.nominal_dynamics(state, u, batch_size)
+            
+            dsdt_nominal = torch.reshape(dsdt_nominal,(batch_size,self.n_state))
+
+
+            alpha  = self.alpha(state)
+
+            dot_h = torch.matmul(grad_h.reshape(batch_size,1, self.n_state),dsdt_nominal.reshape(batch_size,self.n_state,1))
+            dot_h = dot_h.reshape(batch_size,1)
+
+
+            deriv_cond = dot_h + alpha * h
 
             num_safe = torch.sum(safe_mask)
             num_dang = torch.sum(dang_mask)
             num_mid = torch.sum(mid_mask)
+
+            loss_alpha = torch.sum(nn.ReLU()(alpha) * safe_mask) / (1e-5 + num_safe)
+
 
             loss_h_safe = torch.sum(nn.ReLU()(eps - h) * safe_mask) / (1e-5 + num_safe)
             loss_h_dang = torch.sum(nn.ReLU()(h + eps) * dang_mask) / (1e-5 + num_dang)
 
             acc_h_safe = torch.sum((h >= 0).float() * safe_mask) / (1e-5 + num_safe)
             acc_h_dang = torch.sum((h < 0).float() * dang_mask) / (1e-5 + num_dang)
-
-            h_next = self.cbf(state_next, obstacle)
-            deriv_cond = (h_next - h) / self.dt + alpha*h
 
             loss_deriv_safe = torch.sum(nn.ReLU()(-deriv_cond) * safe_mask) / (1e-5 + num_safe)
             loss_deriv_dang = torch.sum(nn.ReLU()(-deriv_cond) * dang_mask) / (1e-5 + num_dang)
@@ -127,11 +133,13 @@ class Trainer(object):
             acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
             acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
 
-            loss = loss_h_safe + loss_h_dang + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid
+            loss = loss_alpha + loss_h_safe + loss_h_dang + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid
 
             self.cbf_optimizer.zero_grad()
+            self.alpha_optimizer.zero_grad()
             loss.backward()
             self.cbf_optimizer.step()
+            self.alpha_optimizer.step()
 
             # log statics
             acc_np[0] += acc_h_safe.detach().cpu().numpy()
@@ -151,109 +159,10 @@ class Trainer(object):
     def train_controller(self, batch_size=256, opt_iter=50, eps=0.1):
 
         loss_np = 0.0
-        acc_np = np.zeros((3,), dtype=np.float32)
-
-        for i in range(opt_iter):
-            # state (bs, n_state), obstacle (bs, k_obstacle, n_state)
-            # u_nominal (bs, m_control), state_next (bs, n_state)
-            state, obstacle, u_nominal, state_next, state_error = self.dataset.sample_data(batch_size)
-            state = torch.from_numpy(state)
-            obstacle = torch.from_numpy(obstacle)
-            u_nominal = torch.from_numpy(u_nominal)
-            state_next = torch.from_numpy(state_next)
-            state_error = torch.from_numpy(state_error)
-
-
-            if self.gpu_id >= 0:
-                state = state.cuda(self.gpu_id)
-                obstacle = obstacle.cuda(self.gpu_id)
-                u_nominal = u_nominal.cuda(self.gpu_id)
-                state_next = state_next.cuda(self.gpu_id)
-                state_error = state_error.cuda(self.gpu_id)
-
-            safe_mask, dang_mask, mid_mask = self.get_mask(state, obstacle)
-
-            h = self.cbf(state, obstacle)
-
-
-            alpha  = self.alpha(state,obstacle)
-
-            u = self.controller(state, obstacle, u_nominal, state_error)
-
-            dsdt_nominal = self.nominal_dynamics(state, u)
-            
-            # print(dsdt.shape)
-
-            state_next_nominal = state + dsdt_nominal * self.dt
-
-            state_next_with_grad = state_next_nominal + (state_next - state_next_nominal).detach()
-
-            h_next = self.cbf(state_next_with_grad, obstacle)
-            deriv_cond = (h_next - h) / self.dt + alpha*h
-
-            num_safe = torch.sum(safe_mask)
-            num_dang = torch.sum(dang_mask)
-            num_mid = torch.sum(mid_mask)
-
-            loss_deriv_safe = torch.sum(nn.ReLU()(-deriv_cond) * safe_mask) / (1e-5 + num_safe)
-            loss_deriv_dang = torch.sum(nn.ReLU()(-deriv_cond) * dang_mask) / (1e-5 + num_dang)
-            loss_deriv_mid = torch.sum(nn.ReLU()(-deriv_cond) * mid_mask) / (1e-5 + num_mid)
-
-            acc_deriv_safe = torch.sum((deriv_cond > 0).float() * safe_mask) / (1e-5 + num_safe)
-            acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
-            acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
-
-            loss_action = torch.mean((u - u_nominal)**2)
-
-            loss = loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight
-
-            self.controller_optimizer.zero_grad()
-            loss.backward()
-            self.controller_optimizer.step()
-
-            # log statics
-            acc_np[0] += acc_deriv_safe.detach().cpu().numpy()
-            acc_np[1] += acc_deriv_dang.detach().cpu().numpy()
-            acc_np[2] += acc_deriv_mid.detach().cpu().numpy()
-
-            loss_np += loss.detach().cpu().numpy()
-
-        acc_np = acc_np / opt_iter
-        loss_np = loss_np / opt_iter
-        return loss_np, acc_np
-
-
-    def nominal_dynamics(self, state, u,batch_size):
-        """
-        args:
-            state (n_state,)
-            u (m_control,)
-        returns:
-            dsdt (n_state,)
-        """
-        m_control = self.m_control
-        fx = self.dyn._f(state,self.params)
-        gx = self.dyn._g(state, self.params)
-        u = torch.tensor(u).reshape(batch_size,m_control,1)
-
-
-        dsdt = fx + torch.matmul(gx,u)
-
-        return dsdt
-
-    def train_cbf_and_controller(self, batch_size=1024, opt_iter=100, eps=0.1, eps_deriv=0.03, eps_action=0.2):
-
-        loss_np = 0.0
         acc_np = np.zeros((5,), dtype=np.float32)
 
         for i in range(opt_iter):
-            print(i)
-            t.tic()
-            # state (bs, n_state), obstacle (bs, k_obstacle, n_state)
-            # u_nominal (bs, m_control), state_next (bs, n_state)
             grad_h, state, u, u_nominal, state_next = self.dataset.sample_data(batch_size)
-            # grad_h = torch.from_numpy(grad_h)
-            # state = torch.from_numpy(state)
             u_nominal = torch.from_numpy(u_nominal)
             # u = torch.from_numpy(u)
 
@@ -265,9 +174,87 @@ class Trainer(object):
                 state_next = state_next.cuda(self.gpu_id)
 
             safe_mask, dang_mask, mid_mask = self.get_mask(state)
+
              
             h , _ = self.cbf.V_with_jacobian(state)
 
+
+            dsdt_nominal = self.nominal_dynamics(state, u, batch_size)
+            
+            dsdt_nominal = torch.reshape(dsdt_nominal,(batch_size,self.n_state))
+
+
+            alpha  = self.alpha(state)
+
+            dot_h = torch.matmul(grad_h.reshape(batch_size,1, self.n_state),dsdt_nominal.reshape(batch_size,self.n_state,1))
+            dot_h = dot_h.reshape(batch_size,1)
+
+
+            deriv_cond = dot_h + alpha * h
+
+
+            num_safe = torch.sum(safe_mask)
+            num_dang = torch.sum(dang_mask)
+            num_mid = torch.sum(mid_mask)
+
+            loss_deriv_safe = torch.sum(nn.ReLU()(eps_deriv - deriv_cond) * safe_mask) / (1e-5 + num_safe)
+            loss_deriv_dang = torch.sum(nn.ReLU()(eps_deriv - deriv_cond) * dang_mask) / (1e-5 + num_dang)
+            loss_deriv_mid = torch.sum(nn.ReLU()(eps_deriv - deriv_cond) * mid_mask) / (1e-5 + num_mid)
+
+            acc_deriv_safe = torch.sum((deriv_cond > 0).float() * safe_mask) / (1e-5 + num_safe)
+            acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
+            acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
+
+            loss_action = torch.mean((u - u_nominal)**2)
+
+            loss = loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight
+
+            self.controller_optimizer.zero_grad()
+            
+            loss.backward(retain_graph=True)
+
+            loss_temp = loss.detach().cpu().numpy()
+
+            if math.isnan(loss_temp):
+                continue           
+            
+            self.controller_optimizer.step()
+            
+            # log statics
+            acc_np[0] += acc_deriv_safe.detach().cpu().numpy()
+            acc_np[1] += acc_deriv_dang.detach().cpu().numpy()
+            acc_np[2] += acc_deriv_mid.detach().cpu().numpy()
+
+            loss_np += loss.detach().cpu().numpy()
+
+        acc_np = acc_np / opt_iter
+        loss_np = loss_np / opt_iter
+
+        if self.lr_decay_stepsize >= 0:
+            # learning rate decay
+            self.cbf_lr_scheduler.step()
+            self.controller_lr_scheduler.step()
+        
+        return loss_np, acc_np
+
+    def train_cbf_and_controller(self, batch_size=102, opt_iter=100, eps=0.1, eps_deriv=0.03, eps_action=0.2):
+
+        loss_np = 0.0
+        acc_np = np.zeros((5,), dtype=np.float32)
+
+        for i in range(opt_iter):
+            state, u, u_nominal = self.dataset.sample_data(batch_size)
+            u_nominal = torch.from_numpy(u_nominal)
+
+            if self.gpu_id >= 0:
+                state = state.cuda(self.gpu_id)
+                u = u.cuda(self.gpu_id)
+                u_nominal = u_nominal.cuda(self.gpu_id)
+
+            safe_mask, dang_mask, mid_mask = self.get_mask(state)
+
+             
+            h , grad_h = self.cbf.V_with_jacobian(state)
 
             dsdt_nominal = self.nominal_dynamics(state, u, batch_size)
             
@@ -305,22 +292,20 @@ class Trainer(object):
 
             loss_action = torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
 
-
-
             loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight
 
             self.controller_optimizer.zero_grad()
             self.cbf_optimizer.zero_grad()
             self.alpha_optimizer.zero_grad()
 
+
             loss.backward(retain_graph=True)
 
-            loss_temp = loss
+            loss_temp = loss.detach().cpu().numpy()
 
-            if math.isnan(loss_temp.detach().cpu().numpy()):
+            if math.isnan(loss_temp):
                 continue           
             
-
             self.controller_optimizer.step()
             self.cbf_optimizer.step()
             self.alpha_optimizer.step()
@@ -355,11 +340,6 @@ class Trainer(object):
             mid_mask  (bs, k_obstacle)
             dang_mask (bs, k_obstacle)
         """
-        # alpha_1 = state[:,1]
-        # alpha_1 = torch.abs(alpha_1)
-        # safe_mask = (alpha_1 <= self.safe_alpha).float()
-        # dang_mask = (alpha_1 >= self.dang_alpha).float()
-        # mid_mask = (1 - safe_mask) * (1 - dang_mask)
         safe_mask = self.dyn.safe_mask(state).float()
         dang_mask = self.dyn.unsafe_mask(state).float()
         mid_mask = (1 - safe_mask) * (1 - dang_mask)
@@ -371,7 +351,25 @@ class Trainer(object):
         # alpha = torch.abs(state[:,1])
         return self.dyn.safe_mask(state)
 
-        
+    
+    def nominal_dynamics(self, state, u,batch_size):
+        """
+        args:
+            state (n_state,)
+            u (m_control,)
+        returns:
+            dsdt (n_state,)
+        """
+        m_control = self.m_control
+        fx = self.dyn._f(state,self.params)
+        gx = self.dyn._g(state, self.params)
+        u = u.clone().detach().requires_grad_(True).reshape(batch_size,m_control,1)
+
+        dsdt = fx + torch.matmul(gx,u)
+
+        return dsdt
+
+    
     def nominal_controller(self, state, goal, u_norm_max, dyn,constraints):
         """
         args:
@@ -380,7 +378,8 @@ class Trainer(object):
         returns:
             u_nominal (m_control,)
         """
-        ul, um = self.dyn.control_limits
+        um, ul = self.dyn.control_limits()
+        sm, _ = self.dyn.state_limits()
 
         n_state = self.n_state
         m_control = self.m_control
@@ -398,7 +397,7 @@ class Trainer(object):
         fx = fx.reshape(n_state,1)
         gx = gx.reshape(n_state,m_control)
 
-        V, Lg, Lf = constraints.LfLg_new(state,goal,fx,gx,n_state, m_control, j_const, 1)
+        V, Lg, Lf = constraints.LfLg_new(state,goal,fx,gx,n_state, m_control, j_const, 1, sm[1])
 
         A = torch.hstack((Lg, V))
         B = Lf
@@ -414,6 +413,7 @@ class Trainer(object):
         else:
             # print(A)
             A = scipy.sparse.csc.csc_matrix(A)
+            B = np.array(B)
             u = solve_qp(Q, F, A, B, solver="osqp")
 
         for i in range(self.m_control):
@@ -424,17 +424,4 @@ class Trainer(object):
 
         u_nominal = torch.tensor([u[0:self.m_control]]).reshape(1,m_control)
 
-        # norm = torch.linalg.norm(u_nominal)
-
-        # if norm > u_norm_max:
-        #     u_nominal = u_nominal / norm * u_norm_max
-
         return u_nominal
-
-    def get_noise():
-        noise = np.array([0]*4).reshape(4,1)
-        if np.random.uniform() < 0.05:
-            noise = np.random.normal(size=(4,)) * 0.5
-        noise = np.copy(noise)
-        noise[:3] = 0
-        return noise

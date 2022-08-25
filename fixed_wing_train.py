@@ -27,17 +27,6 @@ from qp_control.NNfuncgrad import CBF, alpha_param, NNController_new
 
 
 
-x0 = torch.tensor([[50.0, 
-0.0, 
-0.0, 
-0.0, 
-0.0, 
-0.0,
-0.0,
-0.0,
-0.0]])
-
-
 xg = torch.tensor([[100.0, 
 0.2, 
 0.0, 
@@ -47,6 +36,17 @@ xg = torch.tensor([[100.0,
 0.0,
 0.0,
 0.0]])
+
+
+x0 = torch.tensor([[50.0, 
+0.1, 
+0.1, 
+0.4, 
+0.5, 
+0.2,
+0.1,
+0.5,
+0.9]])
 
 
 dt = 0.01
@@ -97,17 +97,13 @@ goal = []
 def main():
 	dynamics = FixedWing(x = x0, nominal_params = nominal_params, dt = dt, controller_dt= dt)
 	nn_controller = NNController_new(n_state=9, m_control=4)
-	# nn_controller.load_state_dict(torch.load('./data/drone_controller_weights.pth'))
-	# nn_controller.eval()
 	cbf = CBF(n_state=9, m_control=2)
-	# cbf.load_state_dict(torch.load('./data/drone_cbf_weights.pth'))
-	# v_cbf = V_with_jacobian()
 	alpha = alpha_param(n_state=9)
-	# alpha.load_state_dict(torch.load('./data/drone_alpha_weights.pth'))
 	dataset = Dataset_with_Grad(n_state=9, m_control=4, n_pos=1,safe_alpha = 0.3, dang_alpha = 0.4)
 	trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=9, m_control = 4, j_const = 2, dyn = dynamics, n_pos=1, dt = dt, safe_alpha = 0.3, dang_alpha = 0.4, action_loss_weight=0.1, params = nominal_params)
 	state = x0
 	goal = xg
+	goal = np.array(goal).reshape(1,9)
 
 	state_error = torch.zeros(1, 9)
 
@@ -115,76 +111,60 @@ def main():
 	goal_reached = 0.0
 	loss_total = 100.0
 
+	um, ul = dynamics.control_limits()
+
+	sm, sl = dynamics.state_limits()
+
 	for i in range(config.TRAIN_STEPS):
-		print(i)
+		if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
+			state = (state + x0) / 2 + torch.rand(1,n_state)
+			state[0,1] = sm[1] + torch.rand(1) * 0.1
 
+		for j in range(n_state):
+			if state[0,j]<sl[j]:
+				state[0,j] = sl[j]
+			if state[0,j]>sm[j]:
+				state[0,j] = sm[j]
 		
-		goal = np.array(goal).reshape(1,9)
-
+		
 		# print(state)
-
 		fx = dynamics._f(state ,params = nominal_params)
 		gx = dynamics._g(state ,params = nominal_params)
 		
-		# print(fx)
-		# print(fadsad)
-
 		u_nominal = trainer.nominal_controller(state = state, goal = goal, u_norm_max = 5, dyn = dynamics, constraints = constraints)
 
-		# u_nominal = np.array(u_nominal)
-
 		u = nn_controller(torch.tensor(state,dtype = torch.float32), torch.tensor(u_nominal,dtype = torch.float32))
-
-
+		# u = nn_controller(torch.tensor(state.clone().detach(),dtype = torch.float32), torch.tensor(u_nominal.clone().detach(), dtype = torch.float32))
 
 		u = torch.squeeze(u.detach().cpu())
 
-		norm_u = torch.linalg.norm(u)
-		
-		if norm_u > 5:
-			u = u / norm_u * 5
+		if torch.isnan(torch.sum(u)):
+			i = i-1
+			continue
+
+		for j in range(m_control):
+			if u[j]<ul[j]:
+				u[j] = ul[j]
+			if u[j] > um[j]:
+				u[j] = um[j]
 
 		gxu = torch.matmul(gx,u.reshape(m_control,1))
 
 
 		dx = fx.reshape(1,n_state) + gxu.reshape(1,n_state)
 
-		x = state + dx*dt
+		state_next = state + dx*dt
 
-		# h = cbf(x)
+		h, _ = cbf.V_with_jacobian(state.reshape(1,9,1))
 
-		h, grad_h = cbf.V_with_jacobian(x.reshape(1,9,1))
-
-
-
-		# print(h1)
-
-		# print(Jh1)
-
-		# print(Asasas)
-
-		# grad_h = torch.autograd.grad(h,x,allow_unused=True,retain_graph = True)
-		# h.retain_grad()
-		# grad_h = torch.cat(grad_h, dim =0)
-
-		# print(grad_h)
-		# print(grad_h.shape)
-		# print(state.shape)
-
-		state_next = x
-
-		dataset.add_data(grad_h, state, u, u_nominal, state_next)
+		dataset.add_data(state, u, u_nominal)
 
 		is_safe = int(trainer.is_safe(state))
 		safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
 
-		state_nominal_next = x 
-
-		state = state_next
+		state = state_next.clone()
 		done = torch.linalg.norm(state_next.detach().cpu() - goal) < 1
 
-        # obstacle = obstacle_next
-        # goal = goal_next
 		if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
 			loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe , loss_deriv_dang , loss_deriv_mid , loss_action = trainer.train_cbf_and_controller()
 			print('step: {}, train h and u, loss: {:.3f}, safety rate: {:.3f}, goal reached: {:.3f}, acc: {}'.format(
@@ -201,11 +181,8 @@ def main():
 			goal_reached = goal_reached * (1-1e-2) + (dist < 2.0) * 1e-2
 			state = x0
 
-
-
 	
 
 if __name__ == '__main__':
 	main()
 	
-

@@ -150,7 +150,7 @@ class FixedWing(ControlAffineSystemNew):
     def n_controls(self) -> int:
         return FixedWing.N_CONTROLS
 
-    @property
+    # @property
     def state_limits(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Return a tuple (upper, lower) describing the expected range of states for this
@@ -158,7 +158,7 @@ class FixedWing(ControlAffineSystemNew):
         """
         # define upper and lower limits based around the nominal equilibrium input
         upper_limit = torch.ones(self.n_dims)
-        upper_limit[FixedWing.V] = 100.0
+        upper_limit[FixedWing.V] = 200.0
         upper_limit[FixedWing.ALPHA] = np.pi / 3.0
         upper_limit[FixedWing.BETA] = np.pi / 6.0
         upper_limit[FixedWing.PHI] = np.pi / 2.0
@@ -169,11 +169,14 @@ class FixedWing(ControlAffineSystemNew):
         upper_limit[FixedWing.R] = 4
 
         lower_limit = -1.0 * upper_limit
-        lower_limit[FixedWing.V] = 0
+        lower_limit[FixedWing.V] = 0.0
+
+        lower_limit = torch.tensor(lower_limit)
+        upper_limit = torch.tensor(upper_limit)
 
         return (upper_limit, lower_limit)
 
-    @property
+    # @property
     def control_limits(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Return a tuple (upper, lower) describing the range of allowable control
@@ -183,6 +186,9 @@ class FixedWing(ControlAffineSystemNew):
         upper_limit = torch.tensor([250, 1, 1, 1])
         lower_limit = -1.0 * upper_limit
         lower_limit[FixedWing.T] = 0
+
+        lower_limit = torch.tensor(lower_limit)
+        upper_limit = torch.tensor(upper_limit)
 
         return (upper_limit, lower_limit)
 
