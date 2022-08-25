@@ -82,7 +82,7 @@ class CrazyFlies(ControlAffineSystemNew):
         raises:
             ValueError if nominal_params are not valid for this system
         """
-        super().__init__(X, nominal_params, dt, controller_dt)
+        super().__init__(x, nominal_params, dt, controller_dt)
 
     def validate_params(self, params) -> bool:
         """Check if a given set of parameters is valid
