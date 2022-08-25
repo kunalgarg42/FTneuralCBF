@@ -204,12 +204,20 @@ class FixedWing(ControlAffineSystemNew):
         args:
             x: a tensor of points in the state space
         """
-        safe_mask = torch.ones_like(x[:, 0], dtype=torch.bool)
+        params = self.params
+        fault = params["fault"]
 
-        safe_alpha = np.pi / 6.0
-        safe_alpha_l = np.pi / 60.0
-        safe_beta = np.pi / 12
+        safe_mask = torch.ones_like(x[:, 0], dtype=torch.bool)
+        if fault == 0:
+            safe_alpha = np.pi / 8.0
+            safe_alpha_l = np.pi / 80.0
+            safe_beta = np.pi / 15
+        else:
+            safe_alpha = np.pi / 6.0
+            safe_alpha_l = np.pi / 60.0
+            safe_beta = np.pi / 12
         # safe_radius = 3
+
         safe_mask = torch.logical_and(
             x[:, FixedWing.ALPHA] <= safe_alpha, x[:, FixedWing.ALPHA] >= safe_alpha_l)
         safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] <= safe_beta)
@@ -224,12 +232,19 @@ class FixedWing(ControlAffineSystemNew):
         args:
             x: a tensor of points in the state space
         """
-        unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
+        params = self.params
+        fault = params["fault"]
 
-        # We have a floor that we need to avoid and a radius we need to stay inside of
-        unsafe_alpha = np.pi / 5.5
-        unsafe_alpha_l = np.pi / 50.0
-        unsafe_beta = np.pi / 11
+        unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
+        if fault == 0:
+            unsafe_alpha = np.pi / 7.5
+            unsafe_alpha_l = np.pi / 70.0
+            unsafe_beta = np.pi / 14
+        else:
+            unsafe_alpha = np.pi / 5.5
+            unsafe_alpha_l = np.pi / 50.0
+            unsafe_beta = np.pi / 11
+
 
         unsafe_mask = torch.logical_or(
             x[:, FixedWing.ALPHA] >= unsafe_alpha, x[:, FixedWing.ALPHA] <= unsafe_alpha_l)
