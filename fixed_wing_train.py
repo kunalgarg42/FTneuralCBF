@@ -90,7 +90,8 @@ nominal_params = {
 	"Czq": 1, 
 	"Czde": 1,
 	"Cx0": 1, 
-	"Cxq": 1,}
+	"Cxq": 1,
+	"fault": fault,}
 
 state = []
 goal = []
@@ -175,17 +176,18 @@ def main():
                 i, loss_np, safety_rate, goal_reached, acc_np))
 			loss_total = loss_np
 
-
-			torch.save(cbf.state_dict(), './data/drone_cbf_weights.pth')
-			torch.save(nn_controller.state_dict(), './data/drone_controller_weights.pth')
-			torch.save(alpha.state_dict(), './data/drone_alpha_weights.pth')
-
+			if fault == 0:
+				torch.save(cbf.state_dict(), './data/FW_cbf_NN_weights.pth')
+				torch.save(nn_controller.state_dict(), './data/FW_controller_NN_weights.pth')
+				torch.save(alpha.state_dict(), './data/FW_alpha_NN_weights.pth')
+			else:
+				torch.save(cbf.state_dict(), './data/FW_cbf_FT_weights.pth')
+				torch.save(nn_controller.state_dict(), './data/FW_controller_FT_weights.pth')
+				torch.save(alpha.state_dict(), './data/FW_alpha_FT_weights.pth')
 		if done:
 			dist = np.linalg.norm(np.array(state_next,dtype = float) - np.array(goal,dtype= float))
 			goal_reached = goal_reached * (1-1e-2) + (dist < 2.0) * 1e-2
 			state = x0
-
-	
 
 if __name__ == '__main__':
 	main()
