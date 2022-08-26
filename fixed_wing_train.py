@@ -18,6 +18,7 @@ import math
 
 from qp_control.datagen import Dataset_with_Grad
 from qp_control.trainer_new import Trainer
+from qp_control.utils import Utils
 
 from qp_control.NNfuncgrad import CBF, alpha_param, NNController_new
 
@@ -101,6 +102,7 @@ fault_control_index = 1
 
 def main():
 	dynamics = FixedWing(x = x0, nominal_params = nominal_params, dt = dt, controller_dt= dt)
+	util = Utils(n_state=9, m_control = 4, j_const = 2, dyn = dynamics, dt = dt, params = nominal_params, fault = fault, fault_control_index = fault_control_index)
 	nn_controller = NNController_new(n_state=9, m_control=4)
 	cbf = CBF(n_state=9, m_control=4)
 	alpha = alpha_param(n_state=9)
@@ -121,6 +123,7 @@ def main():
 	sm, sl = dynamics.state_limits()
 
 	for i in range(config.TRAIN_STEPS):
+		print(i)
 		if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
 			state[0,1] = sm[1] + torch.rand(1) * 0.01
 
@@ -134,7 +137,7 @@ def main():
 		fx = dynamics._f(state , params = nominal_params)
 		gx = dynamics._g(state , params = nominal_params)
 		
-		u_nominal = trainer.nominal_controller(state = state, goal = goal, u_norm_max = 5, dyn = dynamics, constraints = constraints)
+		u_nominal = util.nominal_controller(state = state, goal = goal, u_norm_max = 5, dyn = dynamics, constraints = constraints)
 
 
 		for j in range(m_control):
@@ -164,7 +167,7 @@ def main():
 
 		dataset.add_data(state, u, u_nominal)
 
-		is_safe = int(trainer.is_safe(state))
+		is_safe = int(util.is_safe(state))
 		safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
 
 		state = state_next.clone()
