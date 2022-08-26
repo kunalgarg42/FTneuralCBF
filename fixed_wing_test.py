@@ -101,6 +101,8 @@ goal = []
 fault_control_index = 1
 fault_duration = 1000
 
+fault_time = 0
+
 def main():
 	dynamics = FixedWing(x = x0, nominal_params = nominal_params, dt = dt, controller_dt= dt)
 	util = Utils(n_state=9, m_control = 4, dyn = dynamics, params = nominal_params, fault = fault, fault_control_index = fault_control_index)
@@ -138,6 +140,7 @@ def main():
 	goal_reached = 0
 	num_episodes = 0
 	traj_following_error = 0
+	epsilon = 0.1
 
 	um, ul = dynamics.control_limits()
 
@@ -169,31 +172,79 @@ def main():
 				if u_nominal[0,j] > um[j]:
 					u_nominal[0,j] = um[j]
 
-			if i < fault_start_epoch or i> fault_start_epoch + fault_duration:
-				h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1,9,1))
-			else:
-				h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1,9,1))
+			## time based switching, assumes knowledge of when fault occurs and stops
+			if fault_time == 1:
+				if i < fault_start_epoch or i> fault_start_epoch + fault_duration:
+					h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1,9,1))
+				else:
+					h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1,9,1))
+				u = util.neural_controller(u_nominal, fx, gx, h, grad_h)		
+				u = torch.squeeze(u.detach().cpu())
+
+				if i >= fault_start_epoch and i <= fault_start_epoch + fault_duration:
+					u[fault_control_index] = torch.rand(1) * 5
 				
-			u = util.neural_controller(u_nominal, fx, gx, h, grad_h)		
-			u = torch.squeeze(u.detach().cpu())
+				for j in range(m_control):
+					if u[j] < ul[j]:
+						u[j] = ul[j]
+					if u[j] > um[j]:
+						u[j] = um[j]
 
-			if i >= fault_start_epoch and i <= fault_start_epoch + fault_duration:
-				u[fault_control_index] = torch.rand(1) * 5
+				if torch.isnan(torch.sum(u)):
+					i = i-1
+					continue
+
+				u = torch.tensor(u, dtype = torch.float32)
+				gxu = torch.matmul(gx,u.reshape(m_control,1))
+
+				dx = fx.reshape(1,n_state) + gxu.reshape(1,n_state)
 			
-			for j in range(m_control):
-				if u[j] < ul[j]:
-					u[j] = ul[j]
-				if u[j] > um[j]:
-					u[j] = um[j]
+			## Fault-detection based-switching, using the proposed scheme from the paper
+			else:
+				h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1,9,1))
+				u = util.neural_controller(u_nominal, fx, gx, h, grad_h)		
+				u = torch.squeeze(u.detach().cpu())
 
-			if torch.isnan(torch.sum(u)):
-				i = i-1
-				continue
+				if i >= fault_start_epoch and i <= fault_start_epoch + fault_duration:
+					u[fault_control_index] = torch.rand(1) * 5
+				
+				for j in range(m_control):
+					if u[j] < ul[j]:
+						u[j] = ul[j]
+					if u[j] > um[j]:
+						u[j] = um[j]
 
-			u = torch.tensor(u, dtype = torch.float32)
-			gxu = torch.matmul(gx,u.reshape(m_control,1))
+				if torch.isnan(torch.sum(u)):
+					i = i-1
+					continue
 
-			dx = fx.reshape(1,n_state) + gxu.reshape(1,n_state)
+				u = torch.tensor(u, dtype = torch.float32)
+				gxu = torch.matmul(gx,u.reshape(m_control,1))
+
+				dx = fx.reshape(1,n_state) + gxu.reshape(1,n_state)
+
+				dot_h = torch.matmul(dx, grad_h.reshape(n_state,1))
+				if dot_h < epsilon:
+					h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1,9,1))
+					u = util.neural_controller(u_nominal, fx, gx, h, grad_h)		
+					u = torch.squeeze(u.detach().cpu())
+					if i >= fault_start_epoch and i <= fault_start_epoch + fault_duration:
+						u[fault_control_index] = torch.rand(1) * 5
+				
+					for j in range(m_control):
+						if u[j] < ul[j]:
+							u[j] = ul[j]
+						if u[j] > um[j]:
+							u[j] = um[j]
+
+					if torch.isnan(torch.sum(u)):
+						i = i-1
+						continue
+
+					u = torch.tensor(u, dtype = torch.float32)
+					gxu = torch.matmul(gx,u.reshape(m_control,1))
+
+					dx = fx.reshape(1,n_state) + gxu.reshape(1,n_state)
 
 			state_next = state + dx*dt
 
