@@ -90,7 +90,8 @@ nominal_params = {
 	"Czq": 1, 
 	"Czde": 1,
 	"Cx0": 1, 
-	"Cxq": 1,}
+	"Cxq": 1,
+	"fault": fault,}
 
 state = []
 goal = []
@@ -101,7 +102,7 @@ fault_control_index = 1
 def main():
 	dynamics = FixedWing(x = x0, nominal_params = nominal_params, dt = dt, controller_dt= dt)
 	nn_controller = NNController_new(n_state=9, m_control=4)
-	cbf = CBF(n_state=9, m_control=2)
+	cbf = CBF(n_state=9, m_control=4)
 	alpha = alpha_param(n_state=9)
 	dataset = Dataset_with_Grad(n_state=9, m_control=4, n_pos=1,safe_alpha = 0.3, dang_alpha = 0.4)
 	trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=9, m_control = 4, j_const = 2, dyn = dynamics, n_pos=1, dt = dt, safe_alpha = 0.3, dang_alpha = 0.4, action_loss_weight=0.1, params = nominal_params, fault = fault, fault_control_index = fault_control_index)
@@ -167,7 +168,7 @@ def main():
 		safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
 
 		state = state_next.clone()
-		done = torch.linalg.norm(state_next.detach().cpu() - goal) < 1
+		done = torch.linalg.norm(state_next.detach().cpu() - goal) < 5
 
 		if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
 			loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe , loss_deriv_dang , loss_deriv_mid , loss_action = trainer.train_cbf_and_controller()
@@ -175,17 +176,18 @@ def main():
                 i, loss_np, safety_rate, goal_reached, acc_np))
 			loss_total = loss_np
 
-
-			torch.save(cbf.state_dict(), './data/drone_cbf_weights.pth')
-			torch.save(nn_controller.state_dict(), './data/drone_controller_weights.pth')
-			torch.save(alpha.state_dict(), './data/drone_alpha_weights.pth')
-
+			if fault == 0:
+				torch.save(cbf.state_dict(), './data/FW_cbf_NN_weights.pth')
+				torch.save(nn_controller.state_dict(), './data/FW_controller_NN_weights.pth')
+				torch.save(alpha.state_dict(), './data/FW_alpha_NN_weights.pth')
+			else:
+				torch.save(cbf.state_dict(), './data/FW_cbf_FT_weights.pth')
+				torch.save(nn_controller.state_dict(), './data/FW_controller_FT_weights.pth')
+				torch.save(alpha.state_dict(), './data/FW_alpha_FT_weights.pth')
 		if done:
 			dist = np.linalg.norm(np.array(state_next,dtype = float) - np.array(goal,dtype= float))
 			goal_reached = goal_reached * (1-1e-2) + (dist < 2.0) * 1e-2
 			state = x0
-
-	
 
 if __name__ == '__main__':
 	main()
