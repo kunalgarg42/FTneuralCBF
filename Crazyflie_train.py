@@ -5,19 +5,14 @@ sys.path.insert(1, os.path.abspath('.'))
 
 import torch
 import numpy as np
-from sympy.solvers import nsolve
-from sympy import Symbol, sin, cos
-import matplotlib.pyplot as plt
 # from dynamics.fixed_wing_dyn import fw_dyn_ext, fw_dyn
 from dynamics.Crazyflie import CrazyFlies
 from qp_control import config
 from CBF import CBF
-from qp_control.qp_con import QP_con
-from qp_control.constraints_fw import constraints
-import math
+from qp_control.constraints_crazy import constraints
 
 from qp_control.datagen import Dataset_with_Grad
-from qp_control.trainer_new import Trainer
+from qp_control.trainer_crazy import Trainer
 
 from qp_control.NNfuncgrad import CBF, alpha_param, NNController_new
 
@@ -54,7 +49,7 @@ x0 = torch.tensor([[0.0,
 dt = 0.01
 n_state = 12
 m_control = 4
-fault = 0
+fault = 1
 
 nominal_params = {
     "m": 0.0299,
@@ -63,7 +58,8 @@ nominal_params = {
     "Izz": 2.173 * 10**(-5),
     "CT": 3.1582 * 10**(-10),
     "CD": 7.9379 * 10**(-12),
-    "d": 0.03973, }
+    "d": 0.03973,
+    "fault": fault,}
 
 state = []
 goal = []
@@ -96,7 +92,7 @@ def main():
 
     for i in range(config.TRAIN_STEPS):
         if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
-            state[0, 1] = sm[1] + torch.rand(1) * 0.01
+            state = torch.tensor(goal).reshape(1,n_state)
 
         for j in range(n_state):
             if state[0, j] < -1.0e1:
@@ -141,7 +137,8 @@ def main():
         safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
 
         state = state_next.clone()
-        done = torch.linalg.norm(state_next.detach().cpu() - goal) < 1
+        goal_err = state_next.detach().cpu() - goal
+        done = torch.linalg.norm(goal_err[0,0:2]) < 1
 
         if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
             loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action = trainer.train_cbf_and_controller()
@@ -149,14 +146,19 @@ def main():
                 i, loss_np, safety_rate, goal_reached, acc_np))
             loss_total = loss_np
 
-            torch.save(cbf.state_dict(), './data/drone_cbf_weights.pth')
-            torch.save(nn_controller.state_dict(), './data/drone_controller_weights.pth')
-            torch.save(alpha.state_dict(), './data/drone_alpha_weights.pth')
+            if fault == 0:
+                torch.save(cbf.state_dict(), './data/CF_cbf_NN_weights.pth')
+                torch.save(nn_controller.state_dict(), './data/CF_controller_NN_weights.pth')
+                torch.save(alpha.state_dict(), './data/CF_alpha_NN_weights.pth')
+            else:
+                torch.save(cbf.state_dict(), './data/CF_cbf_FT_weights.pth')
+                torch.save(nn_controller.state_dict(), './data/CF_controller_FT_weights.pth')
+                torch.save(alpha.state_dict(), './data/CF_alpha_FT_weights.pth')
 
         if done:
             dist = np.linalg.norm(np.array(state_next, dtype=float) - np.array(goal, dtype=float))
             goal_reached = goal_reached * (1 - 1e-2) + (dist < 2.0) * 1e-2
-            state = x0
+            state = sl + torch.rand(1,n_state) * 0.1
 
 
 if __name__ == '__main__':
