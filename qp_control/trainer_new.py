@@ -245,8 +245,10 @@ class Trainer(object):
 
         loss_np = 0.0
         acc_np = np.zeros((5,), dtype=np.float32)
+        print("training")
 
         for i in range(opt_iter):
+            # print(i)
             state, u, u_nominal = self.dataset.sample_data(batch_size)
             u_nominal = torch.from_numpy(u_nominal)
 
@@ -293,6 +295,15 @@ class Trainer(object):
             acc_deriv_safe = torch.sum((deriv_cond > 0).float() * safe_mask) / (1e-5 + num_safe)
             acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
             acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
+
+            # print(num_safe)
+            # print(num_dang)
+            # print(loss_alpha)
+            # print(loss_h_safe)
+            # print(loss_h_dang)
+            # print(loss_deriv_safe)
+            # print(loss_deriv_dang)
+            # print(loss_deriv_mid)
 
             loss_action = torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
 

@@ -71,7 +71,7 @@ class constraints():
 		# return [[Lgh[0], Lgh[1], -h, 0, 0], [LgV1[0], LgV1[1], 0, -LfV1, 0], [LgV2[0], LgV2[1], 0, 0, -LfV2]], [-Lfh, -LfV1, -LfV2]
 		return funV, Lg, Lf
 
-	def LfLg_new(x,xr,fx,gx,n_state,m_control,j_const,batch_size,alpha_m = 0.3):
+	def LfLg_new(x,xr,fx,gx,n_state,m_control,j_const,batch_size,alpha):
 		
 		x = x.detach().cpu().numpy()
 		fx = fx.detach().cpu().numpy()
@@ -79,18 +79,29 @@ class constraints():
 		
 		fxs = fx
 		gxs = gx
-		V, LfV, LgV = lie_der.Lie(x, xr, 0.5, fxs, gxs, 'CLF')
-		xobs = x.copy()
-		xobs[:,1] = np.array([alpha_m]*batch_size).reshape(batch_size,1)
 
-		h, Lfh, Lgh = lie_der.Lie(x, xobs, 0.5, fxs, gxs, 'CBF')
-		Lg = torch.vstack((torch.tensor(Lgh), torch.tensor(LgV))) 
+		alpha_m = alpha[0]
+		alpha_l = alpha[1]
+		alpha_mid = (alpha_l + alpha_m) / 2
+		alpha_range = alpha_m - alpha_l
+
+		V, LfV, LgV = lie_der.Lie(x, xr, 0.5, fxs, gxs, 'CLF')
+		
+		xobs = x.copy()
+		xobs[:,1] = np.array([alpha_mid]*batch_size).reshape(batch_size,1)
+
+		h1, Lfh1, Lgh1 = lie_der.Lie(x, xobs, alpha_range, fxs, gxs, 'CBF')
+		
+		# xobs[:,1] = np.array([alpha_l]*batch_size).reshape(batch_size,1)
+		# h2, Lfh2, Lgh2 = lie_der.Lie(x, xobs, 0.5, fxs, gxs, 'CBF')
+		
+		Lg = torch.vstack((torch.tensor(Lgh1), torch.tensor(LgV))) 
 
 		if V<0:
 			V = 0
 
-		Lf = [-Lfh, -LfV-5.0*V**0.5-5.0*V**2.0]
-		funv = torch.tensor([-h, -V])
+		Lf = [-Lfh1, -LfV-5.0*V**0.5-5.0*V**2.0]
+		funv = torch.tensor([-h1, -V])
 		
 		funV = torch.diag(funv)
 		

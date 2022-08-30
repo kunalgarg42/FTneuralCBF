@@ -53,19 +53,19 @@ x0 = torch.tensor([[50.0,
 dt = 0.01
 n_state = 9
 m_control = 4
-fault = 1
+fault = 0
 
 nominal_params = {
-	"m": 1.0, 
+	"m": 100.0, 
 	"g": 9.8, 
-	"Ixx": 1, 
-	"Iyy": 1, 
-	"Izz": 1, 
-	"Ixz": 0.1, 
-	"S": 1, 
-	"b": 1, 
-	"bar_c": 1, 
-	"rho": 1,
+	"Ixx": 100, 
+	"Iyy": 1000, 
+	"Izz": 1000, 
+	"Ixz": 100, 
+	"S": 100, 
+	"b": 5, 
+	"bar_c": 5, 
+	"rho": 1.2,
 	"Cd0": 0.0434, 
 	"Cda": 0.22,
 	"Clb": -0.13, 
@@ -83,15 +83,15 @@ nominal_params = {
 	"Cnda": 0.7, 
 	"Cndr": -0.0693,
 	"Cyb": -0.83, 
-	"Cyp": 1, 
-	"Cyr": 1, 
-	"Cydr": 1,
+	"Cyp": 0, 
+	"Cyr": 0, 
+	"Cydr": 0.1,
 	"Cz0": 0.23, 
 	"Cza": 4.58, 
-	"Czq": 1, 
-	"Czde": 1,
-	"Cx0": 1, 
-	"Cxq": 1,
+	"Czq": 0, 
+	"Czde": 0.1,
+	"Cx0": 0, 
+	"Cxq": 0,
 	"fault": fault,}
 
 state = []
@@ -121,11 +121,12 @@ def main():
 	um, ul = dynamics.control_limits()
 
 	sm, sl = dynamics.state_limits()
+	u_nominal = torch.zeros(1,m_control)
 
 	for i in range(config.TRAIN_STEPS):
-		print(i)
+		# print(i)
 		if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
-			state[0,1] = sm[1] + torch.rand(1) * 0.01
+			state = torch.tensor(goal) + torch.rand(1,n_state) * 0.01
 
 		for j in range(n_state):
 			if state[0,j] < -1.0e1:
@@ -137,7 +138,7 @@ def main():
 		fx = dynamics._f(state , params = nominal_params)
 		gx = dynamics._g(state , params = nominal_params)
 		
-		u_nominal = util.nominal_controller(state = state, goal = goal, u_norm_max = 5, dyn = dynamics, constraints = constraints)
+		u_nominal = util.nominal_controller(state = state, goal = goal, u_n = u_nominal, u_norm_max = 5, dyn = dynamics, constraints = constraints)
 
 
 		for j in range(m_control):
@@ -151,7 +152,13 @@ def main():
 		u = torch.squeeze(u.detach().cpu())
 
 		if fault == 1:
-			u[fault_control_index] = torch.rand(1) * 5
+			u[fault_control_index] = torch.rand(1)
+
+		for j in range(m_control):
+			if u[j] < ul[j]:
+				u[j] = ul[j]
+			if u[j] > um[j]:
+				u[j] = um[j]
 
 		if torch.isnan(torch.sum(u)):
 			i = i-1
@@ -168,10 +175,11 @@ def main():
 		dataset.add_data(state, u, u_nominal)
 
 		is_safe = int(util.is_safe(state))
-		safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
+		safety_rate = safety_rate * (1 - 1 / config.POLICY_UPDATE_INTERVAL) + is_safe / config.POLICY_UPDATE_INTERVAL
 
 		state = state_next.clone()
-		done = torch.linalg.norm(state_next.detach().cpu() - goal) < 5
+		# done = torch.linalg.norm(state_next.detach().cpu() - goal) < 5
+		done = int(dynamics.goal_mask(state_next))
 
 		if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
 			loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe , loss_deriv_dang , loss_deriv_mid , loss_action = trainer.train_cbf_and_controller()
