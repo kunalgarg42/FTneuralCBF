@@ -126,7 +126,7 @@ class CrazyFlies(ControlAffineSystemNew):
     def n_controls(self) -> int:
         return CrazyFlies.N_CONTROLS
 
-    @property
+    # @property
     def state_limits(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Return a tuple (upper, lower) describing the expected range of states for this
@@ -148,10 +148,14 @@ class CrazyFlies(ControlAffineSystemNew):
         upper_limit[CrazyFlies.P] = np.pi / 4.0
 
         lower_limit = -1.0 * upper_limit
+        lower_limit[CrazyFlies.Z] = 0.0
+
+        lower_limit = torch.tensor(lower_limit)
+        upper_limit = torch.tensor(upper_limit)
 
         return (upper_limit, lower_limit)
 
-    @property
+    # @property
     def control_limits(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Return a tuple (upper, lower) describing the range of allowable control
@@ -160,6 +164,9 @@ class CrazyFlies(ControlAffineSystemNew):
         # define upper and lower limits based around the nominal equilibrium input
         upper_limit = torch.tensor([2, 2, 2, 2])
         lower_limit = -1.0 * upper_limit
+
+        lower_limit = torch.tensor(lower_limit)
+        upper_limit = torch.tensor(upper_limit)
 
         return (upper_limit, lower_limit)
 
@@ -171,9 +178,15 @@ class CrazyFlies(ControlAffineSystemNew):
         args:
             x: a tensor of points in the state space
         """
+        params = self.params
+        fault = params["fault"]
+
         safe_mask = torch.ones_like(x[:, 0], dtype=torch.bool)
 
-        safe_z = 1.5
+        if fault == 0:
+            safe_z = 0.5
+        else:
+            safe_z = 0.3
         safe_mask = x[:, CrazyFlies.Z] >= safe_z
 
         return safe_mask
@@ -184,9 +197,16 @@ class CrazyFlies(ControlAffineSystemNew):
         args:
             x: a tensor of points in the state space
         """
+        params = self.params
+        fault = params["fault"]
+
         unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
 
-        unsafe_z = 1.0
+        if fault == 0:
+            unsafe_z = 0.3
+        else:
+            unsafe_z = 0.2
+
         unsafe_mask = x[:, CrazyFlies.Z] <= unsafe_z
 
         return unsafe_mask
@@ -229,36 +249,48 @@ class CrazyFlies(ControlAffineSystemNew):
         m, Ixx, Iyy, Izz, CT, CD, d = params["m"], params["Ixx"], params["Iyy"], params["Izz"], params["CT"], params["CD"], params["d"]
 
         # Extract state variables
-        psi = x[:, CrazyFlies.PSI]
-        theta = x[:, CrazyFlies.THETA]
-        phi = x[:, CrazyFlies.PHI]
+        psi = x[:, CrazyFlies.PSI].reshape(batch_size,1)
+        theta = x[:, CrazyFlies.THETA].reshape(batch_size,1)
+        phi = x[:, CrazyFlies.PHI].reshape(batch_size,1)
 
-        u = x[:, CrazyFlies.U]
-        v = x[:, CrazyFlies.V]
-        w = x[:, CrazyFlies.W]
+        u = x[:, CrazyFlies.U].reshape(batch_size,1)
+        v = x[:, CrazyFlies.V].reshape(batch_size,1)
+        w = x[:, CrazyFlies.W].reshape(batch_size,1)
 
-        r = x[:, CrazyFlies.R]
-        q = x[:, CrazyFlies.Q]
-        p = x[:, CrazyFlies.P]
+        r = x[:, CrazyFlies.R].reshape(batch_size,1)
+        q = x[:, CrazyFlies.Q].reshape(batch_size,1)
+        p = x[:, CrazyFlies.P].reshape(batch_size,1)
+
+        s_psi = torch.sin(psi).reshape(batch_size,1)
+        s_phi = torch.sin(phi).reshape(batch_size,1)
+        s_the = torch.sin(theta).reshape(batch_size,1)
+
+        c_psi = torch.cos(psi).reshape(batch_size,1)
+        c_phi = torch.cos(phi).reshape(batch_size,1)
+        c_the = torch.cos(theta).reshape(batch_size,1)
+
+        t_psi = torch.tan(psi).reshape(batch_size,1)
+        t_phi = torch.tan(phi).reshape(batch_size,1)
+        t_the = torch.tan(theta).reshape(batch_size,1)
 
         # Derivatives of positions
-        f[:, CrazyFlies.X] = w * ( torch.sin(psi) * torch.sin(phi) + torch.cos(psi) * torch.cos(phi) * torch.sin(theta) )\
-                             - v * ( torch.sin(psi) * torch.cos(phi) - torch.cos(psi) * torch.sin(phi) * torch.sin(theta) )\
-                             + u * torch.cos(psi) * torch.cos(theta)
-        f[:, CrazyFlies.Y] = v * ( torch.cos(psi) * torch.cos(phi) + torch.sin(psi) * torch.sin(phi) * torch.sin(theta) )\
-                             - w * ( torch.cos(psi) * torch.sin(phi) - torch.sin(psi) * torch.cos(phi) * torch.sin(theta) )\
-                             + u * torch.sin(psi) * torch.cos(theta)
-        f[:, CrazyFlies.Z] = w * torch.cos(psi) * torch.cos(phi) - u * torch.sin(theta) + v * torch.sin(phi) * torch.cos(theta)
+        f[:, CrazyFlies.X] = w * ( s_psi * s_phi + c_psi * c_phi * s_the )\
+                             - v * ( s_psi * c_phi - c_psi * s_phi * s_the )\
+                             + u * c_psi * c_the
+        f[:, CrazyFlies.Y] = v * ( c_psi * c_phi + s_psi * s_phi * s_the )\
+                             - w * ( c_psi * s_phi - s_psi * c_phi * s_the )\
+                             + u * s_psi * c_the
+        f[:, CrazyFlies.Z] = w * c_psi * c_phi - u * s_the + v * s_phi * c_the
 
         # Derivatives of angles
-        f[:, CrazyFlies.PSI] = p + r * torch.cos(phi) * torch.tan(theta) + q * torch.sin(phi) * torch.tan(theta)
-        f[:, CrazyFlies.THETA] = q * torch.cos(phi) - r * torch.sin(phi)
-        f[:, CrazyFlies.PHI] = r * torch.cos(phi) / torch.cos(theta) + q * torch.sin(phi) / torch.cos(theta)
+        f[:, CrazyFlies.PSI] = p + r * c_phi * t_the + q * s_phi * t_the
+        f[:, CrazyFlies.THETA] = q * c_phi - r * s_phi
+        f[:, CrazyFlies.PHI] = r * c_phi / c_the + q * s_phi / c_the
 
         # Derivatives of linear velocities
-        f[:, CrazyFlies.U] = r * v - q * w + 9.81 * torch.sin(theta)
-        f[:, CrazyFlies.V] = p * w - r * u - 9.81 * torch.sin(phi) * torch.cos(theta)
-        f[:, CrazyFlies.W] = q * u - p * v - 9.81 * torch.cos(phi) * torch.cos(theta)
+        f[:, CrazyFlies.U] = r * v - q * w + 9.81 * s_the
+        f[:, CrazyFlies.V] = p * w - r * u - 9.81 * s_phi * c_the
+        f[:, CrazyFlies.W] = q * u - p * v - 9.81 * c_phi * c_the
 
         # Derivatives of angular velocities
         f[:, CrazyFlies.R] = ( Ixx - Iyy ) / Izz * p * q
