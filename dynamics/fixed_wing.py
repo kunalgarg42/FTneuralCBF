@@ -189,7 +189,7 @@ class FixedWing(ControlAffineSystemNew):
         limits for this system
         """
         # define upper and lower limits based around the nominal equilibrium input
-        upper_limit = torch.tensor([250, 1, 1, 1])
+        upper_limit = torch.tensor([1500, 2, 2, 2])
         lower_limit = -1.0 * upper_limit
         lower_limit[FixedWing.T] = 0
 
@@ -210,19 +210,18 @@ class FixedWing(ControlAffineSystemNew):
         safe_mask = torch.ones_like(x[:, 0], dtype=torch.bool)
         if fault == 0:
             safe_alpha = np.pi / 8.0
-            safe_alpha_l = np.pi / 80.0
+            safe_alpha_l = - np.pi / 80.0
             safe_beta = np.pi / 15
         else:
             safe_alpha = np.pi / 6.0
-            safe_alpha_l = np.pi / 60.0
+            safe_alpha_l = - np.pi / 60.0
             safe_beta = np.pi / 12
         # safe_radius = 3
 
         safe_mask = torch.logical_and(
             x[:, FixedWing.ALPHA] <= safe_alpha, x[:, FixedWing.ALPHA] >= safe_alpha_l)
-        safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] <= safe_beta)
-        safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] >= -safe_beta #, x.norm(dim=-1) <= safe_radius
-        )
+        # safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] <= safe_beta)
+        # safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] >= -safe_beta)
 
         return safe_mask
 
@@ -238,19 +237,18 @@ class FixedWing(ControlAffineSystemNew):
         unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
         if fault == 0:
             unsafe_alpha = np.pi / 7.5
-            unsafe_alpha_l = np.pi / 70.0
+            unsafe_alpha_l = - np.pi / 70.0
             unsafe_beta = np.pi / 14
         else:
             unsafe_alpha = np.pi / 5.5
-            unsafe_alpha_l = np.pi / 50.0
+            unsafe_alpha_l = - np.pi / 50.0
             unsafe_beta = np.pi / 11
 
 
         unsafe_mask = torch.logical_or(
             x[:, FixedWing.ALPHA] >= unsafe_alpha, x[:, FixedWing.ALPHA] <= unsafe_alpha_l)
-        unsafe_mask = torch.logical_or(unsafe_mask, x[:, FixedWing.BETA] >= unsafe_beta)
-        unsafe_mask = torch.logical_or(unsafe_mask, x[:, FixedWing.BETA] <= -unsafe_beta
-        )
+        # unsafe_mask = torch.logical_or(unsafe_mask, x[:, FixedWing.BETA] >= unsafe_beta)
+        # unsafe_mask = torch.logical_or(unsafe_mask, x[:, FixedWing.BETA] <= -unsafe_beta)
 
         return unsafe_mask
 
@@ -264,7 +262,7 @@ class FixedWing(ControlAffineSystemNew):
         goal_mask = torch.ones_like(x[:, 0], dtype=torch.bool)
 
         # Define the goal region as being near the goal
-        near_goal = torch.logical_and(x[:,FixedWing.V]<= 52, x[:,FixedWing.V] >= 48)
+        near_goal = torch.logical_and(x[:,FixedWing.V]<= 105, x[:,FixedWing.V] >= 95)
         # near_goal = x.norm(dim=-1) <= 0.3
         goal_mask.logical_and_(near_goal)
 

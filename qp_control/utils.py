@@ -60,7 +60,7 @@ class Utils(object):
         return dsdt
 
     
-    def nominal_controller(self, state, goal, u_norm_max, dyn,constraints):
+    def nominal_controller(self, state, goal, u_n, u_norm_max, dyn,constraints):
         """
         args:
             state (n_state,)
@@ -69,7 +69,7 @@ class Utils(object):
             u_nominal (m_control,)
         """
         um, ul = self.dyn.control_limits()
-        sm, _ = self.dyn.state_limits()
+        sm, sl = self.dyn.state_limits()
 
         n_state = self.n_state
         m_control = self.m_control
@@ -79,7 +79,11 @@ class Utils(object):
         size_Q = m_control + j_const
 
         Q = csc_matrix(10*identity(size_Q))
-        F = np.array([1]*size_Q).reshape(size_Q,1)
+
+        F = torch.ones(size_Q,1)
+        
+        F[0:m_control] = - 10 * u_n.reshape(m_control,1)
+        F = np.array(F)
 
         fx = dyn._f(state,params)
         gx = dyn._g(state,params)
@@ -87,24 +91,36 @@ class Utils(object):
         fx = fx.reshape(n_state,1)
         gx = gx.reshape(n_state,m_control)
 
-        V, Lg, Lf = constraints.LfLg_new(state,goal,fx,gx,n_state, m_control, j_const, 1, sm[1])
+        V, Lg, Lf = constraints.LfLg_new(state,goal,fx,gx,n_state, m_control, j_const, 1, [sm[1], sl[1]])
 
         A = torch.hstack((Lg, V))
         B = Lf
 
-        if A[0][-1] == 0:
-            A = torch.tensor(A[1][:])
-            B = torch.tensor(B[1][:])
+        # index_A = torch.logical_not(A[:][-1] == 0).float()
 
-        if A[-1] == 0 or torch.isnan(torch.sum(A)):
-            A = []
-            B = []
-            u = solve_qp(Q, F, solver = "osqp")
-        else:
-            # print(A)
-            A = scipy.sparse.csc.csc_matrix(A)
-            B = np.array(B)
-            u = solve_qp(Q, F, A, B, solver="osqp")
+        # A = A[index_A][:]
+        # B = B[index_A][:]
+
+        # if len(A.size()) == 0:
+        #     u = solve_qp(Q, F, solver = "osqp")
+        # else:
+        G = scipy.sparse.csc.csc_matrix(A)
+        h = np.array(B)
+        u = solve_qp(Q, F, G, h, solver="osqp")
+
+        # if A[0][-1] == 0:
+        #     A = torch.tensor(A[1][:])
+        #     B = torch.tensor(B[1][:])
+
+        # if A[-1] == 0 or torch.isnan(torch.sum(A)):
+        #     A = []
+        #     B = []
+        #     u = solve_qp(Q, F, solver = "osqp")
+        # else:
+        #     # print(A)
+        #     A = scipy.sparse.csc.csc_matrix(A)
+        #     B = np.array(B)
+        #     u = solve_qp(Q, F, A, B, solver="osqp")
 
         if (u is None):
             u = np.array(um) / 2
