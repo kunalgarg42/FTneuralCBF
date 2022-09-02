@@ -281,18 +281,15 @@ class Trainer(object):
 
             loss_action = torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
 
-            loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight
+            loss_limit = torch.sum(nn.ReLU()(eps - u))
+
+            loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight + loss_limit
 
             self.controller_optimizer.zero_grad()
             self.cbf_optimizer.zero_grad()
             self.alpha_optimizer.zero_grad()
 
             loss.backward(retain_graph=True)
-
-            loss_temp = loss.detach().cpu().numpy()
-
-            if math.isnan(loss_temp):
-                continue
 
             self.controller_optimizer.step()
             self.cbf_optimizer.step()
@@ -307,7 +304,7 @@ class Trainer(object):
             acc_np[4] += acc_deriv_mid.detach().cpu().numpy()
 
             loss_np += loss.detach().cpu().numpy()
-            print(t.toc())
+            # print(t.toc())
 
         acc_np = acc_np / opt_iter
         loss_np = loss_np / opt_iter

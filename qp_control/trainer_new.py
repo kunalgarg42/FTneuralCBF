@@ -2,6 +2,7 @@ import torch
 import math
 import scipy
 from torch import nn
+from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from qpsolvers import solve_qp
 from osqp import OSQP
@@ -256,6 +257,7 @@ class Trainer(object):
                 state = state.cuda(self.gpu_id)
                 u = u.cuda(self.gpu_id)
                 u_nominal = u_nominal.cuda(self.gpu_id)
+                self.cbf.to(torch.device('cuda'))
 
             safe_mask, dang_mask, mid_mask = self.get_mask(state)
 
@@ -306,34 +308,59 @@ class Trainer(object):
             # print(loss_deriv_mid)
 
             loss_action = torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
+            loss_limit = torch.sum(nn.ReLU()(eps - u[:,0]))
 
-            loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight
+            loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight + loss_limit
 
             self.controller_optimizer.zero_grad()
             self.cbf_optimizer.zero_grad()
             self.alpha_optimizer.zero_grad()
 
+            loss_h_safe.backward(retain_graph=True)
 
-            loss.backward(retain_graph=True)
 
-            loss_temp = loss.detach().cpu().numpy()
 
-            if math.isnan(loss_temp):
-                continue           
+            # print(self.cbf.parameters())
+
+            loss_h_dang.backward(retain_graph=True)
+
+            
+
+            loss_alpha.backward(retain_graph=True)
+
+            
+
+            loss_deriv_safe.backward(retain_graph=True)
+
+
+            
+            loss_deriv_dang.backward(retain_graph=True)
+
+            
+            
+            loss_deriv_mid.backward(retain_graph=True)
+            
+            
+            loss_action.backward(retain_graph=True)
+            
+            
+            loss_limit.backward(retain_graph=True)
+
+                  
             
             self.controller_optimizer.step()
             self.cbf_optimizer.step()
             self.alpha_optimizer.step()
             
             # log statics
-            acc_np[0] += acc_h_safe.detach().cpu().numpy()
-            acc_np[1] += acc_h_dang.detach().cpu().numpy()
+            acc_np[0] += acc_h_safe.detach().cpu()
+            acc_np[1] += acc_h_dang.detach().cpu()
 
-            acc_np[2] += acc_deriv_safe.detach().cpu().numpy()
-            acc_np[3] += acc_deriv_dang.detach().cpu().numpy()
-            acc_np[4] += acc_deriv_mid.detach().cpu().numpy()
+            acc_np[2] += acc_deriv_safe.detach()
+            acc_np[3] += acc_deriv_dang.detach()
+            acc_np[4] += acc_deriv_mid.detach()
 
-            loss_np += loss.detach().cpu().numpy()
+            loss_np += loss.detach()
 
         acc_np = acc_np / opt_iter
         loss_np = loss_np / opt_iter

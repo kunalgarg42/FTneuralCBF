@@ -12,20 +12,12 @@ import numpy as np
 
 class CBF(nn.Module):
 
-    def __init__(self, n_state, m_control, preprocess_func=None):
+    def __init__(self, dynamics, n_state, m_control, preprocess_func=None):
         super().__init__()
         self.n_state = n_state
         self.m_control = m_control
+        self.dynamics = dynamics
         self.preprocess_func = preprocess_func
-
-        self.conv0 = nn.Conv1d(n_state, 64, 1)
-        self.conv1 = nn.Conv1d(64, 128, 1)
-        self.conv2 = nn.Conv1d(128, 128, 1)
-        self.conv3 = nn.Conv1d(128, 128, 1)
-        self.conv4 = nn.Conv1d(128, 1, 1)
-        self.activation = nn.ReLU()
-        self.output_activation = nn.Tanh()
-
 
         self.n_dims_extended = self.n_state
         self.cbf_hidden_layers = 3
@@ -56,23 +48,27 @@ class CBF(nn.Module):
         returns:
             h (bs, k_obstacle)
         """
-        state = torch.unsqueeze(state, 2)    # (bs, n_state, 1)
-        state_diff = state
+        # state = torch.unsqueeze(state, 2)    # (bs, n_state, 1)
+        # state_diff = state
         
-        if self.preprocess_func is not None:
-            state_diff = self.preprocess_func(state_diff)
+        # if self.preprocess_func is not None:
+        #     state_diff = self.preprocess_func(state_diff)
         
-        x = self.activation(self.conv0(state_diff))
-        x = self.activation(self.conv1(x))
-        x = self.activation(self.conv2(x))   # (bs, 128, k_obstacle)
-        x = self.activation(self.conv3(x))
-        x = self.conv4(x)
-        h = torch.squeeze(x, dim=1)          # (bs, k_obstacle)
+        # x = self.activation(self.conv0(state_diff))
+        # x = self.activation(self.conv1(x))
+        # x = self.activation(self.conv2(x))   # (bs, 128, k_obstacle)
+        # x = self.activation(self.conv3(x))
+        # x = self.conv4(x)
+        # h = torch.squeeze(x, dim=1)          # (bs, k_obstacle)
 
+        h, Jh = self.V_with_jacobian(state)
+        # H = torch.tensor(h).reshape(1,1)
+        # JH = torch.tensor(Jh).reshape(1,self.n_state)
+        HJH = torch.hstack((h.reshape(1,1), Jh.reshape(1,self.n_state)))
         # dh1 = F.conv1d(h,x)
-        return h
+        return HJH
 
-    def V_with_jacobian(self, state: torch.Tensor):
+    def V_with_jacobian(self, x: torch.Tensor):
         """Computes the CLBF value and its Jacobian
         args:
             x: bs x self.dynamics_model.n_dims the points at which to evaluate the CLBF
@@ -80,43 +76,87 @@ class CBF(nn.Module):
             V: bs tensor of CLBF values
             JV: bs x 1 x self.dynamics_model.n_dims Jacobian of each row of V wrt x
         """
-        # Apply the offset and range to normalize about zero
-        x_norm = torch.unsqueeze(state, 2)    # (bs, n_state, 1)
-        
-
-        # x_norm = x-obstacle
-        
-        
-
-        # Compute the CLBF layer-by-layer, computing the Jacobian alongside
-
-        # We need to initialize the Jacobian to reflect the normalization that's already
-        # been done to x
+        x_norm = torch.unsqueeze(x, 2)    # (bs, n_state, 1)
         bs = x_norm.shape[0]
+        x_norm = x_norm.reshape(bs,self.n_state,1)
+
+        # print(x_norm)
+        # print(x_norm.shape)
+        x_norm, x_range = self.normalize(x_norm)
+        
+        # print(x_norm)
+        x_range = x_range.reshape(self.dynamics.n_dims)
+
+        # print(x_range.shape)
+        
+        # print(x_norm.shape)
         x_norm = x_norm.reshape(bs, self.n_state)
 
-        # print(x_norm.shape)
-        JV = torch.ones(
-            (bs, self.n_state, self.n_state)
-        ).type_as(x_norm)
+        JV = torch.zeros(
+            (bs, self.dynamics.n_dims, self.dynamics.n_dims)).type_as(x)
 
-        # for dim in range(self.n_state):
-        #     JV[:, dim, dim] = 1.0
+        # print(JV.shape)
 
+        for dim in range(self.dynamics.n_dims):
+            JV[:, dim, dim] = 1.0 / x_range[dim].type_as(x)
+        # print(JV.shape)
        
         # Now step through each layer in V
         V = x_norm
+
+        # print(self.V_nn)
         for layer in self.V_nn:
             V = layer(V)
 
             if isinstance(layer, nn.Linear):
                 JV = torch.matmul(layer.weight, JV)
+                # print("Linear")
+                # print(JV.shape)
             elif isinstance(layer, nn.Tanh):
                 JV = torch.matmul(torch.diag_embed(1 - V ** 2), JV)
+                # print("Tanh")
+                # print(JV.shape)
             elif isinstance(layer, nn.ReLU):
+                # print("Relu")
                 JV = torch.matmul(torch.diag_embed(torch.sign(V)), JV)
-
+                # print(JV.shape)
+            # print(V.shape)
         return V, JV
+
+    def normalize(self, x: torch.Tensor, k: float = 1.0):
+        """Normalize the state input to [-k, k]
+
+        args:
+            dynamics_model: the dynamics model matching the provided states
+            x: bs x self.dynamics_model.n_dims the points to normalize
+            k: normalize non-angle dimensions to [-k, k]
+        """
+        shape_x = x.shape
+
+        # print(shape_x)
+
+        x_max, x_min = self.dynamics.state_limits()
+
+        x_center = torch.tensor(x_max + x_min).type_as(x) / 2
+        # x_center.to(torch.device('cuda'))
+
+        x_center = x_center.reshape(1,self.n_state,1)
+        # print(x_center.shape)
+        x_range = (x_max - x_min) / 2.0
+        # Scale to get the input between (-k, k), centered at 0
+        x_range = x_range / k
+        # x_range.to(torch.device('cuda'))
+        x_norm = x - x_center # .type_as(x) #.reshape(shape_x)
+        x_range = x_range.reshape(1,self.n_state,1)
+        # print(x_norm.shape)
+        # print(x_center.shape)
+        x_norm = x_norm / x_range.type_as(x)
+        # x_norm = torch.div(x_norm, x_range.type_as(x))
+        # We shouldn't scale or offset any angle dimensions
+        # print(x_norm.shape)
+
+        # Do the normalization
+        return x_norm, x_range
 
 
 
