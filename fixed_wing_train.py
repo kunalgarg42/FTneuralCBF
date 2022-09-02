@@ -104,7 +104,7 @@ def main():
 	dynamics = FixedWing(x = x0, nominal_params = nominal_params, dt = dt, controller_dt= dt)
 	util = Utils(n_state=9, m_control = 4, j_const = 2, dyn = dynamics, dt = dt, params = nominal_params, fault = fault, fault_control_index = fault_control_index)
 	nn_controller = NNController_new(n_state=9, m_control=4)
-	cbf = CBF(n_state=9, m_control=4)
+	cbf = CBF(dynamics, n_state=9, m_control=4)
 	alpha = alpha_param(n_state=9)
 	dataset = Dataset_with_Grad(n_state=9, m_control=4, n_pos=1,safe_alpha = 0.3, dang_alpha = 0.4)
 	trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=9, m_control = 4, j_const = 2, dyn = dynamics, n_pos=1, dt = dt, safe_alpha = 0.3, dang_alpha = 0.4, action_loss_weight=0.1, params = nominal_params, fault = fault, fault_control_index = fault_control_index)
@@ -129,12 +129,13 @@ def main():
 			state = torch.tensor(goal) + torch.rand(1,n_state) * 0.01
 
 		for j in range(n_state):
-			if state[0,j] < -1.0e1:
-				state[0,j] = x0[0,0]
-			if state[0,j] > 1.0e4:
+			if state[0,j] < sl[j] * 0.8:
+				state[0,j] = sl[j]
+			if state[0,j] > sm[j] * 1.5:
 				state[0,j] = sm[j]
 		
-		
+		# state.requires_grad = True
+
 		fx = dynamics._f(state , params = nominal_params)
 		gx = dynamics._g(state , params = nominal_params)
 		
@@ -149,7 +150,7 @@ def main():
 
 		u = nn_controller(torch.tensor(state,dtype = torch.float32), torch.tensor(u_nominal,dtype = torch.float32))
 
-		u = torch.squeeze(u.detach().cpu())
+		u = torch.squeeze(u.detach())
 
 		if fault == 1:
 			u[fault_control_index] = torch.rand(1)
@@ -170,14 +171,22 @@ def main():
 
 		state_next = state + dx*dt
 
-		h, _ = cbf.V_with_jacobian(state.reshape(1,9,1))
+		h, grad_h = cbf.V_with_jacobian(state.reshape(1,n_state,1))
+		
+
+		# print(h)
 
 		dataset.add_data(state, u, u_nominal)
 
 		is_safe = int(util.is_safe(state))
+
+		# if h < 0:
+		# 	print(is_safe)
+		# 	print(state)
+		# 	print(asasa)
 		safety_rate = safety_rate * (1 - 1 / config.POLICY_UPDATE_INTERVAL) + is_safe / config.POLICY_UPDATE_INTERVAL
 
-		state = state_next.clone()
+		state = state_next
 		# done = torch.linalg.norm(state_next.detach().cpu() - goal) < 5
 		done = int(dynamics.goal_mask(state_next))
 

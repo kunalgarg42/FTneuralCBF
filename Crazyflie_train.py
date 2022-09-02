@@ -8,17 +8,12 @@ import numpy as np
 # from dynamics.fixed_wing_dyn import fw_dyn_ext, fw_dyn
 from dynamics.Crazyflie import CrazyFlies
 from qp_control import config
-from CBF import CBF
 from qp_control.constraints_crazy import constraints
 
 from qp_control.datagen import Dataset_with_Grad
 from qp_control.trainer_crazy import Trainer
-
+from qp_control.utils_crazy import Utils
 from qp_control.NNfuncgrad import CBF, alpha_param, NNController_new
-
-# import cProfile
-# cProfile.run('foo()')
-
 
 xg = torch.tensor([[2.0,
                     2.0,
@@ -35,7 +30,7 @@ xg = torch.tensor([[2.0,
 
 x0 = torch.tensor([[0.0,
                     0.0,
-                    2.0,
+                    1.0,
                     0.0,
                     0.0,
                     0.0,
@@ -69,8 +64,9 @@ fault_control_index = 1
 
 def main():
     dynamics = CrazyFlies(x=x0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
+    util = Utils(n_state=n_state, m_control = m_control, dyn = dynamics, params = nominal_params, fault = fault, fault_control_index = fault_control_index)
     nn_controller = NNController_new(n_state=n_state, m_control=m_control)
-    cbf = CBF(n_state=n_state, m_control=m_control)
+    cbf = CBF(dynamics = dynamics, n_state=n_state, m_control=m_control)
     alpha = alpha_param(n_state=n_state)
     dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, n_pos=1, safe_alpha=0.3, dang_alpha=0.4)
     trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics, n_pos=1,
@@ -92,7 +88,7 @@ def main():
 
     for i in range(config.TRAIN_STEPS):
         if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
-            state = torch.tensor(goal).reshape(1,n_state)
+            state = torch.tensor(goal).reshape(1,n_state) + torch.rand(1,n_state)
 
         for j in range(n_state):
             if state[0, j] < -1.0e1:
@@ -103,7 +99,7 @@ def main():
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
 
-        u_nominal = trainer.nominal_controller(state=state, goal=goal, u_norm_max=5, dyn=dynamics,
+        u_nominal = util.nominal_controller(state=state, goal=goal, u_norm_max=5, dyn=dynamics,
                                                constraints=constraints)
 
         for j in range(m_control):
@@ -134,7 +130,7 @@ def main():
         dataset.add_data(state, u, u_nominal)
 
         is_safe = int(trainer.is_safe(state))
-        safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
+        safety_rate = safety_rate * (1 - 1 / config.POLICY_UPDATE_INTERVAL) + is_safe / config.POLICY_UPDATE_INTERVAL
 
         state = state_next.clone()
         goal_err = state_next.detach().cpu() - goal

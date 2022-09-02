@@ -162,8 +162,8 @@ class CrazyFlies(ControlAffineSystemNew):
         limits for this system
         """
         # define upper and lower limits based around the nominal equilibrium input
-        upper_limit = torch.tensor([2, 2, 2, 2])
-        lower_limit = -1.0 * upper_limit
+        upper_limit = torch.ones(1,self.m_control) * 0.15
+        lower_limit = 0 * upper_limit
 
         lower_limit = torch.tensor(lower_limit)
         upper_limit = torch.tensor(upper_limit)
