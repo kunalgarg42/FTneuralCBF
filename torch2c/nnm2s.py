@@ -104,9 +104,9 @@ fault_duration = 1000
 fault_time = 0
 
 def main():
-		
+	dynamics = FixedWing(x=x0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
 	NN_controller = NNController_new(n_state=9, m_control=4)
-	NN_cbf = CBF(n_state=9, m_control=4)
+	NN_cbf = CBF(dynamics, n_state=9, m_control=4)
 	NN_alpha = alpha_param(n_state=9)
 
 	NN_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
@@ -130,15 +130,9 @@ def main():
 
 	# print(NN_cbf_trace.code)
 
-	NN_cbf_trace.save("traced_CBF_model.pt")
+	NN_cbf_trace.save("./torch2c/traced_CBF_model.pt")
 	
 	print(NN_cbf_trace(dummy_input))
-
-
-
-
-
-		
 		
 
 if __name__ == '__main__':

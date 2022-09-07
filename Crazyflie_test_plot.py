@@ -123,7 +123,7 @@ def main():
 
 	rand_start = random.uniform(1.01,100)
 
-	fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start) + 1000000
+	fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start)
 	fault_start = 0
 	for i in range(config.EVAL_STEPS):
 		# print(i)
@@ -262,7 +262,7 @@ def main():
 	plt.subplot(133)
 	plt.plot(time_pl, u1, time_pl, u2, time_pl, u3, time_pl, u4)
 	# plt.suptitle('Categorical Plotting')
-	plt.show()
+	plt.savefig('./plots/plot_closed_loop_data.png')
 if __name__ == '__main__':
 	main()
 	
