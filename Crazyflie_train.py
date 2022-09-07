@@ -13,7 +13,7 @@ from qp_control.constraints_crazy import constraints
 from qp_control.datagen import Dataset_with_Grad
 from qp_control.trainer_crazy import Trainer
 from qp_control.utils_crazy import Utils
-from qp_control.NNfuncgrad import CBF, alpha_param, NNController_new
+from qp_control.NNfuncgrad_CF import CBF, alpha_param, NNController_new
 
 xg = torch.tensor([[2.0,
                     2.0,
@@ -44,7 +44,10 @@ x0 = torch.tensor([[0.0,
 dt = 0.01
 n_state = 12
 m_control = 4
-fault = 1
+
+us_in = input("Training with fault (1) and without fault (0):")
+
+fault = int(us_in)
 
 nominal_params = {
     "m": 0.0299,
@@ -87,8 +90,8 @@ def main():
     sm, sl = dynamics.state_limits()
 
     for i in range(config.TRAIN_STEPS):
-        if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
-            state = torch.tensor(goal).reshape(1,n_state) + torch.rand(1,n_state)
+        # if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
+        #     state = torch.tensor(goal).reshape(1,n_state) + torch.rand(1,n_state)
 
         for j in range(n_state):
             if state[0, j] < -1.0e1:
@@ -137,9 +140,9 @@ def main():
         done = torch.linalg.norm(goal_err[0,0:2]) < 1
 
         if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
-            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action = trainer.train_cbf_and_controller()
-            print('step: {}, train h and u, loss: {:.3f}, safety rate: {:.3f}, goal reached: {:.3f}, acc: {}'.format(
-                i, loss_np, safety_rate, goal_reached, acc_np))
+            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe , loss_deriv_dang , loss_deriv_mid , loss_action, loss_limit = trainer.train_cbf_and_controller()
+            print('step: {}, train h and u, loss: {:.3f}, safety rate: {:.3f}, goal reached: {:.3f}, acc: {}, loss_h_safe: {:.3f}, loss_h_dang: {:.3f}, loss_alpha: {:.3f}, loss_deriv_safe: {:.3f}, loss_deriv_dang: {:.3f}, loss_deriv_mid: {:.3f}, loss_action: {:.3f}, loss_limit: {:.3f}'.format(
+                i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe , loss_deriv_dang , loss_deriv_mid , loss_action, loss_limit))
             loss_total = loss_np
 
             if fault == 0:

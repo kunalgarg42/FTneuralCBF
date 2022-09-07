@@ -60,7 +60,7 @@ class Utils(object):
         return dsdt
 
     
-    def nominal_controller(self, state, goal, u_n, u_norm_max, dyn,constraints):
+    def nominal_controller(self, state, goal, u_n, dyn,constraints):
         """
         args:
             state (n_state,)
@@ -96,31 +96,9 @@ class Utils(object):
         A = torch.hstack((Lg, V))
         B = Lf
 
-        # index_A = torch.logical_not(A[:][-1] == 0).float()
-
-        # A = A[index_A][:]
-        # B = B[index_A][:]
-
-        # if len(A.size()) == 0:
-        #     u = solve_qp(Q, F, solver = "osqp")
-        # else:
         G = scipy.sparse.csc.csc_matrix(A)
         h = np.array(B)
         u = solve_qp(Q, F, G, h, solver="osqp")
-
-        # if A[0][-1] == 0:
-        #     A = torch.tensor(A[1][:])
-        #     B = torch.tensor(B[1][:])
-
-        # if A[-1] == 0 or torch.isnan(torch.sum(A)):
-        #     A = []
-        #     B = []
-        #     u = solve_qp(Q, F, solver = "osqp")
-        # else:
-        #     # print(A)
-        #     A = scipy.sparse.csc.csc_matrix(A)
-        #     B = np.array(B)
-        #     u = solve_qp(Q, F, A, B, solver="osqp")
 
         if (u is None):
             u = np.array(um) / 2
