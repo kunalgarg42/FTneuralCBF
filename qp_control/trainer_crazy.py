@@ -297,8 +297,9 @@ class Trainer(object):
             loss_limit2 = torch.sum(nn.ReLU()(- u[:,1]))
             loss_limit3 = torch.sum(nn.ReLU()(- u[:,2]))
             loss_limit4 = torch.sum(nn.ReLU()(- u[:,3]))
-            # if self.fault == 1:
-                # loss_limit2 = 0.0
+            
+            if self.fault == 1:
+                loss_limit2 = 0.0*loss_limit2
 
             loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight + loss_limit1 + loss_limit2 + loss_limit3 + loss_limit4
 
