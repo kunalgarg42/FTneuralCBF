@@ -12,12 +12,14 @@ import numpy as np
 
 class CBF(nn.Module):
 
-    def __init__(self, dynamics, n_state, m_control, preprocess_func=None):
+    def __init__(self, dynamics, n_state, m_control, preprocess_func=None,fault_control_index=1,fault=0):
         super().__init__()
         self.n_state = n_state
+        self.fault = fault
         self.m_control = m_control
         self.dynamics = dynamics
         self.preprocess_func = preprocess_func
+        self.fault_control_index = fault_control_index
 
         self.n_dims_extended = self.n_state
         self.cbf_hidden_layers = 3
@@ -76,6 +78,14 @@ class CBF(nn.Module):
             V: bs tensor of CLBF values
             JV: bs x 1 x self.dynamics_model.n_dims Jacobian of each row of V wrt x
         """
+        x_alpha = x[:,1].clone()
+        if self.fault == 0:
+            safe_alpha_m = np.pi / 8.0
+            safe_alpha_l = - np.pi / 80.0
+        else:
+            safe_alpha_m = np.pi / 6.0
+            safe_alpha_l = - np.pi / 60.0
+
         x_norm = torch.unsqueeze(x, 2)    # (bs, n_state, 1)
         bs = x_norm.shape[0]
         x_norm = x_norm.reshape(bs,self.n_state,1)
@@ -121,6 +131,16 @@ class CBF(nn.Module):
                 JV = torch.matmul(torch.diag_embed(torch.sign(V)), JV)
                 # print(JV.shape)
             # print(V.shape)
+        V_alpha = - 0.5* (x_alpha - (safe_alpha_m + safe_alpha_l) / 2) ** 2 + ((safe_alpha_m - safe_alpha_l) / 2) ** 2
+        V_shape = V.shape
+        V = V + V_alpha.reshape(V_shape)
+
+        JV_alpha = 0.0 * JV.clone()
+        JV_alpha[:,0, 1] = - 0.5* (x_alpha - (safe_alpha_m + safe_alpha_l) / 2).reshape(bs)
+
+        # print(JV.shape)
+        # print(asas)
+        JV = JV + JV_alpha
         return V, JV
 
     def normalize(self, x: torch.Tensor, k: float = 1.0):
@@ -137,7 +157,7 @@ class CBF(nn.Module):
 
         x_max, x_min = self.dynamics.state_limits()
 
-        x_center = torch.tensor(x_max + x_min).type_as(x) / 2
+        x_center = (x_max + x_min).type_as(x.clone().detach()) / 2
         # x_center.to(torch.device('cuda'))
 
         x_center = x_center.reshape(1,self.n_state,1)

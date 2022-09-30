@@ -35,6 +35,11 @@ class Utils(object):
         # alpha = torch.abs(state[:,1])
         return self.dyn.safe_mask(state)
 
+    def is_unsafe(self, state):
+
+        # alpha = torch.abs(state[:,1])
+        return self.dyn.unsafe_mask(state)
+
     
     def nominal_dynamics(self, state, u,batch_size):
         """
@@ -111,7 +116,7 @@ class Utils(object):
             u = solve_qp(Q, F, A, B, solver="osqp")
 
         if (u is None):
-            u = np.array(um) / 2
+            u = np.array(um.clone()) / 2
             u = u.reshape(1, m_control)
 
         u_nominal = torch.tensor([u[0:self.m_control]]).reshape(1, m_control)
@@ -127,6 +132,7 @@ class Utils(object):
         returns:
             u_nominal (m_control,)
         """
+        um, ul = self.dyn.control_limits()
         n_state = self.n_state
         m_control = self.m_control
         params = self.params
@@ -134,24 +140,34 @@ class Utils(object):
 
         size_Q = m_control + 1
 
-        Q = csc_matrix(10*identity(size_Q))
+        Q = csc_matrix(identity(size_Q))
         F = torch.hstack((torch.tensor(u_nominal).reshape(m_control), torch.tensor(1.0))).reshape(size_Q,1)
 
-        F = np.array(F)
+        F = - np.array(F)
 
         Lg = torch.matmul(grad_h, gx)
         Lf = torch.matmul(grad_h, fx)
         
-        A = torch.hstack((Lg.reshape(1,m_control), h.reshape(1,1)))
+        A = torch.hstack((- Lg.reshape(1,m_control), - h.reshape(1,1)))
         A = torch.tensor(A.detach().cpu())
+        A = torch.vstack((A, - 1 * torch.eye(size_Q)))
+
+        # print(A.shape)
+
+        # print(A)
         B = Lf.detach().cpu().numpy() 
-        B = np.array(B)
+        B = np.array(B).reshape(j_const)
+        # print(B.shape)
+        # B_shape = B.shape
+        # B_shape[1] = size_Q
+        B = np.vstack((B, np.array([0]*size_Q).reshape(size_Q, 1)))
+        B[-1] = -1000000.0
 
         A = scipy.sparse.csc.csc_matrix(A)
-        u = solve_qp(Q, F, A, B, solver="osqp")
+        u = solve_qp(Q, F, G = A, h = B, solver="osqp")
 
         if (u is None):
-            u = np.array(um) / 2
+            u = np.array(um.clone()) / 2
             u = u.reshape(1,m_control)
 
         u_neural = torch.tensor([u[0:self.m_control]]).reshape(1,m_control)

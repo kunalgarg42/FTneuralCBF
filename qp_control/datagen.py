@@ -40,6 +40,7 @@ class Dataset(object):
                 np.copy(state_error).astype(np.float32)]
         
         # print(min_dist)
+        # print(data.shape)
 
         # print(self.dang_dist)
         if min_alpha < - self.dang_alpha or max_alpha > self.dang_alpha:
@@ -119,13 +120,14 @@ class Dataset(object):
 
 class Dataset_with_Grad(object):
 
-    def __init__(self, n_state, m_control, n_pos, buffer_size=10000, safe_alpha=0.3, dang_alpha=0.4):
+    def __init__(self, n_state, m_control, n_pos, buffer_size=100000, safe_alpha=0.3, dang_alpha=0.4):
         self.n_state = n_state
         self.m_control = m_control
         self.n_pos = n_pos
         self.safe_alpha = safe_alpha
         self.dang_alpha = dang_alpha
         self.buffer_size = buffer_size
+        self.buffer_data = []
         self.buffer_safe = []
         self.buffer_dang = []
         self.buffer_mid = []
@@ -148,57 +150,67 @@ class Dataset_with_Grad(object):
         data = [state.clone(), u.clone(), u_nominal.clone()]
         # print(min_dist)
 
+        self.buffer_data.append(data)
+        self.buffer_dang = self.buffer_dang[-self.buffer_size:]
         # print(self.dang_dist)
-        if min_alpha < - self.dang_alpha or max_alpha > self.dang_alpha:
-            self.buffer_dang.append(data)
-            self.buffer_dang = self.buffer_dang[-self.buffer_size:]
-            self.dang_count = self.dang_count+1
-        elif min_alpha > - self.safe_alpha and max_alpha < self.safe_alpha:
-            self.buffer_safe.append(data)
-            self.buffer_safe = self.buffer_safe[-self.buffer_size:]
-            self.safe_count= self.safe_count+1
-        else:
-            self.buffer_mid.append(data)
-            self.buffer_mid = self.buffer_mid[-self.buffer_size:]
-            self.mid_count = self.mid_count+1
+        # if min_alpha < - self.dang_alpha or max_alpha > self.dang_alpha:
+        #     self.buffer_dang.append(data)
+        #     self.buffer_dang = self.buffer_dang[-self.buffer_size:]
+        #     self.dang_count = self.dang_count+1
+        # elif min_alpha > - self.safe_alpha and max_alpha < self.safe_alpha:
+        #     self.buffer_safe.append(data)
+        #     self.buffer_safe = self.buffer_safe[-self.buffer_size:]
+        #     self.safe_count= self.safe_count+1
+        # else:
+        #     self.buffer_mid.append(data)
+        #     self.buffer_mid = self.buffer_mid[-self.buffer_size:]
+        #     self.mid_count = self.mid_count+1
+        # print(np.array([self.buffer_safe]).shape)
 
-    def sample_data(self, batch_size):
+    def sample_data(self, batch_size,index):
         num_safe = batch_size // 3 
         num_dang = batch_size // 3
         num_mid = batch_size - num_safe - num_dang
         n_state = self.n_state
         m_control = self.m_control
+        s, u_NN, u = self.sample_data_from_buffer(batch_size,self.buffer_data,index)
+        # if self.dang_count>0:
+        #     s_dang, u_NN_dang, u_dang = self.sample_data_from_buffer(num_dang, self.buffer_dang)
+        # else:
+        #     if self.safe_count>0:
+        #         num_safe = num_safe + num_dang
+        #     s_dang, u_NN_dang, u_dang = torch.zeros(0, self.n_state).reshape(0,n_state),torch.zeros(0,self.m_control),np.array([],dtype = np.float32).reshape(0,m_control)
 
-        if self.dang_count>0:
-            s_dang, u_NN_dang, u_dang = self.sample_data_from_buffer(num_dang, self.buffer_dang)
-        else:
-            if self.safe_count>0:
-                num_safe = num_safe + num_dang
-            s_dang, u_NN_dang, u_dang = torch.zeros(0, self.n_state).reshape(0,n_state),torch.zeros(0,self.m_control),np.array([],dtype = np.float32).reshape(0,m_control)
+        # if self.mid_count>0:
+        #     s_mid, u_NN_mid, u_mid = self.sample_data_from_buffer(num_mid, self.buffer_mid)
+        # else:
+        #     if self.safe_count>0:
+        #         num_safe = num_safe + num_mid
+        #     s_mid, u_NN_mid, u_mid = torch.zeros(0, self.n_state).reshape(0,n_state),torch.zeros(0,self.m_control),np.array([],dtype = np.float32).reshape(0,m_control)
 
-        if self.mid_count>0:
-            s_mid, u_NN_mid, u_mid = self.sample_data_from_buffer(num_mid, self.buffer_mid)
-        else:
-            if self.safe_count>0:
-                num_safe = num_safe + num_mid
-            s_mid, u_NN_mid, u_mid = torch.zeros(0, self.n_state).reshape(0,n_state),torch.zeros(0,self.m_control),np.array([],dtype = np.float32).reshape(0,m_control)
+        # if self.safe_count>0:
+        #     s_safe, u_NN_safe, u_safe = self.sample_data_from_buffer(num_safe, self.buffer_safe)
+        # else:
+        #     s_safe, u_NN_safe, u_safe = torch.zeros(0, self.n_state).reshape(0,n_state),torch.zeros(0,self.m_control),np.array([],dtype = np.float32).reshape(0,m_control)
 
-        if self.safe_count>0:
-            s_safe, u_NN_safe, u_safe = self.sample_data_from_buffer(num_safe, self.buffer_safe)
-        else:
-            s_safe, u_NN_safe, u_safe = torch.zeros(0, self.n_state).reshape(0,n_state),torch.zeros(0,self.m_control),np.array([],dtype = np.float32).reshape(0,m_control)
-
-        s = torch.cat([s_safe, s_dang, s_mid], axis=0)
-        u_NN = torch.cat([u_NN_safe, u_NN_dang, u_NN_mid], axis=0)
-        u = np.concatenate([u_safe, u_dang, u_mid], axis=0)
+        # s = torch.cat([s_safe, s_dang, s_mid], axis=0)
+        # u_NN = torch.cat([u_NN_safe, u_NN_dang, u_NN_mid], axis=0)
+        # u = np.concatenate([u_safe, u_dang, u_mid], axis=0)
 
         return s, u_NN, u
 
-    def sample_data_from_buffer(self, batch_size, buffer):
-        indices = np.random.randint(len(buffer), size=(batch_size))
+    def sample_data_from_buffer(self, batch_size, buffer,index):
+        # indices = np.random.randint(len(buffer), size=(batch_size))
+        indices_init = (index-1) * batch_size
+        indices_end = (index) * batch_size
+        if indices_end > np.array([buffer]).shape[1]:
+            indices = np.random.randint(len(buffer), size=(batch_size))
+        else:
+            indices = np.arange(indices_init, indices_end, 1)
         s = torch.zeros(batch_size, self.n_state)
         u_NN = torch.zeros(batch_size, self.m_control)
         u = np.zeros((batch_size, self.m_control), dtype=np.float32)
+        # print(np.array([buffer]).shape)
         for i, ind in enumerate(indices):
             state, u_neural, u_nominal = buffer[ind]
             s[i] = state

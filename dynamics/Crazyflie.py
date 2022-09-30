@@ -134,24 +134,24 @@ class CrazyFlies(ControlAffineSystemNew):
         """
         # define upper and lower limits based around the nominal equilibrium input
         upper_limit = torch.ones(self.n_dims)
-        upper_limit[CrazyFlies.X] = 10.0
-        upper_limit[CrazyFlies.Y] = 10.0
+        upper_limit[CrazyFlies.X] = 15.0
+        upper_limit[CrazyFlies.Y] = 15.0
         upper_limit[CrazyFlies.Z] = 10.0
-        upper_limit[CrazyFlies.U] = 4.0
-        upper_limit[CrazyFlies.V] = 4.0
-        upper_limit[CrazyFlies.W] = 4.0
+        upper_limit[CrazyFlies.U] = 10.0
+        upper_limit[CrazyFlies.V] = 10.0
+        upper_limit[CrazyFlies.W] = 10.0
         upper_limit[CrazyFlies.PSI] = np.pi / 2.0
         upper_limit[CrazyFlies.THETA] = np.pi / 2.0
         upper_limit[CrazyFlies.PHI] = np.pi / 2.0
-        upper_limit[CrazyFlies.R] = np.pi / 4.0
-        upper_limit[CrazyFlies.Q] = np.pi / 4.0
-        upper_limit[CrazyFlies.P] = np.pi / 4.0
+        upper_limit[CrazyFlies.R] = np.pi / 2.0
+        upper_limit[CrazyFlies.Q] = np.pi / 2.0
+        upper_limit[CrazyFlies.P] = np.pi / 2.0
 
         lower_limit = -1.0 * upper_limit
         lower_limit[CrazyFlies.Z] = 0.0
 
-        lower_limit = torch.tensor(lower_limit)
-        upper_limit = torch.tensor(upper_limit)
+        #lower_limit = torch.tensor(lower_limit)
+        #upper_limit = torch.tensor(upper_limit)
 
         return (upper_limit, lower_limit)
 
@@ -162,11 +162,11 @@ class CrazyFlies(ControlAffineSystemNew):
         limits for this system
         """
         # define upper and lower limits based around the nominal equilibrium input
-        upper_limit = torch.ones(1,self.m_control) * 0.15
-        lower_limit = 0 * upper_limit
+        upper_limit = torch.tensor([1, 1, 1, 1]) * 0.15
+        lower_limit = 0.1 * upper_limit
 
-        lower_limit = torch.tensor(lower_limit)
-        upper_limit = torch.tensor(upper_limit)
+        #lower_limit = torch.tensor(lower_limit)
+        #upper_limit = torch.tensor(upper_limit)
 
         return (upper_limit, lower_limit)
 
@@ -184,10 +184,27 @@ class CrazyFlies(ControlAffineSystemNew):
         safe_mask = torch.ones_like(x[:, 0], dtype=torch.bool)
 
         if fault == 0:
-            safe_z = 0.5
+            safe_z_l = 3
+            safe_z_u = 4
+            safe_w_u = 1
+            safe_w_l = -1
+
+            safe_angle = 0.5
         else:
-            safe_z = 0.3
-        safe_mask = x[:, CrazyFlies.Z] >= safe_z
+            safe_z_l = 1.0
+            safe_z_u = 10
+            safe_angle = 0.7
+            safe_w_down = -0.3
+
+        safe_mask = torch.logical_and(x[:, CrazyFlies.Z] >= safe_z_l, x[:,CrazyFlies.Z] <= safe_z_u)
+        # safe_mask.logical_and_(x[:,CrazyFlies.PHI] <= safe_angle)
+        # safe_mask.logical_and_(x[:,CrazyFlies.PHI] >= -safe_angle)
+        # safe_mask.logical_and_(x[:,CrazyFlies.THETA] <= safe_angle)
+        # safe_mask.logical_and_(x[:,CrazyFlies.THETA] >= -safe_angle)
+        safe_mask.logical_and_(x[:, CrazyFlies.W] >= safe_w_l)
+        safe_mask.logical_and_(x[:, CrazyFlies.W] <= safe_w_u)
+
+        # x.norm(dim=-1) >= unsafe_radius
 
         return safe_mask
 
@@ -203,11 +220,23 @@ class CrazyFlies(ControlAffineSystemNew):
         unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
 
         if fault == 0:
-            unsafe_z = 0.3
+            unsafe_z_l = 2
+            unsafe_z_u = 5
+            unsafe_w_l = -2
+            unsafe_w_u = 2
         else:
-            unsafe_z = 0.2
+            unsafe_z = 0.5
+            unsafe_z_u = 12
+            unsafe_angle = 0.9
+            unsafe_w_down = -0.5
 
-        unsafe_mask = x[:, CrazyFlies.Z] <= unsafe_z
+        unsafe_mask = torch.logical_or(x[:, CrazyFlies.Z] <= unsafe_z_l, x[:,CrazyFlies.Z] >= unsafe_z_u)
+        # unsafe_mask.logical_or_(x[:,CrazyFlies.PHI] >= unsafe_angle)
+        # unsafe_mask.logical_or_(x[:,CrazyFlies.PHI] <= - unsafe_angle)
+        # unsafe_mask.logical_or_(x[:,CrazyFlies.THETA] >= unsafe_angle)
+        # unsafe_mask.logical_or_(x[:,CrazyFlies.THETA] >= - unsafe_angle)
+        unsafe_mask.logical_or_(x[:, CrazyFlies.W] >= unsafe_w_u)
+        unsafe_mask.logical_or_(x[:, CrazyFlies.W] <= unsafe_w_l)
 
         return unsafe_mask
 
@@ -342,7 +371,7 @@ class CrazyFlies(ControlAffineSystemNew):
 
         return g
 
-    @property
+    # @property
     def u_eq(self):
         u_eq = torch.zeros((1, self.n_controls))
         """ Return the equilibrium state.

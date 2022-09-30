@@ -108,7 +108,7 @@ def main():
 	util = Utils(n_state=9, m_control = 4, dyn = dynamics, params = nominal_params, fault = fault, fault_control_index = fault_control_index)
 	
 	NN_controller = NNController_new(n_state=9, m_control=4)
-	NN_cbf = CBF(n_state=9, m_control=4)
+	NN_cbf = CBF(dynamics, n_state=9, m_control=4)
 	NN_alpha = alpha_param(n_state=9)
 
 	NN_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
@@ -121,7 +121,7 @@ def main():
 
 
 	FT_controller = NNController_new(n_state=9, m_control=4)
-	FT_cbf = CBF(n_state=9, m_control=4)
+	FT_cbf = CBF(dynamics,n_state=9, m_control=4)
 	FT_alpha = alpha_param(n_state=9)
 
 	FT_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))

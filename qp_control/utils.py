@@ -35,6 +35,11 @@ class Utils(object):
         # alpha = torch.abs(state[:,1])
         return self.dyn.safe_mask(state)
 
+    def is_unsafe(self, state):
+
+        # alpha = torch.abs(state[:,1])
+        return self.dyn.unsafe_mask(state)
+
     
     def nominal_dynamics(self, state, u,batch_size):
         """
@@ -60,7 +65,7 @@ class Utils(object):
         return dsdt
 
     
-    def nominal_controller(self, state, goal, u_n, u_norm_max, dyn,constraints):
+    def nominal_controller(self, state, goal, u_n, dyn,constraints):
         """
         args:
             state (n_state,)
@@ -78,12 +83,18 @@ class Utils(object):
 
         size_Q = m_control + j_const
 
-        Q = csc_matrix(10*identity(size_Q))
+        Q = csc_matrix(identity(size_Q))
+        Q[0,0] = 1 / um[0]
+        # print(Q)
+        # print(asas)
 
         F = torch.ones(size_Q,1)
         
-        F[0:m_control] = - 10 * u_n.reshape(m_control,1)
+        F[0:m_control] = - u_n.reshape(m_control,1)
         F = np.array(F)
+        F[0] = F[0] / um[0]
+
+        F[-1] = - 10
 
         fx = dyn._f(state,params)
         gx = dyn._g(state,params)
@@ -91,47 +102,29 @@ class Utils(object):
         fx = fx.reshape(n_state,1)
         gx = gx.reshape(n_state,m_control)
 
-        V, Lg, Lf = constraints.LfLg_new(state,goal,fx,gx,n_state, m_control, j_const, 1, [sm[1], sl[1]])
+        V, Lg, Lf = constraints.LfLg_new(state,goal,fx,gx,n_state, m_control, j_const, 1, [np.pi / 8, -np.pi / 80])
 
-        A = torch.hstack((Lg, V))
+        # if V == 0:
+        #     V[] = 1e-4
+
+        A = torch.hstack((- Lg, - V))
         B = Lf
 
-        # index_A = torch.logical_not(A[:][-1] == 0).float()
-
-        # A = A[index_A][:]
-        # B = B[index_A][:]
-
-        # if len(A.size()) == 0:
-        #     u = solve_qp(Q, F, solver = "osqp")
-        # else:
         G = scipy.sparse.csc.csc_matrix(A)
-        h = np.array(B)
+        h = - np.array(B)
         u = solve_qp(Q, F, G, h, solver="osqp")
 
-        # if A[0][-1] == 0:
-        #     A = torch.tensor(A[1][:])
-        #     B = torch.tensor(B[1][:])
-
-        # if A[-1] == 0 or torch.isnan(torch.sum(A)):
-        #     A = []
-        #     B = []
-        #     u = solve_qp(Q, F, solver = "osqp")
-        # else:
-        #     # print(A)
-        #     A = scipy.sparse.csc.csc_matrix(A)
-        #     B = np.array(B)
-        #     u = solve_qp(Q, F, A, B, solver="osqp")
-
         if (u is None):
-            u = np.array(um) / 2
-            u = u.reshape(1,m_control)
-
-        u_nominal = torch.tensor([u[0:self.m_control]]).reshape(1,m_control)
+            u = u_n.reshape(1,m_control)
+        #     u = u.reshape(1,m_control)
+        u = u[0:m_control]
+        # print(u)
+        u_nominal = torch.tensor(u).reshape(1,m_control)
 
         return u_nominal
 
 
-    def neural_controller(self, u_nominal, fx, gx, h, grad_h):
+    def neural_controller(self, u_nominal, fx, gx, h, grad_h, fault_start):
         """
         args:
             state (n_state,)
@@ -139,6 +132,7 @@ class Utils(object):
         returns:
             u_nominal (m_control,)
         """
+        um, ul = self.dyn.control_limits()
         n_state = self.n_state
         m_control = self.m_control
         params = self.params
@@ -146,26 +140,54 @@ class Utils(object):
 
         size_Q = m_control + 1
 
-        Q = csc_matrix(10*identity(size_Q))
+        Q = csc_matrix(identity(size_Q))
+        # Q[0,0] = 1 / um[0]
         F = torch.hstack((torch.tensor(u_nominal).reshape(m_control), torch.tensor(1.0))).reshape(size_Q,1)
 
-        F = np.array(F)
+        F = - np.array(F)
+        # F[0] = F[0] / um[0]
+        
+
+        Q = Q / 100 
+        F = F / 100
+
+        F[-1] = -1
 
         Lg = torch.matmul(grad_h, gx)
         Lf = torch.matmul(grad_h, fx)
-        
-        A = torch.hstack((Lg.reshape(1,m_control), h))
+
+        if fault_start == 1:
+            # Lg[]
+            # print(Lg.shape)
+            Lf = Lf - torch.abs(Lg[0,0,self.fault_control_index]) * um[self.fault_control_index]
+            Lg[0,0,self.fault_control_index] = 0
+
+
+        if h == 0:
+            h = 1e-4
+
+        A = torch.hstack((- Lg.reshape(1,m_control), -h))
         A = torch.tensor(A.detach().cpu())
         B = Lf.detach().cpu().numpy() 
         B = np.array(B)
 
+        # print(A)
         A = scipy.sparse.csc.csc_matrix(A)
         u = solve_qp(Q, F, A, B, solver="osqp")
 
-        if (u is None):
-            u = np.array(um) / 2
-            u = u.reshape(1,m_control)
+        # print(A)
+        # print(B)
+        # print(u)
+        # print(asasa)
 
-        u_neural = torch.tensor([u[0:self.m_control]]).reshape(1,m_control)
+        if (u is None):
+            u_neural = u_nominal.reshape(m_control)
+        else:
+            u_neural = torch.tensor([u[0:self.m_control]]).reshape(1,m_control)
+            # u = np.array(um.clone()) / 2
+        #     u = u.reshape(1,m_control)
+        # print(u.shape)
+
+        
 
         return u_neural

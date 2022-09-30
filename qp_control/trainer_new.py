@@ -33,7 +33,7 @@ class Trainer(object):
                  dt=0.05, 
                  safe_alpha=0.3, 
                  dang_alpha=0.4, 
-                 action_loss_weight=0.08,
+                 action_loss_weight=0.1,
                  gpu_id=-1,
                  lr_decay_stepsize=-1,
                  fault = 0,
@@ -242,135 +242,127 @@ class Trainer(object):
         
         return loss_np, acc_np
 
-    def train_cbf_and_controller(self, batch_size=1024, opt_iter=100, eps=0.1, eps_deriv=0.03, eps_action=0.2):
-
+    def train_cbf_and_controller(self, batch_size=1000, opt_iter=100, eps=0.1, eps_deriv=0.03, eps_action=0.2):
         loss_np = 0.0
+        loss_h_safe_np = 0.0
+        loss_h_dang_np = 0.0
+        loss_deriv_safe_np = 0.0
+        loss_deriv_mid_np = 0.0
+        loss_deriv_dang_np = 0.0
+        loss_alpha_np = 0.0
+        loss_action_np = 0.0
+        loss_limit_np = 0.0
         acc_np = np.zeros((5,), dtype=np.float32)
         print("training")
+        for j in range(10):
+            for i in range(opt_iter):
+                # print(i)
+                state, u, u_nominal = self.dataset.sample_data(batch_size,i)
+                u_nominal = torch.from_numpy(u_nominal)
 
-        for i in range(opt_iter):
-            # print(i)
-            state, u, u_nominal = self.dataset.sample_data(batch_size)
-            u_nominal = torch.from_numpy(u_nominal)
+                if self.gpu_id >= 0:
+                    state = state.cuda(self.gpu_id)
+                    u = u.cuda(self.gpu_id)
+                    u_nominal = u_nominal.cuda(self.gpu_id)
+                    self.cbf.to(torch.device('cuda'))
 
-            if self.gpu_id >= 0:
-                state = state.cuda(self.gpu_id)
-                u = u.cuda(self.gpu_id)
-                u_nominal = u_nominal.cuda(self.gpu_id)
-                self.cbf.to(torch.device('cuda'))
+                safe_mask, dang_mask, mid_mask = self.get_mask(state)
 
-            safe_mask, dang_mask, mid_mask = self.get_mask(state)
+                u = self.controller(state, u_nominal.reshape(batch_size,self.m_control))
+                h , grad_h = self.cbf.V_with_jacobian(state)
 
-             
-            h , grad_h = self.cbf.V_with_jacobian(state)
+                dsdt = self.nominal_dynamics(state, u.reshape(batch_size,self.m_control,1), batch_size)
+                
+                dsdt = torch.reshape(dsdt,(batch_size,self.n_state))
 
-            dsdt = self.nominal_dynamics(state, u.reshape(batch_size,self.m_control,1), batch_size)
-            
-            dsdt = torch.reshape(dsdt,(batch_size,self.n_state))
+                alpha  = self.alpha(state)
 
-
-            alpha  = self.alpha(state)
-
-            dot_h = torch.matmul(grad_h.reshape(batch_size,1, self.n_state),dsdt.reshape(batch_size,self.n_state,1))
-            dot_h = dot_h.reshape(batch_size,1)
-
-
-            deriv_cond = dot_h + alpha * h
+                dot_h = torch.matmul(grad_h.reshape(batch_size,1, self.n_state),dsdt.reshape(batch_size,self.n_state,1))
+                dot_h = dot_h.reshape(batch_size,1)
 
 
-            num_safe = torch.sum(safe_mask)
-            num_dang = torch.sum(dang_mask)
-            num_mid = torch.sum(mid_mask)
-
-            loss_h_safe = torch.sum(nn.ReLU()(eps - h) * safe_mask) / (1e-5 + num_safe)
-            loss_h_dang = torch.sum(nn.ReLU()(h + eps) * dang_mask) / (1e-5 + num_dang)
-
-            loss_alpha = torch.sum(nn.ReLU()(alpha) * safe_mask) / (1e-5 + num_safe)
-
-            acc_h_safe = torch.sum((h >= 0).float() * safe_mask) / (1e-5 + num_safe)
-            acc_h_dang = torch.sum((h < 0).float() * dang_mask) / (1e-5 + num_dang)
-
-            loss_deriv_safe = torch.sum(nn.ReLU()(eps_deriv - deriv_cond) * safe_mask) / (1e-5 + num_safe)
-            loss_deriv_dang = torch.sum(nn.ReLU()(eps_deriv - deriv_cond) * dang_mask) / (1e-5 + num_dang)
-            loss_deriv_mid = torch.sum(nn.ReLU()(eps_deriv - deriv_cond) * mid_mask) / (1e-5 + num_mid)
-
-            acc_deriv_safe = torch.sum((deriv_cond > 0).float() * safe_mask) / (1e-5 + num_safe)
-            acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
-            acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
-
-            # print(num_safe)
-            # print(num_dang)
-            # print(loss_alpha)
-            # print(loss_h_safe)
-            # print(loss_h_dang)
-            # print(loss_deriv_safe)
-            # print(loss_deriv_dang)
-            # print(loss_deriv_mid)
-
-            loss_action = torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
-            loss_limit = torch.sum(nn.ReLU()(eps - u[:,0]))
-
-            loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight + loss_limit
-
-            self.controller_optimizer.zero_grad()
-            self.cbf_optimizer.zero_grad()
-            self.alpha_optimizer.zero_grad()
-
-            loss_h_safe.backward(retain_graph=True)
+                deriv_cond = dot_h + alpha * h
 
 
+                num_safe = torch.sum(safe_mask)
+                num_dang = torch.sum(dang_mask)
+                num_mid = torch.sum(mid_mask)
 
-            # print(self.cbf.parameters())
+                loss_h_safe = torch.sum(nn.ReLU()(eps - h).reshape(1,batch_size) * safe_mask.reshape(1,batch_size)) / (1e-5 + num_safe)
+                loss_h_dang = torch.sum(nn.ReLU()(h + eps).reshape(1,batch_size) * dang_mask.reshape(1,batch_size)) / (1e-5 + num_dang)
 
-            loss_h_dang.backward(retain_graph=True)
+                loss_alpha = torch.sum(nn.ReLU()(alpha).reshape(1,batch_size) * safe_mask.reshape(1,batch_size)) / (1e-5 + num_safe)
 
-            
+                acc_h_safe = torch.sum((h >= 0).float() * safe_mask) / (1e-5 + num_safe)
+                acc_h_dang = torch.sum((h < 0).float() * dang_mask) / (1e-5 + num_dang)
 
-            loss_alpha.backward(retain_graph=True)
+                loss_deriv_safe = torch.sum(nn.ReLU()(eps_deriv - deriv_cond).reshape(1,batch_size) * safe_mask.reshape(1,batch_size)) / (1e-5 + num_safe)
+                loss_deriv_dang = torch.sum(nn.ReLU()(eps_deriv - deriv_cond).reshape(1,batch_size) * dang_mask.reshape(1,batch_size)) / (1e-5 + num_dang)
+                loss_deriv_mid = torch.sum(nn.ReLU()(eps_deriv - deriv_cond).reshape(1,batch_size) * mid_mask.reshape(1,batch_size)) / (1e-5 + num_mid)
 
-            
+                acc_deriv_safe = torch.sum((deriv_cond > 0).float() * safe_mask) / (1e-5 + num_safe)
+                acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
+                acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
 
-            loss_deriv_safe.backward(retain_graph=True)
+                # print(num_safe)
+                # print(num_dang)
+                # print(loss_alpha)
+                # print(loss_h_safe)
+                # print(loss_h_dang)
+                # print(loss_deriv_safe)
+                # print(loss_deriv_dang)
+                # print(loss_deriv_mid)
 
+                loss_action = torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
+                loss_limit = torch.sum(nn.ReLU()(eps - u[:,0]))
 
-            
-            loss_deriv_dang.backward(retain_graph=True)
+                loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight + loss_limit
 
-            
-            
-            loss_deriv_mid.backward(retain_graph=True)
-            
-            
-            loss_action.backward(retain_graph=True)
-            
-            
-            loss_limit.backward(retain_graph=True)
+                self.controller_optimizer.zero_grad()
+                self.cbf_optimizer.zero_grad()
+                self.alpha_optimizer.zero_grad()
 
-                  
-            
-            self.controller_optimizer.step()
-            self.cbf_optimizer.step()
-            self.alpha_optimizer.step()
-            
-            # log statics
-            acc_np[0] += acc_h_safe.detach().cpu()
-            acc_np[1] += acc_h_dang.detach().cpu()
+                loss.backward(retain_graph=True)
+                      
+                self.controller_optimizer.step()
+                self.cbf_optimizer.step()
+                self.alpha_optimizer.step()
+                
+                # log statics
+                acc_np[0] += acc_h_safe.detach().cpu()
+                acc_np[1] += acc_h_dang.detach().cpu()
 
-            acc_np[2] += acc_deriv_safe.detach()
-            acc_np[3] += acc_deriv_dang.detach()
-            acc_np[4] += acc_deriv_mid.detach()
+                acc_np[2] += acc_deriv_safe.detach()
+                acc_np[3] += acc_deriv_dang.detach()
+                acc_np[4] += acc_deriv_mid.detach()
 
-            loss_np += loss.detach()
+                loss_np += loss.detach().cpu().numpy()
+                loss_h_safe_np += loss_h_safe.detach().cpu().numpy()
+                loss_h_dang_np += loss_h_dang.detach().cpu().numpy()
+                loss_deriv_safe_np += loss_deriv_safe.detach().cpu().numpy()
+                loss_deriv_mid_np += loss_deriv_mid.detach().cpu().numpy()
+                loss_deriv_dang_np += loss_deriv_dang.detach().cpu().numpy()
+                loss_alpha_np += loss_alpha.detach().cpu().numpy()
+                loss_action_np += loss_action.detach().cpu().numpy()
+                loss_limit_np += loss_limit.detach().cpu().numpy()
 
-        acc_np = acc_np / opt_iter
-        loss_np = loss_np / opt_iter
+        acc_np /= opt_iter  * 10
+        loss_np /= opt_iter * 10
+        loss_h_safe_np /=  opt_iter * 10
+        loss_h_dang_np /= opt_iter * 10
+        loss_deriv_safe_np /= opt_iter * 10
+        loss_deriv_mid_np /= opt_iter * 10
+        loss_deriv_dang_np /= opt_iter * 10
+        loss_alpha_np /= opt_iter * 10
+        loss_action_np /= opt_iter * 10
+        loss_limit_np /= opt_iter * 10
 
         if self.lr_decay_stepsize >= 0:
             # learning rate decay
             self.cbf_lr_scheduler.step()
             self.controller_lr_scheduler.step()
         
-        return loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe , loss_deriv_dang , loss_deriv_mid , loss_action
+        return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_alpha_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np, loss_action_np, loss_limit_np
 
 
     def get_mask(self, state):
