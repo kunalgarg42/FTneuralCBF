@@ -12,8 +12,8 @@ from qp_control.trainer_new import Trainer
 from qp_control.utils import Utils
 from qp_control.NNfuncgrad import CBF, alpha_param, NNController_new
 import matplotlib.pyplot as plt
-sys.path.insert(1, os.path.abspath('.'))
 
+sys.path.insert(1, os.path.abspath('.'))
 
 xg = torch.tensor([[100.0,
                     0.2,
@@ -121,9 +121,6 @@ def main():
     safety_rate = 0.0
     unsafety_rate = 0.0
     h_correct = 0.0
-    goal_reached = 0
-    num_episodes = 0
-    traj_following_error = 0
     epsilon = 0.1
 
     um, ul = dynamics.control_limits()
@@ -140,7 +137,7 @@ def main():
 
     rand_start = random.uniform(1.01, 100)
 
-    fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start)# + 100000000
+    fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start)  # + 100000000
     fault_start = 0
     u_nominal = torch.zeros(1, m_control)
 
@@ -156,12 +153,11 @@ def main():
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
 
-        u_nominal = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics, constraints=constraints)
-        # if fault_start == 0:
-        # u_nominal = NN_controller(torch.tensor(state, dtype=torch.float32),
-        #                           torch.tensor(u_nominal, dtype=torch.float32))
-        # else:
-        # u_nominal = FT_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
+        u_nominal = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics,
+                                            constraints=constraints)
+        # if fault_start == 0: u_nominal = NN_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(
+        # u_nominal, dtype=torch.float32)) else: u_nominal = FT_controller(torch.tensor(state, dtype=torch.float32),
+        # torch.tensor(u_nominal, dtype=torch.float32))
 
         for j in range(m_control):
             if u_nominal[0, j] < ul[j]:
@@ -170,8 +166,8 @@ def main():
                 u_nominal[0, j] = um[j].clone()
 
         if fault_known == 1:
-            ## 1 -> time-based switching, assumes knowledge of when fault occurs and stops
-            ## 0 -> Fault-detection based-switching, using the proposed scheme from the paper
+            # 1 -> time-based switching, assumes knowledge of when fault occurs and stops
+            # 0 -> Fault-detection based-switching, using the proposed scheme from the paper
 
             if fault_start == 0 and fault_start_epoch <= i <= (
                     fault_start_epoch + fault_duration):  # and util.is_safe(state):

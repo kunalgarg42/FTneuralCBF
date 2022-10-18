@@ -225,13 +225,18 @@ class FixedWing(ControlAffineSystemNew):
 
         return safe_mask
 
-    def safe_limits(self):
+    def safe_limits(self, su, sl):
         """Return the mask of x indicating safe regions for the obstacle task
 
         args:
             x: a tensor of points in the state space
         """
         fault = self.params["fault"]
+
+        # safe_m, safe_l = self.safe_limits()
+        safe_m = su
+        safe_l = sl
+
         if fault == 0:
             safe_alpha = np.pi / 8.0
             safe_alpha_l = - np.pi / 80.0
@@ -242,8 +247,10 @@ class FixedWing(ControlAffineSystemNew):
             safe_beta = np.pi / 12
         # safe_radius = 3
 
-        safe_l = [safe_alpha_l, -safe_beta]
-        safe_m = [safe_alpha, safe_beta]
+        safe_l[FixedWing.ALPHA] = safe_alpha_l
+        safe_l[FixedWing.BETA] = -safe_beta
+        safe_m[FixedWing.ALPHA] = safe_alpha
+        safe_m[FixedWing.BETA] = safe_beta
         # safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] <= safe_beta)
         # safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] >= -safe_beta)
 

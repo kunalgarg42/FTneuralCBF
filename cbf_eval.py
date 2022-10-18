@@ -63,7 +63,8 @@ safety_rate = 0.0
 correct_h = 0.0
 
 
-state = torch.tensor([]).reshape(0,n_state) #torch.zeros(N,n_state).reshape(N,n_state)
+state = torch.tensor([]).reshape(0,n_state)  # torch.zeros(N,n_state).reshape(N,n_state)
+
 for j in range(N):
     state_N = state0.reshape(1,n_state) + 1 * torch.randn(1, n_state)
     state = torch.vstack((state,state_N))
