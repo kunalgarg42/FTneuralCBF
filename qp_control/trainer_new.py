@@ -102,7 +102,6 @@ class Trainer(object):
 
                 if self.gpu_id >= 0:
                     state = state.cuda(self.gpu_id)
-                    u = u.cuda(self.gpu_id)
                     u_nominal = u_nominal.cuda(self.gpu_id)
                     self.cbf.to(torch.device('cuda'))
 

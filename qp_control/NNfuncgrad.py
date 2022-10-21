@@ -2,7 +2,6 @@ import itertools
 from typing import Tuple, List, Optional
 from collections import OrderedDict
 import random
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -76,72 +75,49 @@ class CBF(nn.Module):
             V: bs tensor of CLBF values
             JV: bs x 1 x self.dynamics_model.n_dims Jacobian of each row of V wrt x
         """
-        x_alpha = x[:, 1].clone()
-        if self.fault == 0:
-            safe_alpha_m = np.pi / 8.0
-            safe_alpha_l = - np.pi / 80.0
-        else:
-            safe_alpha_m = np.pi / 6.0
-            safe_alpha_l = - np.pi / 60.0
-
         x_norm = torch.unsqueeze(x, 2)  # (bs, n_state, 1)
         bs = x_norm.shape[0]
-        x_norm = x_norm.reshape(bs, self.n_state, 1)
+        x_norm = x_norm.reshape(bs, self.n_state)
+        su, sl = self.dynamics.state_limits()
+        safe_m, safe_l = self.dynamics.safe_limits(su, sl)
 
-        # print(x_norm)
-        # print(x_norm.shape)
         x_norm, x_range = self.normalize(x_norm)
-
-        # print(x_norm)
         x_range = x_range.reshape(self.dynamics.n_dims)
-
-        # print(x_range.shape)
-
-        # print(x_norm.shape)
         x_norm = x_norm.reshape(bs, self.n_state)
 
         JV = torch.zeros(
             (bs, self.dynamics.n_dims, self.dynamics.n_dims)).type_as(x)
 
-        # print(JV.shape)
-
         for dim in range(self.dynamics.n_dims):
             JV[:, dim, dim] = 1.0 / x_range[dim].type_as(x)
-        # print(JV.shape)
 
-        # Now step through each layer in V
         V = x_norm
-
-        # print(self.V_nn)
         for layer in self.V_nn:
             V = layer(V)
 
             if isinstance(layer, nn.Linear):
                 JV = torch.matmul(layer.weight, JV)
-                # print("Linear")
-                # print(JV.shape)
             elif isinstance(layer, nn.Tanh):
                 JV = torch.matmul(torch.diag_embed(1 - V ** 2), JV)
-                # print("Tanh")
-                # print(JV.shape)
             elif isinstance(layer, nn.ReLU):
-                # print("Relu")
                 JV = torch.matmul(torch.diag_embed(torch.sign(V)), JV)
-                # print(JV.shape)
-            # print(V.shape)
-        V_alpha = - 0.5 * (x_alpha - (safe_alpha_m + safe_alpha_l) / 2) ** 2 + ((safe_alpha_m - safe_alpha_l) / 2) ** 2
+
+        x_er = (x.reshape(bs, self.n_state) - (safe_m + safe_l).reshape(1, self.n_state) / 2).reshape(bs, 1, self.n_state)
+        V_pre = - 0.5 * torch.matmul(x_er, x_er.reshape(bs, self.n_state, 1)) + torch.matmul(((safe_m - safe_l) / 2).reshape(1, self.n_state), ((safe_m - safe_l) / 2).reshape(self.n_state, 1))
+
         V_shape = V.shape
-        V = V + V_alpha.reshape(V_shape)
+        V = V + V_pre.reshape(V_shape)
 
         JV_alpha = 0.0 * JV.clone()
-        JV_alpha[:, 0, 1] = - 0.5 * (x_alpha - (safe_alpha_m + safe_alpha_l) / 2).reshape(bs)
+
+        for j in range(self.n_state):
+            JV_alpha[:, 0, j] = - x_er[:, 0, j].reshape(bs)
 
         # print(JV.shape)
-        # print(asas)
         JV = JV + JV_alpha
         return V, JV
 
-    def normalize(self, x: torch.Tensor, k: float = 1.0):
+    def normalize(self, x: torch.Tensor):
         """Normalize the state input to [-k, k]
 
         args:
@@ -149,31 +125,16 @@ class CBF(nn.Module):
             x: bs x self.dynamics_model.n_dims the points to normalize
             k: normalize non-angle dimensions to [-k, k]
         """
-        shape_x = x.shape
 
-        # print(shape_x)
-
-        x_max, x_min = self.dynamics.state_limits()
-
+        su, sl = self.dynamics.state_limits()
+        x_max, x_min = self.dynamics.safe_limits(su, sl)
         x_center = (x_max + x_min).type_as(x.clone().detach()) / 2
-        # x_center.to(torch.device('cuda'))
-
         x_center = x_center.reshape(1, self.n_state, 1)
-        # print(x_center.shape)
         x_range = (x_max - x_min) / 2.0
-        # Scale to get the input between (-k, k), centered at 0
-        x_range = x_range / k
-        # x_range.to(torch.device('cuda'))
         x_norm = x - x_center  # .type_as(x) #.reshape(shape_x)
         x_range = x_range.reshape(1, self.n_state, 1)
-        # print(x_norm.shape)
-        # print(x_center.shape)
         x_norm = x_norm / x_range.type_as(x)
-        # x_norm = torch.div(x_norm, x_range.type_as(x))
-        # We shouldn't scale or offset any angle dimensions
-        # print(x_norm.shape)
 
-        # Do the normalization
         return x_norm, x_range
 
 

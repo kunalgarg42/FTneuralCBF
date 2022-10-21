@@ -155,12 +155,6 @@ class Dataset_with_Grad(object):
             u_nominal (m_control,): the nominal control
             state_next (n_state,): state of the agent at the next timestep
         """
-        # z = state[:, 2].clone()
-        # min_z = torch.min(z)
-        # max_z = torch.max(z)
-        # w = state[:, 8].clone()
-        # min_w = torch.min(w)
-        # max_w = torch.max(w)
 
         data = [state.clone(), u.clone(), u_nominal.clone()]
 
@@ -174,28 +168,6 @@ class Dataset_with_Grad(object):
         # n_state = self.n_state
         # m_control = self.m_control
         s, u_NN, u = self.sample_data_from_buffer(batch_size, self.buffer_data, index)
-        # if self.dang_count>0:
-        #     s_dang, u_NN_dang, u_dang = self.sample_data_from_buffer(num_dang, self.buffer_dang)
-        # else:
-        #     if self.safe_count>0:
-        #         num_safe = num_safe + num_dang
-        #     s_dang, u_NN_dang, u_dang = torch.zeros(0, self.n_state).reshape(0,n_state),torch.zeros(0,self.m_control),np.array([],dtype = np.float32).reshape(0,m_control)
-
-        # if self.mid_count>0:
-        #     s_mid, u_NN_mid, u_mid = self.sample_data_from_buffer(num_mid, self.buffer_mid)
-        # else:
-        #     if self.safe_count>0:
-        #         num_safe = num_safe + num_mid
-        #     s_mid, u_NN_mid, u_mid = torch.zeros(0, self.n_state).reshape(0,n_state),torch.zeros(0,self.m_control),np.array([],dtype = np.float32).reshape(0,m_control)
-
-        # if self.safe_count>0:
-        #     s_safe, u_NN_safe, u_safe = self.sample_data_from_buffer(num_safe, self.buffer_safe)
-        # else:
-        #     s_safe, u_NN_safe, u_safe = torch.zeros(0, self.n_state).reshape(0,n_state),torch.zeros(0,self.m_control),np.array([],dtype = np.float32).reshape(0,m_control)
-
-        # s = torch.cat([s_safe, s_dang, s_mid], axis=0)
-        # u_NN = torch.cat([u_NN_safe, u_NN_dang, u_NN_mid], axis=0)
-        # u = np.concatenate([u_safe, u_dang, u_mid], axis=0)
 
         return s, u_NN, u
 

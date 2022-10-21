@@ -7,12 +7,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-import numpy as np 
+import numpy as np
 
 
 class CBF(nn.Module):
 
-    def __init__(self, dynamics, n_state, m_control, preprocess_func=None, fault =0, fault_control_index = 1):
+    def __init__(self, dynamics, n_state, m_control, preprocess_func=None, fault=0, fault_control_index=1):
         super().__init__()
         self.n_state = n_state
         self.m_control = m_control
@@ -40,8 +40,6 @@ class CBF(nn.Module):
         self.V_layers["output_linear"] = nn.Linear(self.cbf_hidden_size, 1)
         self.V_nn = nn.Sequential(self.V_layers)
 
-
-
     def forward(self, state):
         """
         args:
@@ -52,10 +50,10 @@ class CBF(nn.Module):
         """
         # state = torch.unsqueeze(state, 2)    # (bs, n_state, 1)
         # state_diff = state
-        
+
         # if self.preprocess_func is not None:
         #     state_diff = self.preprocess_func(state_diff)
-        
+
         # x = self.activation(self.conv0(state_diff))
         # x = self.activation(self.conv1(x))
         # x = self.activation(self.conv2(x))   # (bs, 128, k_obstacle)
@@ -66,7 +64,7 @@ class CBF(nn.Module):
         h, Jh = self.V_with_jacobian(state)
         # H = torch.tensor(h).reshape(1,1)
         # JH = torch.tensor(Jh).reshape(1,self.n_state)
-        HJH = torch.hstack((h.reshape(1,1), Jh.reshape(1,self.n_state)))
+        HJH = torch.hstack((h.reshape(1, 1), Jh.reshape(1, self.n_state)))
         # dh1 = F.conv1d(h,x)
         return HJH
 
@@ -78,12 +76,12 @@ class CBF(nn.Module):
             V: bs tensor of CLBF values
             JV: bs x 1 x self.dynamics_model.n_dims Jacobian of each row of V wrt x
         """
-        x_norm = torch.unsqueeze(x, 2)    # (bs, n_state, 1)
+        x_norm = torch.unsqueeze(x, 2)  # (bs, n_state, 1)
         bs = x_norm.shape[0]
-        x_norm = x_norm.reshape(bs,self.n_state,1)
+        x_norm = x_norm.reshape(bs, self.n_state, 1)
 
-        x_z = x[:,2].clone()
-        x_w = x[:,8].clone()
+        x_z = x[:, 2].clone()
+        x_w = x[:, 8].clone()
         if self.fault == 0:
             safe_z_l = 3
             safe_z_u = 4
@@ -96,7 +94,6 @@ class CBF(nn.Module):
             safe_alpha_m = 12
             safe_alpha_l = 0.3
             safe_angle = 0.7
-
 
         x_norm, x_range = self.normalize(x_norm)
 
@@ -126,12 +123,12 @@ class CBF(nn.Module):
                 JV = torch.matmul(torch.diag_embed(torch.sign(V)), JV)
 
         V_z = - (x_z - (safe_z_u + safe_z_l) / 2) ** 2 + ((safe_z_u - safe_z_l) / 2) ** 2
-        V_w = - (x_w - (safe_w_u) / 2) ** 2 + ((safe_w_u) / 2) ** 2
+        V_w = - (x_w - safe_w_u / 2) ** 2 + (safe_w_u / 2) ** 2
         V_shape = V.shape
         V = V + V_z.reshape(V_shape) + V_w.reshape(V_shape)
         JV_alpha = 0.0 * JV.clone()
-        JV_alpha[:,0,2] = - 2* (x_z - (safe_z_u + safe_z_l) / 2).reshape(bs)
-        JV_alpha[:,0,8] = - 2* (x_w).reshape(bs)
+        JV_alpha[:, 0, 2] = - 2 * (x_z - (safe_z_u + safe_z_l) / 2).reshape(bs)
+        JV_alpha[:, 0, 8] = - 2 * x_w.reshape(bs)
 
         JV = JV + JV_alpha
 
@@ -154,14 +151,14 @@ class CBF(nn.Module):
         x_center = (x_max + x_min).type_as(x.clone().detach()) / 2
         # x_center.to(torch.device('cuda'))
 
-        x_center = x_center.reshape(1,self.n_state,1)
+        x_center = x_center.reshape(1, self.n_state, 1)
         # print(x_center.shape)
         x_range = (x_max - x_min) / 2.0
         # Scale to get the input between (-k, k), centered at 0
         x_range = x_range / k
         # x_range.to(torch.device('cuda'))
-        x_norm = x - x_center # .type_as(x) #.reshape(shape_x)
-        x_range = x_range.reshape(1,self.n_state,1)
+        x_norm = x - x_center  # .type_as(x) #.reshape(shape_x)
+        x_range = x_range.reshape(1, self.n_state, 1)
         # print(x_norm.shape)
         # print(x_center.shape)
         x_norm = x_norm / x_range.type_as(x)
@@ -171,7 +168,6 @@ class CBF(nn.Module):
 
         # Do the normalization
         return x_norm, x_range
-
 
 
 class alpha_param(nn.Module):
@@ -190,7 +186,6 @@ class alpha_param(nn.Module):
         self.activation = nn.ReLU()
         self.output_activation = nn.Tanh()
 
-
     def forward(self, state):
         """
         args:
@@ -199,19 +194,20 @@ class alpha_param(nn.Module):
         returns:
             h (bs, k_obstacle)
         """
-        state = torch.unsqueeze(state, 2)    # (bs, n_state, 1)
+        state = torch.unsqueeze(state, 2)  # (bs, n_state, 1)
         state_diff = state
 
         if self.preprocess_func is not None:
             state_diff = self.preprocess_func(state_diff)
-        
+
         x = self.activation(self.conv0(state_diff))
         x = self.activation(self.conv1(x))
-        x = self.activation(self.conv2(x))   # (bs, 128, k_obstacle)
+        x = self.activation(self.conv2(x))  # (bs, 128, k_obstacle)
         x = self.activation(self.conv3(x))
         x = self.conv4(x)
-        alpha = torch.squeeze(x, dim=1)          # (bs, k_obstacle)
+        alpha = torch.squeeze(x, dim=1)  # (bs, k_obstacle)
         return alpha
+
 
 class NNController(nn.Module):
 
@@ -242,21 +238,21 @@ class NNController(nn.Module):
         returns:
             u (bs, m_control)
         """
-        state = torch.unsqueeze(state, 2)    # (bs, n_state, 1)
+        state = torch.unsqueeze(state, 2)  # (bs, n_state, 1)
         # print(state)
         # print(len(state))
-        obstacle = obstacle.permute(0, 2, 1) # (bs, n_state, k_obstacle)
+        obstacle = obstacle.permute(0, 2, 1)  # (bs, n_state, k_obstacle)
         state_diff = state - obstacle
 
         if self.preprocess_func is not None:
             state_diff = self.preprocess_func(state_diff)
             state_error = self.preprocess_func(state_error)
-        
+
         x = self.activation(self.conv0(state_diff))
         x = self.activation(self.conv1(x))
-        x = self.activation(self.conv2(x))   # (bs, 128, k_obstacle)
-        x, _ = torch.max(x, dim=2)              # (bs, 128)
-        x = torch.cat([x, u_nominal, state_error], dim=1) # (bs, 128 + m_control)
+        x = self.activation(self.conv2(x))  # (bs, 128, k_obstacle)
+        x, _ = torch.max(x, dim=2)  # (bs, 128)
+        x = torch.cat([x, u_nominal, state_error], dim=1)  # (bs, 128 + m_control)
         x = self.activation(self.fc0(x))
         x = self.activation(self.fc1(x))
         x = self.output_activation(self.fc2(x)) * self.output_scale
@@ -293,7 +289,7 @@ class NNController_new(nn.Module):
         returns:
             u (bs, m_control)
         """
-        state = torch.unsqueeze(state, 2)    # (bs, n_state, 1)
+        state = torch.unsqueeze(state, 2)  # (bs, n_state, 1)
         # print(state)
         # print(len(state))
         # obstacle = obstacle.permute(0, 2, 1) # (bs, n_state, k_obstacle)
@@ -302,17 +298,17 @@ class NNController_new(nn.Module):
         if self.preprocess_func is not None:
             state_diff = self.preprocess_func(state)
             # state_error = self.preprocess_func(state_error)
-        
+
         x = self.activation(self.conv0(state))
         x = self.activation(self.conv1(x))
-        x = self.activation(self.conv2(x))   # (bs, 128, k_obstacle)
-        x, _ = torch.max(x, dim=2)              # (bs, 128)
-        x = torch.cat([x, u_nominal], dim=1) # (bs, 128 + m_control)
+        x = self.activation(self.conv2(x))  # (bs, 128, k_obstacle)
+        x, _ = torch.max(x, dim=2)  # (bs, 128)
+        x = torch.cat([x, u_nominal], dim=1)  # (bs, 128 + m_control)
         x = self.activation(self.fc0(x))
         x = self.activation(self.fc1(x))
         x = self.output_activation(self.fc2(x)) * self.output_scale
         x = (x ** 2)
-       # print(x.shape)
-       # print(u_nominal.shape)
+        # print(x.shape)
+        # print(u_nominal.shape)
         u = x + u_nominal
         return u

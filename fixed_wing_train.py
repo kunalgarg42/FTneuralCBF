@@ -16,7 +16,7 @@ sys.path.insert(1, os.path.abspath('.'))
 # cProfile.run('foo()')
 
 
-xg = torch.tensor([[100.0,
+xg = torch.tensor([[150.0,
                     0.2,
                     0.0,
                     0.0,
@@ -26,7 +26,7 @@ xg = torch.tensor([[100.0,
                     0.0,
                     0.0]])
 
-x0 = torch.tensor([[50.0,
+x0 = torch.tensor([[120.0,
                     0.1,
                     0.1,
                     0.4,
@@ -56,23 +56,26 @@ def main():
                  fault_control_index=fault_control_index)
     nn_controller = NNController_new(n_state=9, m_control=4)
     cbf = CBF(dynamics, n_state=9, m_control=4)
+    alpha = alpha_param(n_state=9)
+
     try:
         if fault == 0:
-            # cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
             cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weights.pth'))
             nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
+            alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weights.pth'))
             cbf.eval()
             nn_controller.eval()
+            alpha.eval()
         else:
-            # cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
             cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weights.pth'))
             nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
+            alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
             cbf.eval()
             nn_controller.eval()
+            alpha.eval()
     except:
         print("No pre-train data available")
 
-    alpha = alpha_param(n_state=9)
     dataset = Dataset_with_Grad(n_state=9, m_control=4, n_pos=1, safe_alpha=0.3, dang_alpha=0.4)
     trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=9, m_control=4, j_const=2, dyn=dynamics, n_pos=1,
                       dt=dt, safe_alpha=0.3, dang_alpha=0.4, action_loss_weight=1, params=nominal_params,
@@ -97,14 +100,16 @@ def main():
         if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
             # state = sl.clone().reshape(1, n_state) + torch.randn(1, n_state) * 10
             state = x0 + torch.randn(1, n_state) * 20
-            state[0, 1] = safe_l[1] + 20 * torch.randn(1)
-            state[0, 2] = safe_l[2] + 20 * torch.randn(1)
+            state[0, 0] = safe_l[0] + 10 * torch.randn(1)
+            state[0, 1] = safe_l[1] + 2 * torch.randn(1)
+            state[0, 2] = safe_l[2] + 2 * torch.randn(1)
 
         if np.mod(i, 2 * config.INIT_STATE_UPDATE) == 0 and i > 0:
             # state = sm.clone().reshape(1, n_state) + torch.randn(1, n_state) * 10
             state = x0 + torch.randn(1, n_state) * 20
-            state[0, 1] = safe_m[1] + 20 * torch.randn(1)
-            state[0, 2] = safe_m[2] + 20 * torch.randn(1)
+            state[0, 0] = safe_m[0] + 10 * torch.randn(1)
+            state[0, 1] = safe_m[1] + 2 * torch.randn(1)
+            state[0, 2] = safe_m[2] + 2 * torch.randn(1)
 
         h, grad_h = cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
@@ -129,8 +134,8 @@ def main():
                 u_nominal[0, j] = um[j].clone()
 
         u = nn_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
-
-        u = torch.squeeze(u.detach())
+        u = torch.tensor(u).reshape(1, m_control)
+        # u = torch.squeeze(u.detach())
 
         if torch.isnan(torch.sum(u)):
             u = (ul.clone().reshape(m_control) + um.clone().reshape(m_control)) / 2
@@ -139,18 +144,16 @@ def main():
             u[fault_control_index] = torch.rand(1)
 
         for j in range(m_control):
-            if u[j] < ul[j]:
-                u[j] = ul[j].clone()
-            if u[j] > um[j]:
-                u[j] = um[j].clone()
+            if u[0, j] < ul[j]:
+                u[0, j] = ul[j].clone()
+            if u[0, j] > um[j]:
+                u[0, j] = um[j].clone()
 
         gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
         dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
         state_next = state + dx * dt
-
-        h, grad_h = cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
         dataset.add_data(state, u, u_nominal)
 
@@ -170,7 +173,6 @@ def main():
                 'loss_deriv_dang: {:.3f}, loss_deriv_mid: {:.3f}, loss_action: {:.3f}, loss_limit: {:.3f}'.format(
                     i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang, loss_alpha,
                     loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action, loss_limit))
-            loss_total = loss_np
 
             if fault == 0:
                 torch.save(cbf.state_dict(), './data/FW_cbf_NN_weights.pth')
@@ -181,7 +183,6 @@ def main():
                 torch.save(nn_controller.state_dict(), './data/FW_controller_FT_weights.pth')
                 torch.save(alpha.state_dict(), './data/FW_alpha_FT_weights.pth')
         if done:
-            dist = np.linalg.norm(np.array(state_next, dtype=float) - np.array(goal, dtype=float))
             goal_reached = goal_reached * (1 - 1e-2) + done * 1e-2
             state = x0
 

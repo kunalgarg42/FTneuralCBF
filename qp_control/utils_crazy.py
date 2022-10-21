@@ -6,19 +6,19 @@ from qpsolvers import solve_qp
 from osqp import OSQP
 from scipy.sparse import identity
 from scipy.sparse import vstack, csr_matrix, csc_matrix
-
+import torch.distributions as td
 
 class Utils(object):
 
-    def __init__(self, 
-                 dyn, 
-                 params, 
+    def __init__(self,
+                 dyn,
+                 params,
                  n_state,
                  m_control,
-                 j_const = 1,
-                 dt=0.05, 
-                 fault = 0,
-                 fault_control_index = -1):
+                 j_const=1,
+                 dt=0.05,
+                 fault=0,
+                 fault_control_index=-1):
 
         self.params = params
         self.n_state = n_state
@@ -28,7 +28,6 @@ class Utils(object):
         self.fault = fault
         self.fault_control_index = fault_control_index
         self.dt = dt
-
 
     def is_safe(self, state):
 
@@ -40,8 +39,7 @@ class Utils(object):
         # alpha = torch.abs(state[:,1])
         return self.dyn.unsafe_mask(state)
 
-    
-    def nominal_dynamics(self, state, u,batch_size):
+    def nominal_dynamics(self, state, u, batch_size):
         """
         args:
             state (n_state,)
@@ -51,20 +49,19 @@ class Utils(object):
         """
 
         m_control = self.m_control
-        fx = self.dyn._f(state,self.params)
+        fx = self.dyn._f(state, self.params)
         gx = self.dyn._g(state, self.params)
 
         for j in range(self.m_control):
             if self.fault == 1 and self.fault_control_index == j:
-                u[:,j] = u[:,j].clone().detach().reshape(batch_size,1)
+                u[:, j] = u[:, j].clone().detach().reshape(batch_size, 1)
             else:
-                u[:,j] = u[:,j].clone().detach().requires_grad_(True).reshape(batch_size,1)
-        
-        dsdt = fx + torch.matmul(gx,u)
+                u[:, j] = u[:, j].clone().detach().requires_grad_(True).reshape(batch_size, 1)
+
+        dsdt = fx + torch.matmul(gx, u)
 
         return dsdt
 
-    
     def nominal_controller(self, state, goal, u_norm_max, dyn, constraints):
         """
         args:
@@ -74,7 +71,6 @@ class Utils(object):
             u_nominal (m_control,)
         """
         um, ul = self.dyn.control_limits()
-        sm, sl = self.dyn.state_limits()
 
         n_state = self.n_state
         m_control = self.m_control
@@ -97,32 +93,18 @@ class Utils(object):
         A = torch.hstack((Lg, V))
         B = Lf
 
-        ## for just convergence
-        A = torch.tensor((A[1][:]))
-        B = torch.tensor(B[1][:])
+        A = scipy.sparse.csc.csc_matrix(A)
+        B = np.array(B)
 
-        # if A[0][-1] == 0:
-        #     A = torch.tensor(A[1][:])
-        #     B = torch.tensor(B[1][:])
+        u = solve_qp(Q, F, A, B, solver="osqp")
 
-        if A[-1] == 0 or torch.isnan(torch.sum(A)):
-            A = []
-            B = []
-            u = solve_qp(Q, F, solver="osqp")
-        else:
-            # print(A)
-            A = scipy.sparse.csc.csc_matrix(A)
-            B = np.array(B)
-            u = solve_qp(Q, F, A, B, solver="osqp")
-
-        if (u is None):
+        if u is None:
             u = np.array(um.clone()) / 2
             u = u.reshape(1, m_control)
 
         u_nominal = torch.tensor([u[0:self.m_control]]).reshape(1, m_control)
 
         return u_nominal
-
 
     def neural_controller(self, u_nominal, fx, gx, h, grad_h):
         """
@@ -141,35 +123,69 @@ class Utils(object):
         size_Q = m_control + 1
 
         Q = csc_matrix(identity(size_Q))
-        F = torch.hstack((torch.tensor(u_nominal).reshape(m_control), torch.tensor(1.0))).reshape(size_Q,1)
+        F = torch.hstack((torch.tensor(u_nominal).reshape(m_control), torch.tensor(1.0))).reshape(size_Q, 1)
 
         F = - np.array(F)
 
         Lg = torch.matmul(grad_h, gx)
         Lf = torch.matmul(grad_h, fx)
-        
-        A = torch.hstack((- Lg.reshape(1,m_control), - h.reshape(1,1)))
+
+        A = torch.hstack((- Lg.reshape(1, m_control), - h.reshape(1, 1)))
         A = torch.tensor(A.detach().cpu())
         A = torch.vstack((A, - 1 * torch.eye(size_Q)))
 
         # print(A.shape)
 
-        # print(A)
-        B = Lf.detach().cpu().numpy() 
+        B = Lf.detach().cpu().numpy()
         B = np.array(B).reshape(j_const)
-        # print(B.shape)
-        # B_shape = B.shape
-        # B_shape[1] = size_Q
-        B = np.vstack((B, np.array([0]*size_Q).reshape(size_Q, 1)))
+        B = np.vstack((B, np.array([0] * size_Q).reshape(size_Q, 1)))
         B[-1] = -1000000.0
 
         A = scipy.sparse.csc.csc_matrix(A)
-        u = solve_qp(Q, F, G = A, h = B, solver="osqp")
+        u = solve_qp(Q, F, G=A, h=B, solver="osqp")
 
-        if (u is None):
+        if u is None:
             u = np.array(um.clone()) / 2
-            u = u.reshape(1,m_control)
+            u = u.reshape(1, m_control)
 
-        u_neural = torch.tensor([u[0:self.m_control]]).reshape(1,m_control)
+        u_neural = torch.tensor([u[0:self.m_control]]).reshape(1, m_control)
 
         return u_neural
+
+    def x_bndr(self, sm, sl, N):
+        """
+        args:
+            state lower limit sl
+            state upper limit sm
+        returns:
+            samples on boundary x
+        """
+
+        n_dims = self.n_state
+        batch = N
+
+        normal_idx = torch.randint(0, n_dims, size=(batch,))
+        assert normal_idx.shape == (batch,)
+
+        # 2: Choose whether it takes the value of hi or lo.
+        direction = torch.randint(2, size=(batch,), dtype=torch.bool)
+        assert direction.shape == (batch,)
+
+        lo = sl
+        hi = sm
+        assert lo.shape == hi.shape == (n_dims,)
+        dist = td.Uniform(lo, hi)
+
+        samples = dist.sample((batch,))
+        assert samples.shape == (batch, n_dims)
+
+        tmp = torch.where(direction, hi[normal_idx], lo[normal_idx])
+        assert tmp.shape == (batch,)
+
+        # print(tmp.shape)
+        # tmp = 13 * torch.ones(batch)
+        tmp = tmp[:, None].repeat(1, n_dims)
+
+        samples.scatter_(1, normal_idx[:, None], tmp)
+
+        return samples
