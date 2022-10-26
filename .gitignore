@@ -8,6 +8,8 @@ example.py
 
 /data/*
 
+/plot/*
+
 .gitignore
 
 sept*
