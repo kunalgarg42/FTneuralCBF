@@ -9,6 +9,7 @@ from qp_control.datagen import Dataset_with_Grad
 from qp_control.trainer_new import Trainer
 from qp_control.utils import Utils
 from qp_control.NNfuncgrad import CBF, alpha_param, NNController_new
+from pytictoc import TicToc
 
 sys.path.insert(1, os.path.abspath('.'))
 
@@ -49,14 +50,19 @@ fault = nominal_params["fault"]
 
 fault_control_index = 1
 
+n_sample = 1000
+
+t = TicToc()
+
 
 def main():
     dynamics = FixedWing(x=x0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
-    util = Utils(n_state=9, m_control=4, j_const=2, dyn=dynamics, dt=dt, params=nominal_params, fault=fault,
+    util = Utils(n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics, dt=dt, params=nominal_params,
+                 fault=fault,
                  fault_control_index=fault_control_index)
-    nn_controller = NNController_new(n_state=9, m_control=4)
-    cbf = CBF(dynamics, n_state=9, m_control=4)
-    alpha = alpha_param(n_state=9)
+    nn_controller = NNController_new(n_state=n_state, m_control=m_control)
+    cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
+    alpha = alpha_param(n_state=n_state)
 
     try:
         if fault == 0:
@@ -76,14 +82,15 @@ def main():
     except:
         print("No pre-train data available")
 
-    dataset = Dataset_with_Grad(n_state=9, m_control=4, n_pos=1, safe_alpha=0.3, dang_alpha=0.4)
-    trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=9, m_control=4, j_const=2, dyn=dynamics, n_pos=1,
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control)
+    trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
+                      n_pos=1,
                       dt=dt, safe_alpha=0.3, dang_alpha=0.4, action_loss_weight=1, params=nominal_params,
                       fault=fault,
                       fault_control_index=fault_control_index)
     state = x0
     goal = xg
-    goal = np.array(goal).reshape(1, 9)
+    goal = np.array(goal).reshape(1, n_state)
 
     safety_rate = 0.0
     goal_reached = 0.0
@@ -96,8 +103,21 @@ def main():
     u_nominal = torch.zeros(1, m_control)
 
     for i in range(config.TRAIN_STEPS):
+        # t.tic()
         # print(i)
         if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
+            init_states = util.x_bndr(safe_m, safe_l, n_sample)
+            init_states = init_states.reshape(n_sample, n_state) + 10 * torch.randn(n_sample, n_state)
+            init_u_nominal = torch.zeros(n_sample, m_control)
+            init_u = util.nominal_controller(init_states, goal, init_u_nominal, dyn=dynamics,
+                                             constraints=constraints)
+            init_u = init_u.reshape(n_sample, m_control)
+            init_unn = nn_controller(torch.tensor(init_states, dtype=torch.float32),
+                                     torch.tensor(init_u, dtype=torch.float32))
+            unn = torch.tensor(init_unn).reshape(n_sample, m_control)
+            for j in range(n_sample):
+                dataset.add_data(init_states[j, :], unn[j, :], init_u[j, :])
+
             # state = sl.clone().reshape(1, n_state) + torch.randn(1, n_state) * 10
             state = x0 + torch.randn(1, n_state) * 20
             state[0, 0] = safe_l[0] + 10 * torch.randn(1)
@@ -111,7 +131,8 @@ def main():
             state[0, 1] = safe_m[1] + 2 * torch.randn(1)
             state[0, 2] = safe_m[2] + 2 * torch.randn(1)
 
-        h, grad_h = cbf.V_with_jacobian(state.reshape(1, n_state, 1))
+        # h, grad_h = cbf.V_with_jacobian(state.reshape(1, n_state, 1))
+        # print(t.toc())
 
         for j in range(n_state):
             if state[0, j] < sl[j] * 0.5:
@@ -123,9 +144,13 @@ def main():
         gx = dynamics._g(state, params=nominal_params)
 
         u_n = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics, constraints=constraints)
-        u_nominal = util.neural_controller(u_n, fx, gx, h, grad_h, fault_start=0)
+        # u_nominal = util.neural_controller(u_n, fx, gx, h, grad_h, fault_start=0)
 
-        u_nominal = u_nominal.reshape(1, m_control)
+        u_nominal = u_n.reshape(1, m_control)
+        # print("time till here: ")
+        # time_taken = t.tocvalue()
+        # time_taken = torch.tensor(time_taken, dtype=torch.float32)
+        # print(time_taken)
 
         for j in range(m_control):
             if u_nominal[0, j] < ul[j]:
@@ -134,6 +159,7 @@ def main():
                 u_nominal[0, j] = um[j].clone()
 
         u = nn_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
+
         u = torch.tensor(u).reshape(1, m_control)
         # u = torch.squeeze(u.detach())
 
@@ -141,7 +167,7 @@ def main():
             u = (ul.clone().reshape(m_control) + um.clone().reshape(m_control)) / 2
 
         if fault == 1:
-            u[fault_control_index] = torch.rand(1)
+            u[0, fault_control_index] = torch.rand(1)
 
         for j in range(m_control):
             if u[0, j] < ul[j]:
@@ -164,7 +190,6 @@ def main():
         state = state_next
         # done = torch.linalg.norm(state_next.detach().cpu() - goal) < 5
         done = int(dynamics.goal_mask(state_next))
-
         if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
             loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action, loss_limit = trainer.train_cbf_and_controller()
             print(

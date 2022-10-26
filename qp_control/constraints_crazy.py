@@ -32,13 +32,13 @@ class constraints():
         gxs = np.array(gx).reshape(4, m)
         gxs[2] = gxs[2] - gx[1]
 
-        h, Lfh, Lgh = lie_der.Lie(xs, xr, 0.5, fxs, gxs, 'CBF')
+        h, Lfh, Lgh = Lie(xr, 0.5, fxs, gxs, 'CBF')
 
         xr = np.array([Vr, gamma, theta, q], dtype=float)
-        V1, LfV1, LgV1 = lie_der.Lie(x, xr, 0.1, fx, gx, 'CLF')
+        V1, LfV1, LgV1 = Lie(xr, 0.1, fx, gx, 'CLF')
 
         xr = np.array([v, gamma, thetar, q], dtype=float)
-        V21, LfV21, LgV21 = lie_der.Lie(x, xr, 0.1, fx, gx, 'CLF')
+        V21, LfV21, LgV21 = Lie(xr, 0.1, fx, gx, 'CLF')
 
         xs = np.array(x).reshape(1, N) + np.array([0, 0, q, 0], dtype=float).reshape(1, N)
         xr = np.array([v, gamma, thetar, q], dtype=float).reshape(1, N)
@@ -47,7 +47,7 @@ class constraints():
         gxs = np.array(gx).reshape(4, m)
         gxs[3] = gxs[3] + gx[3]
 
-        V22, LfV22, LgV22 = lie_der.Lie(xs, xr, 0.1, fxs, gxs, 'CLF')
+        V22, LfV22, LgV22 = Lie(xr, 0.1, fxs, gxs, 'CLF')
 
         V2 = V21 + V22
 
@@ -79,13 +79,13 @@ class constraints():
 
         fxs = fx
         gxs = gx
-        V, LfV, LgV = lie_der.Lie(x, xr, 0.5, fxs, gxs, 'CLF')
+        V, LfV, LgV = Lie(xr, 0.5, fxs, gxs, 'CLF')
         xobs = x.copy()
 
         xobs[:, 2] = np.array([z_m] * batch_size).reshape((batch_size, 1))
         # xobs[:,1] = np.array([alpha_m]*batch_size).reshape(batch_size,1)
 
-        h, Lfh, Lgh = lie_der.Lie(x, xobs, 0.5, fxs, gxs, 'CBF')
+        h, Lfh, Lgh = Lie(xobs, 0.5, fxs, gxs, 'CBF')
 
         if V < 0:
             V = 0

@@ -1,5 +1,4 @@
 import pdb
-
 import torch
 import torch.distributions as td
 import math
@@ -9,6 +8,11 @@ from qpsolvers import solve_qp
 from osqp import OSQP
 from scipy.sparse import identity
 from scipy.sparse import vstack, csr_matrix, csc_matrix
+from pytictoc import TicToc
+from qp_control.constraints_fw import LfLg_new
+# from qpth.qp import QPFunction
+
+t = TicToc()
 
 
 class Utils(object):
@@ -91,7 +95,8 @@ class Utils(object):
         F = torch.ones(size_Q, 1)
         u_nominal = u_n
         for i in range(batch_size):
-            state_i = state[i, :].reshape(1,n_state)
+            # t.tic()
+            state_i = state[i, :].reshape(1, n_state)
             F[0:m_control] = - u_n[i, :].reshape(m_control, 1)
             F = np.array(F)
             F[0] = F[0] / um[0]
@@ -102,25 +107,108 @@ class Utils(object):
             fx = fx.reshape(n_state, 1)
             gx = gx.reshape(n_state, m_control)
 
-            V, Lg, Lf = constraints.LfLg_new(state_i, goal, fx, gx, n_state, m_control, j_const, 1, [np.pi / 8, -np.pi / 80])
-
-            # if V == 0:
-            #     V[] = 1e-4
+            V, Lg, Lf = LfLg_new(state_i, goal, fx, gx, 1, [np.pi / 8, -np.pi / 80])
 
             A = torch.hstack((- Lg, - V))
             B = Lf
+            assert not A.is_cuda
 
             G = scipy.sparse.csc.csc_matrix(A)
-            h = - np.array(B)
+            h = - np.array(B).reshape(j_const, 1)
             # u = scipy.optimize.linprog(F, A_ub=G, b_ub=h)
+
             u = solve_qp(Q, F, G, h, solver="osqp")
+
+            # print(u)
 
             if u is None:
                 u = u_n[i, :].reshape(1, m_control)
-            #     u = u.reshape(1,m_control)
+                # u = u.reshape(1,m_control)
             u = u[0:m_control]
             # print(u)
             u_nominal[i, :] = torch.tensor(u).reshape(1, m_control)
+            # print(t.toc())
+        return u_nominal
+
+    def nominal_controller_batch(self, state, goal, u_n, dyn, constraints):
+        """
+        args:
+            state (n_state,)
+            goal (n_state,)
+        returns:
+            u_nominal (m_control,)
+        """
+        # state = state.cuda()
+        # goal = torch.tensor(goal).cuda()
+        # u_n = u_n.cuda()
+
+        um, ul = self.dyn.control_limits()
+        # um = torch.tensor(um).cuda()
+        # ul = ul.cuda()
+        n_state = self.n_state
+        m_control = self.m_control
+        params = self.params
+        j_const = self.j_const
+
+        batch_size = state.shape[0]
+
+        # size_Q = (m_control + j_const) * batch_size
+
+        # Q = csc_matrix(identity(size_Q))
+        Q = torch.eye(m_control + j_const)  # .cuda()
+
+        F = torch.ones(m_control + j_const, 1)  # .cuda()
+        # A_l = torch.zeros(batch_size * j_const, size_Q)
+        # B_l = torch.zeros(batch_size * j_const).reshape(batch_size * j_const, 1)
+        u_n = u_n.reshape(batch_size, m_control)
+        u_nominal = torch.zeros(batch_size, m_control)
+
+        for i in range(batch_size):
+            # t.tic()
+            # print(i)
+            # Q[m_control * i, m_control * i] = Q[m_control * i, m_control * i] / um[0]
+            state_i = state[i, :].reshape(1, n_state)  # .cuda()
+            F[0:m_control] = - u_n[i, :].reshape(m_control, 1)
+            # F = np.array(F)
+            F[0] = F[0] / um[0]
+            F[-1] = - 10
+            fx = dyn._f(state_i, params)
+            gx = dyn._g(state_i, params)
+
+            fx = fx.reshape(n_state, 1)
+            gx = gx.reshape(n_state, m_control)
+
+            V, Lg, Lf = LfLg_new(state_i, goal, fx, gx, 1, [np.pi / 8, -np.pi / 80])
+
+            A = torch.hstack((- Lg, - V))
+
+            # u = QPFunction(verbose=False)(Q, F.reshape(m_control+j_const), A, -Lf.reshape(j_const), torch.tensor([
+            # ]).cuda(), torch.tensor([]).cuda())
+
+            # A_l[i * j_const: (i+1) * j_const, i * (m_control + j_const): (i+1) * (m_control + j_const)] = A
+            # # Lf = np.array(Lf)
+            #
+            # B_l[i * j_const: (i+1) * j_const] = Lf.reshape(j_const, 1)
+            # G = A_l.cuda()  # scipy.sparse.csc.csc_matrix(A_l)
+            # # F = np.array(F)
+            # # h = - np.array(B_l)
+            # h = - B_l.cuda()
+            #
+            u = solve_qp(Q, F, A, -Lf.reshape(j_const, 1), solver="osqp")
+            # print(G.shape)
+            # print(h.shape)
+            #
+            # # u = QPFunction(verbose=False)(Q, F, G, h, torch.tensor([]).cuda(), torch.tensor([]).cuda())
+            #
+            # print(u.shape)
+            if u is None:
+                u = u_n[i * m_control: (i + 1) * m_control].reshape(1, m_control)
+
+            u = u.clone().cpu()
+            u_nominal[i, :] = u[0][0:m_control].reshape(1, m_control)
+        # for i in range(batch_size):
+        #     u_nominal[i, :] = torch.tensor(u[i * m_control: (i + 1) * m_control]).reshape(1, m_control)
+        # print(t.toc())
 
         return u_nominal
 
@@ -244,4 +332,3 @@ class Utils(object):
         # print("all_on_bdry: ", all_on_bdry)
 
         return samples
-

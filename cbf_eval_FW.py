@@ -91,7 +91,7 @@ for k in range(iterations):
 
     state_bndr = state_bndr.reshape(N1, n_state)
 
-    state = state_bndr + 10 * torch.randn(N1, n_state)
+    state = state_bndr + 2 * torch.randn(N1, n_state)
 
     for j in range(N2):
         state_temp = (su.clone() + sl.clone()) / 2 + 1 * torch.randn(1, n_state)

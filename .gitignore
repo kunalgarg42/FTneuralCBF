@@ -1,3 +1,13 @@
 *.txt
 
+test*
+
+example.py
+
+*.save
+
+/data/*
+
+.gitignore
+
 sept*

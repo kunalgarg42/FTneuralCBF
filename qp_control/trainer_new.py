@@ -8,9 +8,7 @@ from qpsolvers import solve_qp
 from osqp import OSQP
 from scipy.sparse import identity
 from scipy.sparse import vstack, csr_matrix, csc_matrix
-
 from qp_control.FxTS_GF import FxTS_Momentum
-
 from pytictoc import TicToc
 
 torch.autograd.set_detect_anomaly(True)
@@ -94,8 +92,10 @@ class Trainer(object):
         loss_limit_np = 0.0
         acc_np = np.zeros((5,), dtype=np.float32)
         print("training")
+        # t.tic()
         for j in range(10):
             for i in range(opt_iter):
+                # t.tic()
                 # print(i)
                 state, u, u_nominal = self.dataset.sample_data(batch_size, i)
                 u_nominal = torch.from_numpy(u_nominal)
@@ -109,12 +109,11 @@ class Trainer(object):
 
                 u = self.controller(state, u_nominal.reshape(batch_size, self.m_control))
                 h, grad_h = self.cbf.V_with_jacobian(state)
+                alpha = self.alpha(state)
 
                 dsdt = self.nominal_dynamics(state, u.reshape(batch_size, self.m_control, 1), batch_size)
 
                 dsdt = torch.reshape(dsdt, (batch_size, self.n_state))
-
-                alpha = self.alpha(state)
 
                 dot_h = torch.matmul(grad_h.reshape(batch_size, 1, self.n_state),
                                      dsdt.reshape(batch_size, self.n_state, 1))
@@ -131,8 +130,8 @@ class Trainer(object):
                 loss_h_dang = torch.sum(
                     nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
-                loss_alpha = torch.sum(nn.ReLU()(alpha).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
-                        1e-5 + num_safe)
+                loss_alpha = 0.01 * torch.sum(nn.ReLU()(alpha).reshape(1, batch_size) *
+                                              safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
 
                 acc_h_safe = torch.sum((h >= 0).float() * safe_mask) / (1e-5 + num_safe)
                 acc_h_dang = torch.sum((h < 0).float() * dang_mask) / (1e-5 + num_dang)
@@ -155,6 +154,10 @@ class Trainer(object):
                 loss_limit = torch.sum(nn.ReLU()(eps - u[:, 0]))
 
                 loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight + loss_limit
+
+                # print("time in loss setup: ")
+                # print(t.toc())
+                # t.tic()
 
                 self.controller_optimizer.zero_grad()
                 self.cbf_optimizer.zero_grad()
@@ -226,7 +229,6 @@ class Trainer(object):
             dsdt (n_state,)
         """
 
-        m_control = self.m_control
         fx = self.dyn._f(state, self.params)
         gx = self.dyn._g(state, self.params)
 
@@ -235,9 +237,6 @@ class Trainer(object):
                 u[:, j] = u[:, j].clone().detach().reshape(batch_size, 1)
             else:
                 u[:, j] = u[:, j].clone().detach().requires_grad_(True).reshape(batch_size, 1)
-
-        # if self.fault == 1 and self.fault_control_index > -1:
-        # u[:,self.fault_control_index] = u[:,self.fault_control_index].detach()
 
         dsdt = fx + torch.matmul(gx, u)
 

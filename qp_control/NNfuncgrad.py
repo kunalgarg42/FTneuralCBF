@@ -102,19 +102,24 @@ class CBF(nn.Module):
             elif isinstance(layer, nn.ReLU):
                 JV = torch.matmul(torch.diag_embed(torch.sign(V)), JV)
 
-        x_er = (x.reshape(bs, self.n_state) - (safe_m + safe_l).reshape(1, self.n_state) / 2).reshape(bs, 1, self.n_state)
-        V_pre = - 0.5 * torch.matmul(x_er, x_er.reshape(bs, self.n_state, 1)) + torch.matmul(((safe_m - safe_l) / 2).reshape(1, self.n_state), ((safe_m - safe_l) / 2).reshape(self.n_state, 1))
+        x_er = (x.reshape(bs, self.n_state) - (safe_m + safe_l).reshape(1, self.n_state) / 2).reshape(bs, 1,
+                                                                                                      self.n_state)
+        V_pre = - 0.5 * torch.matmul(x_er, x_er.reshape(bs, self.n_state, 1)) + \
+                torch.matmul(((safe_m - safe_l) / 2).reshape(1, self.n_state),
+                             ((safe_m - safe_l) / 2).reshape(self.n_state, 1))
 
         V_shape = V.shape
         V = V + V_pre.reshape(V_shape)
 
-        JV_alpha = 0.0 * JV.clone()
+        # JV_pre = torch.zeros(JV.shape)
 
-        for j in range(self.n_state):
-            JV_alpha[:, 0, j] = - x_er[:, 0, j].reshape(bs)
+        JV_pre = -x_er.reshape(bs, 1, self.n_state)
+
+        # for j in range(self.n_state):
+        #     JV_pre[:, 0, j] = - x_er[:, 0, j].reshape(bs)
 
         # print(JV.shape)
-        JV = JV + JV_alpha
+        JV = JV + JV_pre
         return V, JV
 
     def normalize(self, x: torch.Tensor):
@@ -125,14 +130,17 @@ class CBF(nn.Module):
             x: bs x self.dynamics_model.n_dims the points to normalize
             k: normalize non-angle dimensions to [-k, k]
         """
-
+        bs = x.shape[0]
         su, sl = self.dynamics.state_limits()
         x_max, x_min = self.dynamics.safe_limits(su, sl)
+        x_max = x_max.reshape(1, self.n_state, 1)
+        x_min = x_min.reshape(1, self.n_state, 1)
         x_center = (x_max + x_min).type_as(x.clone().detach()) / 2
         x_center = x_center.reshape(1, self.n_state, 1)
         x_range = (x_max - x_min) / 2.0
-        x_norm = x - x_center  # .type_as(x) #.reshape(shape_x)
+        x_norm = x.reshape(bs, self.n_state, 1) - x_center  # .type_as(x) #.reshape(shape_x)
         x_range = x_range.reshape(1, self.n_state, 1)
+
         x_norm = x_norm / x_range.type_as(x)
 
         return x_norm, x_range

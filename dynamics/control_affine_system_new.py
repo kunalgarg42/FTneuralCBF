@@ -1,4 +1,4 @@
-"""Define an abstract base class for dymamical systems"""
+"""Define an abstract base class for dynamical systems"""
 from abc import (
     ABC,
     abstractmethod,
@@ -10,6 +10,7 @@ from matplotlib.axes import Axes
 import numpy as np
 import torch
 from torch.autograd.functional import jacobian
+
 
 # from neural_clbf.systems.utils import (
 #     Scenario,
@@ -34,13 +35,13 @@ class ControlAffineSystemNew(ABC):
     """
 
     def __init__(
-        self,
-        x : torch.Tensor,
-        nominal_params,
-        dt: float = 0.01,
-        controller_dt: Optional[float] = None,
-        use_linearized_controller: bool = True,
-        scenarios: Optional = None,
+            self,
+            x: torch.Tensor,
+            nominal_params,
+            dt: float = 0.01,
+            controller_dt: Optional[float] = None,
+            use_linearized_controller: bool = True,
+            scenarios: Optional = None,
     ):
         """
         Initialize a system.
@@ -76,10 +77,8 @@ class ControlAffineSystemNew(ABC):
         self.x = x
 
         # Compute the linearized controller
-        
 
     @torch.enable_grad()
-    
     @abstractmethod
     def validate_params(self, params) -> bool:
         """Check if a given set of parameters is valid
@@ -233,10 +232,10 @@ class ControlAffineSystemNew(ABC):
         return x
 
     def sample_with_mask(
-        self,
-        num_samples: int,
-        mask_fn: Callable[[torch.Tensor], torch.Tensor],
-        max_tries: int = 5000,
+            self,
+            num_samples: int,
+            mask_fn: Callable[[torch.Tensor], torch.Tensor],
+            max_tries: int = 5000,
     ) -> torch.Tensor:
         """Sample num_samples so that mask_fn is True for all samples. Makes a
         best-effort attempt, but gives up after max_tries, so may return some points
@@ -283,7 +282,7 @@ class ControlAffineSystemNew(ABC):
         return self.sample_with_mask(num_samples, self.boundary_mask, max_tries)
 
     def control_affine_dynamics(
-        self, x: torch.Tensor, params
+            self, x: torch.Tensor, params
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Return a tuple (f, g) representing the system dynamics in control-affine form:
@@ -310,7 +309,7 @@ class ControlAffineSystemNew(ABC):
         return self._f(x, params), self._g(x, params)
 
     def closed_loop_dynamics(
-        self, x: torch.Tensor, u: torch.Tensor, params
+            self, x: torch.Tensor, u: torch.Tensor, params
     ) -> torch.Tensor:
         """
         Return the state derivatives at state x and control input u
@@ -336,11 +335,11 @@ class ControlAffineSystemNew(ABC):
         return xdot.view(x.shape)
 
     def zero_order_hold(
-        self,
-        x: torch.Tensor,
-        u: torch.Tensor,
-        controller_dt: float,
-        params,
+            self,
+            x: torch.Tensor,
+            u: torch.Tensor,
+            controller_dt: float,
+            params,
     ) -> torch.Tensor:
         """
         Simulate dynamics forward for controller_dt, simulating at self.dt, with control
@@ -366,7 +365,6 @@ class ControlAffineSystemNew(ABC):
         # Return the simulated state
         return x
 
-    
     @abstractmethod
     def _f(self, x: torch.Tensor, params) -> torch.Tensor:
         """
@@ -396,7 +394,7 @@ class ControlAffineSystemNew(ABC):
         pass
 
     def u_nominal(
-        self, x: torch.Tensor, params
+            self, x: torch.Tensor, params
     ) -> torch.Tensor:
         """
         Compute the nominal control for the nominal parameters, using LQR unless

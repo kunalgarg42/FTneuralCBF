@@ -1,4 +1,4 @@
-"""Define a dynamical system for a 3D quadrotor"""
+"""Define a dynamical system for a 6DOF fixed-wing aircraft"""
 from typing import Tuple, List, Optional
 
 import torch
@@ -17,17 +17,13 @@ class FixedWing(ControlAffineSystemNew):
 
     The system has state
 
-        x = [px, py, pz, vx, vy, vz, phi, theta, psi]
+        x = [V, alpha, beta, phi, gamma, psi, p, q, r]
 
-    representing the position, orientation, and velocities of the quadrotor, and it
+    representing the states of the aircraft, and it
     has control inputs
 
-        u = [f, phi_dot, theta_dot, psi_dot]
+        u = [T, da, de, dr]
 
-    The system is parameterized by
-        m: mass
-
-    NOTE: Z is defined as positive downwards
     """
 
     # Number of states and controls
@@ -252,9 +248,9 @@ class FixedWing(ControlAffineSystemNew):
 
         safe_l[FixedWing.ALPHA] = safe_alpha_l
         safe_l[FixedWing.V] = safe_V
-        safe_l[FixedWing.BETA] = -safe_beta
+        # safe_l[FixedWing.BETA] = -safe_beta
         safe_m[FixedWing.ALPHA] = safe_alpha
-        safe_m[FixedWing.BETA] = safe_beta
+        # safe_m[FixedWing.BETA] = safe_beta
         # safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] <= safe_beta)
         # safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] >= -safe_beta)
 
@@ -388,7 +384,7 @@ class FixedWing(ControlAffineSystemNew):
         beta = x[:, FixedWing.BETA].reshape(batch_size, 1)
         phi = x[:, FixedWing.PHI].reshape(batch_size, 1)
         gamma = x[:, FixedWing.GAMMA].reshape(batch_size, 1)
-        psi = x[:, FixedWing.PSI].reshape(batch_size, 1)
+        # psi = x[:, FixedWing.PSI].reshape(batch_size, 1)
         p = x[:, FixedWing.P].reshape(batch_size, 1)
         q = x[:, FixedWing.Q].reshape(batch_size, 1)
         r = x[:, FixedWing.R].reshape(batch_size, 1)
@@ -465,7 +461,7 @@ class FixedWing(ControlAffineSystemNew):
         # Rw31 = Rw31.detach().numpy()
         Rw31 = Rw31.reshape(batch_size, 1)
 
-        Rw32 = torch.tensor([0.0] * batch_size).reshape(batch_size, 1)
+        Rw32 = 0.0 * Rw31.clone()
         # Rw32 = Rw32.detach().numpy()
         # Rw32 = np.array(Rw32).reshape(batch_size,1)
 
@@ -541,7 +537,8 @@ class FixedWing(ControlAffineSystemNew):
         #     print((-1.0 * torch.multiply(c_p,c_g)).shape)
         #     print(torch.div(Fwz,V).shape)            
 
-        # f[:, FixedWing.ALPHA] = q - torch.matmul((torch.matmul(p, torch.cos(alpha))+torch.matmul(r,torch.sin(alpha))),torch.tan(beta)) -torch.div(qwf,torch.cos(beta))
+        # f[:, FixedWing.ALPHA] = q - torch.matmul((torch.matmul(p, torch.cos(alpha))+torch.matmul(r,torch.sin(
+        # alpha))),torch.tan(beta)) -torch.div(qwf,torch.cos(beta))
         f[:, FixedWing.ALPHA] = q - qwf / c_b - (p * c_a + r * s_a) * t_b
 
         # rwf = torch.div(torch.matmul(grav,torch.matmul(torch.cos(gamma),torch.sin(phi))),V) 
@@ -550,10 +547,12 @@ class FixedWing(ControlAffineSystemNew):
         # f[:, FixedWing.BETA] = rwf + torch.matmul(p,torch.sin(alpha))-torch.matmul(r,torch.cos(alpha))
         f[:, FixedWing.BETA] = rwf + p * s_a - r * c_a
 
-        # pw = torch.matmul(p,torch.matmul(torch.cos(alpha),torch.cos(beta))) + torch.matmul(q-f[:, FixedWing.ALPHA],torch.sin(beta)) + torch.matmul(r,torch.matmul(torch.sin(alpha),torch.cos(beta)))
+        # pw = torch.matmul(p,torch.matmul(torch.cos(alpha),torch.cos(beta))) + torch.matmul(q-f[:, FixedWing.ALPHA],
+        # torch.sin(beta)) + torch.matmul(r,torch.matmul(torch.sin(alpha),torch.cos(beta)))
         pw = p * c_a * c_b + (q - f[:, FixedWing.ALPHA]) * s_b + r * s_a * c_b
 
-        # f[:,FixedWing.PHI] = pw + torch.matmul(torch.matmul(qwf,sin(phi))+torch.matmul(rwf,torch.cos(phi)),torch.tan(gamma))
+        # f[:,FixedWing.PHI] = pw + torch.matmul(torch.matmul(qwf,sin(phi))+torch.matmul(rwf,torch.cos(phi)),
+        # torch.tan(gamma))
         f[:, FixedWing.PHI] = pw + (qwf * s_p + rwf * c_p) * t_g
 
         f[:, FixedWing.GAMMA] = qwf * c_g - rwf * s_g
@@ -588,7 +587,7 @@ class FixedWing(ControlAffineSystemNew):
 
         # Extract the needed parameters
         m = params["m"]
-        grav = params["g"]
+        # grav = params["g"]
         Ixx = params["Ixx"]
         Iyy = params["Iyy"]
         Izz = params["Izz"]
@@ -599,49 +598,49 @@ class FixedWing(ControlAffineSystemNew):
         bar_c = params["bar_c"]
         rho = params["rho"]
 
-        Cd0 = params["Cd0"]
-        Cda = params["Cda"]
+        # Cd0 = params["Cd0"]
+        # Cda = params["Cda"]
 
-        Clb = params["Clb"]
+        # Clb = params["Clb"]
         Clda = params["Clda"]
-        Cldr = params["Cldr"]
-        Clp = params["Clp"]
+        # Cldr = params["Cldr"]
+        # Clp = params["Clp"]
         Clr = params["Clr"]
 
-        Cm0 = params["Cm0"]
-        Cma = params["Cma"]
+        # Cm0 = params["Cm0"]
+        # Cma = params["Cma"]
         Cmde = params["Cmde"]
-        Cmq = params["Cmq"]
+        # Cmq = params["Cmq"]
 
-        Cnb = params["Cnb"]
+        # Cnb = params["Cnb"]
         Cndr = params["Cndr"]
         Cnda = params["Cnda"]
-        Cnp = params["Cnp"]
-        Cnr = params["Cnr"]
+        # Cnp = params["Cnp"]
+        # Cnr = params["Cnr"]
 
-        Cyb = params["Cyb"]
+        # Cyb = params["Cyb"]
         Cydr = params["Cydr"]
-        Cyp = params["Cyp"]
-        Cyr = params["Cyr"]
+        # Cyp = params["Cyp"]
+        # Cyr = params["Cyr"]
 
-        Cz0 = params["Cz0"]
-        Cza = params["Cza"]
+        # Cz0 = params["Cz0"]
+        # Cza = params["Cza"]
         Czde = params["Czde"]
-        Czq = params["Czq"]
+        # Czq = params["Czq"]
 
-        Cx0 = params["Cx0"]
-        Cxq = params["Cxq"]
+        # Cx0 = params["Cx0"]
+        # Cxq = params["Cxq"]
 
         I_Gamma = Ixx * Izz - Ixz * Ixz
 
-        c1 = (Ixx - Iyy + Izz) * Ixz / I_Gamma
-        c2 = (Izz * Izz - Iyy * Izz + Ixz * Ixz) / I_Gamma
+        # c1 = (Ixx - Iyy + Izz) * Ixz / I_Gamma
+        # c2 = (Izz * Izz - Iyy * Izz + Ixz * Ixz) / I_Gamma
         c3 = Izz / I_Gamma
         c4 = Ixz / I_Gamma
-        c5 = (Izz - Ixx) / Iyy
-        c6 = Ixz / Iyy
+        # c5 = (Izz - Ixx) / Iyy
+        # c6 = Ixz / Iyy
         c7 = 1.0 / Iyy
-        c8 = (Ixx * Ixx - Ixx * Iyy + Ixz * Ixz) / I_Gamma
+        # c8 = (Ixx * Ixx - Ixx * Iyy + Ixz * Ixz) / I_Gamma
         c9 = Ixx / I_Gamma
 
         V = x[:, FixedWing.V].reshape(batch_size)
@@ -649,19 +648,19 @@ class FixedWing(ControlAffineSystemNew):
         beta = x[:, FixedWing.BETA].reshape(batch_size)
         phi = x[:, FixedWing.PHI].reshape(batch_size)
         gamma = x[:, FixedWing.GAMMA].reshape(batch_size)
-        psi = x[:, FixedWing.PSI].reshape(batch_size)
-        p = x[:, FixedWing.P].reshape(batch_size)
-        q = x[:, FixedWing.Q].reshape(batch_size)
-        r = x[:, FixedWing.R].reshape(batch_size)
+        # psi = x[:, FixedWing.PSI].reshape(batch_size)
+        # p = x[:, FixedWing.P].reshape(batch_size)
+        # q = x[:, FixedWing.Q].reshape(batch_size)
+        # r = x[:, FixedWing.R].reshape(batch_size)
 
         s_a = torch.sin(alpha).reshape(batch_size)
         c_a = torch.cos(alpha).reshape(batch_size)
 
         s_b = torch.sin(beta).reshape(batch_size)
         c_b = torch.cos(beta).reshape(batch_size)
-        t_b = torch.tan(beta).reshape(batch_size)
+        # t_b = torch.tan(beta).reshape(batch_size)
 
-        s_g = torch.sin(gamma).reshape(batch_size)
+        # s_g = torch.sin(gamma).reshape(batch_size)
         c_g = torch.cos(gamma).reshape(batch_size)
         t_g = torch.tan(gamma).reshape(batch_size)
 
@@ -698,7 +697,7 @@ class FixedWing(ControlAffineSystemNew):
         # Rw31 = Rw31.detach().numpy()
         Rw31 = Rw31.reshape(batch_size)
 
-        Rw32 = torch.tensor([0.0] * batch_size).reshape(batch_size)
+        Rw32 = 0.0 * Rw31.clone()
         # Rw32 = Rw32.detach().numpy()
         # Rw32 = np.array(Rw32).reshape(batch_size,1)
 
@@ -708,17 +707,17 @@ class FixedWing(ControlAffineSystemNew):
 
         # D = Cd0 * bar_p
 
-        FXda = torch.tensor([0.0] * batch_size).reshape(batch_size)
-        FXdr = FXda
-        FXde = FXda
+        FXda = Rw32.clone().reshape(batch_size)
+        FXdr = FXda.clone()
+        FXde = FXda.clone()
 
-        FYda = FXda
-        FYdr = - (Cydr) * bar_p
-        FYde = FXda
+        FYda = FXda.clone()
+        FYdr = - Cydr * bar_p
+        FYde = FXda.clone()
 
-        FZda = FXda
-        FZdr = FXda
-        FZde = (Czde) * bar_p
+        FZda = FXda.clone()
+        FZdr = FXda.clone()
+        FZde = Czde * bar_p
 
         # Fda = torch.tensor([FXda, FYda, FZda])
         # Fda = Fda.detach().numpy()
@@ -784,16 +783,16 @@ class FixedWing(ControlAffineSystemNew):
         Fwzde = - Lde
         Fwzdr = - Ldr
 
-        Lada = b * (Clda) * bar_p
-        Ladr = b * (Clr) * bar_p
+        Lada = b * Clda * bar_p
+        Ladr = b * Clr * bar_p
         Lade = torch.tensor([0.0] * batch_size).reshape(batch_size)
 
-        Made = bar_c * (Cmde) * bar_p
+        Made = bar_c * Cmde * bar_p
         Mada = Lade
         Madr = Lade
 
-        Nada = b * (Cnda) * bar_p
-        Nadr = b * (Cndr) * bar_p
+        Nada = b * Cnda * bar_p
+        Nadr = b * Cndr * bar_p
         Nade = Lade
 
         # if batch_size == 64:
