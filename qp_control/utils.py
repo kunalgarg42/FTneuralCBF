@@ -107,7 +107,7 @@ class Utils(object):
             fx = fx.reshape(n_state, 1)
             gx = gx.reshape(n_state, m_control)
 
-            V, Lg, Lf = LfLg_new(state_i, goal, fx, gx, 1, [np.pi / 8, -np.pi / 80])
+            V, Lg, Lf = LfLg_new(state_i, goal, fx, gx, sm, sl)
 
             A = torch.hstack((- Lg, - V))
             B = Lf
@@ -330,5 +330,34 @@ class Utils(object):
         # n_on_bdry = torch.sum(eq_lo, dim=1) + torch.sum(eq_hi, dim=1)
         # all_on_bdry = torch.all(n_on_bdry >= 1)
         # print("all_on_bdry: ", all_on_bdry)
+
+        return samples
+
+    def x_samples(self, sm, sl, N):
+        """
+        args:
+            state lower limit sl
+            state upper limit sm
+        returns:
+            samples on boundary x
+        """
+
+        n_dims = self.n_state
+        batch = N
+
+        normal_idx = torch.randint(0, n_dims, size=(batch,))
+        assert normal_idx.shape == (batch,)
+
+        # 2: Choose whether it takes the value of hi or lo.
+        direction = torch.randint(2, size=(batch,), dtype=torch.bool)
+        assert direction.shape == (batch,)
+
+        lo = sl
+        hi = sm
+        assert lo.shape == hi.shape == (n_dims,)
+        dist = td.Uniform(lo, hi)
+
+        samples = dist.sample((batch,))
+        assert samples.shape == (batch, n_dims)
 
         return samples

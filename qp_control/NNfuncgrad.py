@@ -80,8 +80,11 @@ class CBF(nn.Module):
         x_norm = x_norm.reshape(bs, self.n_state)
         su, sl = self.dynamics.state_limits()
         safe_m, safe_l = self.dynamics.safe_limits(su, sl)
+        if x.get_device() == 0:
+            safe_m = safe_m.cuda()
+            safe_l = safe_l.cuda()
 
-        x_norm, x_range = self.normalize(x_norm)
+        x_norm, x_range = self.normalize(x_norm, safe_m, safe_l)
         x_range = x_range.reshape(self.dynamics.n_dims)
         x_norm = x_norm.reshape(bs, self.n_state)
 
@@ -122,7 +125,7 @@ class CBF(nn.Module):
         JV = JV + JV_pre
         return V, JV
 
-    def normalize(self, x: torch.Tensor):
+    def normalize(self, x: torch.Tensor, x_max, x_min):
         """Normalize the state input to [-k, k]
 
         args:
@@ -131,8 +134,8 @@ class CBF(nn.Module):
             k: normalize non-angle dimensions to [-k, k]
         """
         bs = x.shape[0]
-        su, sl = self.dynamics.state_limits()
-        x_max, x_min = self.dynamics.safe_limits(su, sl)
+        # su, sl = self.dynamics.state_limits()
+        # x_max, x_min = self.dynamics.safe_limits(su, sl)
         x_max = x_max.reshape(1, self.n_state, 1)
         x_min = x_min.reshape(1, self.n_state, 1)
         x_center = (x_max + x_min).type_as(x.clone().detach()) / 2

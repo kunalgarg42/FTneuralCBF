@@ -104,6 +104,8 @@ class Trainer(object):
                     state = state.cuda(self.gpu_id)
                     u_nominal = u_nominal.cuda(self.gpu_id)
                     self.cbf.to(torch.device('cuda'))
+                    self.controller.to(torch.device('cuda'))
+                    self.alpha.to(torch.device('cuda'))
 
                 safe_mask, dang_mask, mid_mask = self.get_mask(state)
 
@@ -130,7 +132,7 @@ class Trainer(object):
                 loss_h_dang = torch.sum(
                     nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
-                loss_alpha = 0.01 * torch.sum(nn.ReLU()(alpha).reshape(1, batch_size) *
+                loss_alpha = 0.01 * torch.sum(nn.ReLU()(alpha - eps).reshape(1, batch_size) *
                                               safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
 
                 acc_h_safe = torch.sum((h >= 0).float() * safe_mask) / (1e-5 + num_safe)
@@ -153,7 +155,8 @@ class Trainer(object):
                 loss_action = torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
                 loss_limit = torch.sum(nn.ReLU()(eps - u[:, 0]))
 
-                loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight + loss_limit
+                loss = loss_h_safe + loss_h_dang + loss_alpha + loss_action * self.action_loss_weight + loss_limit \
+                       + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid
 
                 # print("time in loss setup: ")
                 # print(t.toc())
@@ -186,6 +189,7 @@ class Trainer(object):
                 loss_alpha_np += loss_alpha.detach().cpu().numpy()
                 loss_action_np += loss_action.detach().cpu().numpy()
                 loss_limit_np += loss_limit.detach().cpu().numpy()
+                # print("reached here")
 
         acc_np /= opt_iter * 10
         loss_np /= opt_iter * 10

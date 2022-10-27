@@ -1,68 +1,31 @@
 import os
 import sys
-sys.path.insert(1, os.path.abspath('.'))
-
 import matplotlib.pyplot as plt
-plt.style.use('seaborn-white')
 import numpy as np
 import torch
 from qp_control.NNfuncgrad import CBF
 from dynamics.fixed_wing import FixedWing
-
+from qp_control import config
+plt.style.use('seaborn-white')
+sys.path.insert(1, os.path.abspath('.'))
 
 n_state = 9
 m_control = 4
-fault = int(input("Fault (1) or pre-fault(0):"))
-dt = 0.01
 
-nominal_params = {
-	"m": 1000.0,
-	"g": 9.8,
-	"Ixx": 100,
-	"Iyy": 100,
-	"Izz": 1000,
-	"Ixz": 0.1,
-	"S": 25,
-	"b": 4,
-	"bar_c": 4,
-	"rho": 1.3,
-	"Cd0": 0.0434,
-	"Cda": 0.22,
-	"Clb": -0.13,
-	"Clp": -0.505,
-	"Clr": 0.252,
-	"Clda": 0.0855,
-	"Cldr": -0.0024,
-	"Cm0": 0.135,
-	"Cma": -1.50,
-	"Cmq": -38.2,
-	"Cmde": -0.992,
-	"Cnb": 0.0726,
-	"Cnp": -0.069,
-	"Cnr": -0.0946,
-	"Cnda": 0.7,
-	"Cndr": -0.0693,
-	"Cyb": -0.83,
-	"Cyp": 1,
-	"Cyr": 1,
-	"Cydr": 1,
-	"Cz0": 0.23,
-	"Cza": 4.58,
-	"Czq": 1,
-	"Czde": 1,
-	"Cx0": 1,
-	"Cxq": 1,
-	"fault": fault,}
+dt = 0.01
+nominal_params = config.FIXED_WING_PARAMS
+
+fault = nominal_params["fault"]
 
 state = torch.tensor([[0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0]])
+                       0.0,
+                       0.0,
+                       0.0,
+                       0.0,
+                       0.0,
+                       0.0,
+                       0.0,
+                       0.0]])
 
 dynamics = FixedWing(x=state, nominal_params=nominal_params, dt=dt, controller_dt=dt)
 if fault == 0:
@@ -93,27 +56,26 @@ z = np.linspace(zl, zu, z_mesh)
 zlen = z.size
 xlen = x.size
 ylen = y.size
-h_store = torch.zeros((1,zlen))
-state_new  = state
+h_store = torch.zeros((1, zlen))
+state_new = state
 
 hmin = 100
-for j in range(0,xlen):
+for j in range(0, xlen):
     for k in range(0, ylen):
-        state_new[0,0] = x[j]
-        state_new[0,2] = y[k]
-        state = torch.vstack((state,state_new))
-            # print(state)
-bs = xlen*ylen + 1
+        state_new[0, 0] = x[j]
+        state_new[0, 2] = y[k]
+        state = torch.vstack((state, state_new))
+        # print(state)
+bs = xlen * ylen + 1
 
-for i in range(0,zlen):
-    state[:,1] = torch.ones(bs) * z[i]
+for i in range(0, zlen):
+    state[:, 1] = torch.ones(bs) * z[i]
     if fault == 0:
         h, _ = NN_cbf.V_with_jacobian(state.reshape(bs, n_state, 1))
     else:
         h, _ = FT_cbf.V_with_jacobian(state.reshape(bs, n_state, 1))
     hmin = torch.min(h)
-    h_store[0,i] = hmin
-
+    h_store[0, i] = hmin
 
 # initialize fig
 fig, ax = plt.subplots(1, 1)

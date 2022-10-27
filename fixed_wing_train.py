@@ -66,21 +66,38 @@ def main():
 
     try:
         if fault == 0:
-            cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weights.pth'))
-            nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
-            alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weights.pth'))
+            cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_NN_weights.pth'))
+            nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_NN_weights.pth'))
+            alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_NN_weights.pth'))
             cbf.eval()
             nn_controller.eval()
             alpha.eval()
         else:
-            cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weights.pth'))
-            nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
-            alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
+            cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_FT_weights.pth'))
+            nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_FT_weights.pth'))
+            alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_FT_weights.pth'))
             cbf.eval()
             nn_controller.eval()
             alpha.eval()
     except:
-        print("No pre-train data available")
+        try:
+            if fault == 0:
+                cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weights.pth'))
+                nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
+                alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weights.pth'))
+                cbf.eval()
+                nn_controller.eval()
+                alpha.eval()
+            else:
+                cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weights.pth'))
+                nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
+                alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
+                cbf.eval()
+                nn_controller.eval()
+                alpha.eval()
+        except:
+            print("No pre-train data available")
+        print("No good data available")
 
     dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control)
     trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
@@ -107,16 +124,31 @@ def main():
         # print(i)
         if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
             init_states = util.x_bndr(safe_m, safe_l, n_sample)
-            init_states = init_states.reshape(n_sample, n_state) + 10 * torch.randn(n_sample, n_state)
+            init_states = init_states.reshape(n_sample, n_state) + torch.normal(mean=(sm+sl)/10, std=torch.ones(n_state))
             init_u_nominal = torch.zeros(n_sample, m_control)
             init_u = util.nominal_controller(init_states, goal, init_u_nominal, dyn=dynamics,
                                              constraints=constraints)
             init_u = init_u.reshape(n_sample, m_control)
             init_unn = nn_controller(torch.tensor(init_states, dtype=torch.float32),
                                      torch.tensor(init_u, dtype=torch.float32))
-            unn = torch.tensor(init_unn).reshape(n_sample, m_control)
+            init_unn = torch.tensor(init_unn).reshape(n_sample, m_control)
             for j in range(n_sample):
-                dataset.add_data(init_states[j, :], unn[j, :], init_u[j, :])
+                for k in range(n_state):
+                    if init_states[j, k] < sl[k] * 0.5:
+                        init_states[j, k] = sl[k].clone()
+                    if init_states[j, k] > sm[k] * 2:
+                        init_states[j, k] = sm[k].clone()
+
+                for k in range(m_control):
+                    if init_u[j, k] < ul[k]:
+                        init_u[j, k] = ul[k].clone()
+                    if init_u[j, k] > um[k]:
+                        init_u[j, k] = um[k].clone()
+                    if init_unn[j, k] < ul[k]:
+                        init_unn[j, k] = ul[k].clone()
+                    if init_unn[j, k] > um[k]:
+                        init_unn[j, k] = um[k].clone()
+                dataset.add_data(init_states[j, :], init_unn[j, :], init_u[j, :])
 
             # state = sl.clone().reshape(1, n_state) + torch.randn(1, n_state) * 10
             state = x0 + torch.randn(1, n_state) * 20
@@ -193,9 +225,9 @@ def main():
         if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
             loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action, loss_limit = trainer.train_cbf_and_controller()
             print(
-                'step: {}, train h and u, loss: {:.3f}, safety rate: {:.3f}, goal reached: {:.3f}, acc: {}, '
-                'loss_h_safe: {:.3f}, loss_h_dang: {:.3f}, loss_alpha: {:.3f}, loss_deriv_safe: {:.3f}, '
-                'loss_deriv_dang: {:.3f}, loss_deriv_mid: {:.3f}, loss_action: {:.3f}, loss_limit: {:.3f}'.format(
+                'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
+                'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_alpha, {:.3f}, loss_deriv_safe, {:.3f}, '
+                'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}, loss_action, {:.3f}, loss_limit, {:.3f}'.format(
                     i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang, loss_alpha,
                     loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action, loss_limit))
 
@@ -207,6 +239,18 @@ def main():
                 torch.save(cbf.state_dict(), './data/FW_cbf_FT_weights.pth')
                 torch.save(nn_controller.state_dict(), './data/FW_controller_FT_weights.pth')
                 torch.save(alpha.state_dict(), './data/FW_alpha_FT_weights.pth')
+            if loss_np < 0.01:
+                if fault == 0:
+                    torch.save(cbf.state_dict(), './good_data/data/FW_cbf_NN_weights.pth')
+                    torch.save(nn_controller.state_dict(), './good_data/data/FW_controller_NN_weights.pth')
+                    torch.save(alpha.state_dict(), './good_data/data/FW_alpha_NN_weights.pth')
+                else:
+                    torch.save(cbf.state_dict(), './good_data/data/FW_cbf_FT_weights.pth')
+                    torch.save(nn_controller.state_dict(), './good_data/data/FW_controller_FT_weights.pth')
+                    torch.save(alpha.state_dict(), './good_data/data/FW_alpha_FT_weights.pth')
+            if loss_np < 0.001:
+                break
+
         if done:
             goal_reached = goal_reached * (1 - 1e-2) + done * 1e-2
             state = x0
