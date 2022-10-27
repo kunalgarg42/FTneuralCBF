@@ -48,6 +48,9 @@ nominal_params = config.FIXED_WING_PARAMS
 
 fault = nominal_params["fault"]
 
+init_add = int(input("init data add? (0 -> no, 1 -> yes): "))
+init_param = int(input("use previous weights? (0 -> no, 1 -> yes): "))
+
 fault_control_index = 1
 
 n_sample = 1000
@@ -63,41 +66,41 @@ def main():
     nn_controller = NNController_new(n_state=n_state, m_control=m_control)
     cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
     alpha = alpha_param(n_state=n_state)
-
-    try:
-        if fault == 0:
-            cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_NN_weights.pth'))
-            nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_NN_weights.pth'))
-            alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_NN_weights.pth'))
-            cbf.eval()
-            nn_controller.eval()
-            alpha.eval()
-        else:
-            cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_FT_weights.pth'))
-            nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_FT_weights.pth'))
-            alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_FT_weights.pth'))
-            cbf.eval()
-            nn_controller.eval()
-            alpha.eval()
-    except:
+    if init_param == 1:
         try:
             if fault == 0:
-                cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weights.pth'))
-                nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
-                alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weights.pth'))
+                cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_NN_weights.pth'))
+                nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_NN_weights.pth'))
+                alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_NN_weights.pth'))
                 cbf.eval()
                 nn_controller.eval()
                 alpha.eval()
             else:
-                cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weights.pth'))
-                nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
-                alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
+                cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_FT_weights.pth'))
+                nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_FT_weights.pth'))
+                alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_FT_weights.pth'))
                 cbf.eval()
                 nn_controller.eval()
                 alpha.eval()
         except:
-            print("No pre-train data available")
-        print("No good data available")
+            try:
+                if fault == 0:
+                    cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weights.pth'))
+                    nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
+                    alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weights.pth'))
+                    cbf.eval()
+                    nn_controller.eval()
+                    alpha.eval()
+                else:
+                    cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weights.pth'))
+                    nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
+                    alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
+                    cbf.eval()
+                    nn_controller.eval()
+                    alpha.eval()
+            except:
+                print("No pre-train data available")
+            print("No good data available")
 
     dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control)
     trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
@@ -123,32 +126,33 @@ def main():
         # t.tic()
         # print(i)
         if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
-            init_states = util.x_bndr(safe_m, safe_l, n_sample)
-            init_states = init_states.reshape(n_sample, n_state) + torch.normal(mean=(sm+sl)/10, std=torch.ones(n_state))
-            init_u_nominal = torch.zeros(n_sample, m_control)
-            init_u = util.nominal_controller(init_states, goal, init_u_nominal, dyn=dynamics,
-                                             constraints=constraints)
-            init_u = init_u.reshape(n_sample, m_control)
-            init_unn = nn_controller(torch.tensor(init_states, dtype=torch.float32),
-                                     torch.tensor(init_u, dtype=torch.float32))
-            init_unn = torch.tensor(init_unn).reshape(n_sample, m_control)
-            for j in range(n_sample):
-                for k in range(n_state):
-                    if init_states[j, k] < sl[k] * 0.5:
-                        init_states[j, k] = sl[k].clone()
-                    if init_states[j, k] > sm[k] * 2:
-                        init_states[j, k] = sm[k].clone()
+            if init_add == 1:
+                init_states = util.x_bndr(safe_m, safe_l, n_sample)
+                init_states = init_states.reshape(n_sample, n_state) + torch.normal(mean=(sm+sl)/10, std=torch.ones(n_state))
+                init_u_nominal = torch.zeros(n_sample, m_control)
+                init_u = util.nominal_controller(init_states, goal, init_u_nominal, dyn=dynamics,
+                                                 constraints=constraints)
+                init_u = init_u.reshape(n_sample, m_control)
+                init_unn = nn_controller(torch.tensor(init_states, dtype=torch.float32),
+                                         torch.tensor(init_u, dtype=torch.float32))
+                init_unn = torch.tensor(init_unn).reshape(n_sample, m_control)
+                for j in range(n_sample):
+                    for k in range(n_state):
+                        if init_states[j, k] < sl[k] * 0.5:
+                            init_states[j, k] = sl[k].clone()
+                        if init_states[j, k] > sm[k] * 2:
+                            init_states[j, k] = sm[k].clone()
 
-                for k in range(m_control):
-                    if init_u[j, k] < ul[k]:
-                        init_u[j, k] = ul[k].clone()
-                    if init_u[j, k] > um[k]:
-                        init_u[j, k] = um[k].clone()
-                    if init_unn[j, k] < ul[k]:
-                        init_unn[j, k] = ul[k].clone()
-                    if init_unn[j, k] > um[k]:
-                        init_unn[j, k] = um[k].clone()
-                dataset.add_data(init_states[j, :], init_unn[j, :], init_u[j, :])
+                    for k in range(m_control):
+                        if init_u[j, k] < ul[k]:
+                            init_u[j, k] = ul[k].clone()
+                        if init_u[j, k] > um[k]:
+                            init_u[j, k] = um[k].clone()
+                        if init_unn[j, k] < ul[k]:
+                            init_unn[j, k] = ul[k].clone()
+                        if init_unn[j, k] > um[k]:
+                            init_unn[j, k] = um[k].clone()
+                    dataset.add_data(init_states[j, :], init_unn[j, :], init_u[j, :])
 
             # state = sl.clone().reshape(1, n_state) + torch.randn(1, n_state) * 10
             state = x0 + torch.randn(1, n_state) * 20

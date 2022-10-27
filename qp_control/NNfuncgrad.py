@@ -275,7 +275,7 @@ class NNController_new(nn.Module):
         # state_diff = state - obstacle
 
         if self.preprocess_func is not None:
-            state_diff = self.preprocess_func(state)
+            state = self.preprocess_func(state)
             # state_error = self.preprocess_func(state_error)
 
         x = self.activation(self.conv0(state))

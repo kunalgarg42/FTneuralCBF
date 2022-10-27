@@ -13,7 +13,7 @@ plt.style.use('seaborn-white')
 
 sys.path.insert(1, os.path.abspath('.'))
 
-which_data = input("Good data (1) or Last data (0): ")
+which_data = int(input("Good data (1) or Last data (0): "))
 
 n_state = 9
 m_control = 4
