@@ -1,9 +1,11 @@
 import os
 import sys
-sys.path.insert(1, os.path.abspath('..'))
-sys.path.insert(1, os.path.abspath('.'))
 import torch
 import numpy as np
+
+sys.path.insert(1, os.path.abspath('..'))
+sys.path.insert(1, os.path.abspath('.'))
+
 from dynamics.fixed_wing import FixedWing
 from trainer import config
 from trainer.constraints_fw import constraints
@@ -134,12 +136,13 @@ def main():
     u_nominal = torch.zeros(1, m_control)
     if train_u == 1:
         for i in range(config.TRAIN_STEPS):
-        # t.tic()
-        # print(i)
+            # t.tic()
+            # print(i)
             if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
                 if init_add == 1:
                     init_states = util.x_bndr(safe_m, safe_l, n_sample)
-                    init_states = init_states.reshape(n_sample, n_state) + torch.normal(mean=(sm+sl)/10, std=torch.ones(n_state))
+                    init_states = init_states.reshape(n_sample, n_state) + torch.normal(mean=(sm + sl) / 10,
+                                                                                        std=torch.ones(n_state))
                     init_u_nominal = torch.zeros(n_sample, m_control)
                     init_u = util.nominal_controller(init_states, goal, init_u_nominal, dyn=dynamics,
                                                      constraints=constraints)
@@ -190,7 +193,8 @@ def main():
             fx = dynamics._f(state, params=nominal_params)
             gx = dynamics._g(state, params=nominal_params)
 
-            u_nominal = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics, constraints=constraints)
+            u_nominal = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics,
+                                                constraints=constraints)
             # u_nominal = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start=0)
 
             u_nominal = u_nominal.reshape(1, m_control)
@@ -228,7 +232,8 @@ def main():
 
             is_safe = int(util.is_safe(state))
 
-            safety_rate = safety_rate * (1 - 1 / config.POLICY_UPDATE_INTERVAL) + is_safe / config.POLICY_UPDATE_INTERVAL
+            safety_rate = safety_rate * (
+                    1 - 1 / config.POLICY_UPDATE_INTERVAL) + is_safe / config.POLICY_UPDATE_INTERVAL
 
             state = state_next
             # done = torch.linalg.norm(state_next.detach().cpu() - goal) < 5
@@ -263,7 +268,8 @@ def main():
                     break
 
             if done:
-                goal_reached = goal_reached * (1 - 1 / config.POLICY_UPDATE_INTERVAL) + done / config.POLICY_UPDATE_INTERVAL
+                goal_reached = goal_reached * (
+                        1 - 1 / config.POLICY_UPDATE_INTERVAL) + done / config.POLICY_UPDATE_INTERVAL
                 state = x0 + torch.randn(1, n_state) * 20
     else:
         for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
@@ -278,7 +284,8 @@ def main():
 
             num_states = init_states.shape[0]
 
-            dataset.add_data(init_states + 10 * torch.randn(num_states, n_state), torch.tensor([]).reshape(0, m_control), torch.tensor([]).reshape(0, m_control))
+            dataset.add_data(init_states + 10 * torch.randn(num_states, n_state),
+                             torch.tensor([]).reshape(0, m_control), torch.tensor([]).reshape(0, m_control))
 
             is_safe = int(torch.sum(util.is_safe(init_states))) / num_states
 

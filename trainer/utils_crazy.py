@@ -189,3 +189,42 @@ class Utils(object):
         samples.scatter_(1, normal_idx[:, None], tmp)
 
         return samples
+
+    def x_samples(self, sm, sl, batch):
+        """
+        args:
+            state lower limit sl
+            state upper limit sm
+        returns:
+            samples on boundary x
+        """
+
+        n_dims = self.n_state
+
+        normal_idx = torch.randint(0, n_dims, size=(batch,))
+        assert normal_idx.shape == (batch,)
+
+        # 2: Choose whether it takes the value of hi or lo.
+        direction = torch.randint(2, size=(batch,), dtype=torch.bool)
+        assert direction.shape == (batch,)
+
+        lo = sl
+        hi = sm
+        assert lo.shape == hi.shape == (n_dims,)
+        dist = td.Uniform(lo, hi)
+
+        samples = dist.sample((batch,))
+        assert samples.shape == (batch, n_dims)
+
+        return samples
+
+    def doth_max(self, grad_h, gx, um, ul):
+        bs = grad_h.shape[0]
+
+        LhG = torch.matmul(grad_h, gx)
+
+        sign_grad_h = torch.sign(LhG).reshape(bs, 1, self.m_control)
+        doth = torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)) + \
+                     torch.matmul(1 - sign_grad_h, ul.reshape(bs, self.m_control, 1))
+
+        return doth.reshape(1, bs)

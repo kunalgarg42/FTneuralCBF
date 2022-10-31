@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="1a3eb4b1-902f-4d44-a2f5-a61877126a0d" name="Changes" comment="" />
+    <list default="true" id="1a3eb4b1-902f-4d44-a2f5-a61877126a0d" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/train_and_test/Crazyflie_train.py" beforeDir="false" afterPath="$PROJECT_DIR$/train_and_test/Crazyflie_train.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/train_and_test/fixed_wing_train.py" beforeDir="false" afterPath="$PROJECT_DIR$/train_and_test/fixed_wing_train.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/trainer/constraints_crazy.py" beforeDir="false" afterPath="$PROJECT_DIR$/trainer/constraints_crazy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/trainer/constraints_fw.py" beforeDir="false" afterPath="$PROJECT_DIR$/trainer/constraints_fw.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/trainer/trainer_crazy.py" beforeDir="false" afterPath="$PROJECT_DIR$/trainer/trainer_crazy.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/trainer/utils_crazy.py" beforeDir="false" afterPath="$PROJECT_DIR$/trainer/utils_crazy.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -94,7 +102,7 @@
       <workItem from="1664809645178" duration="599000" />
       <workItem from="1665756091715" duration="5376000" />
       <workItem from="1666728172902" duration="3878000" />
-      <workItem from="1666905764455" duration="1945000" />
+      <workItem from="1666905764455" duration="2564000" />
     </task>
     <task id="LOCAL-00001" summary="new commit">
       <created>1666109038364</created>
@@ -194,7 +202,14 @@
       <option name="project" value="LOCAL" />
       <updated>1667238955079</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="modified CBF">
+      <created>1667239074350</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1667239074350</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
