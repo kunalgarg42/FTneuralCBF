@@ -9,7 +9,7 @@ from osqp import OSQP
 from scipy.sparse import identity
 from scipy.sparse import vstack, csr_matrix, csc_matrix
 from pytictoc import TicToc
-from qp_control.constraints_fw import LfLg_new
+from trainer.constraints_fw import LfLg_new
 # from qpth.qp import QPFunction
 
 t = TicToc()
@@ -333,7 +333,7 @@ class Utils(object):
 
         return samples
 
-    def x_samples(self, sm, sl, N):
+    def x_samples(self, sm, sl, batch):
         """
         args:
             state lower limit sl
@@ -343,7 +343,6 @@ class Utils(object):
         """
 
         n_dims = self.n_state
-        batch = N
 
         normal_idx = torch.randint(0, n_dims, size=(batch,))
         assert normal_idx.shape == (batch,)
@@ -361,3 +360,14 @@ class Utils(object):
         assert samples.shape == (batch, n_dims)
 
         return samples
+
+    def doth_max(self, grad_h, gx, um, ul):
+        bs = grad_h.shape[0]
+
+        LhG = torch.matmul(grad_h, gx)
+
+        sign_grad_h = torch.sign(LhG).reshape(bs, 1, self.m_control)
+        doth = torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)) + \
+                     torch.matmul(1 - sign_grad_h, ul.reshape(bs, self.m_control, 1))
+
+        return doth.reshape(1, bs)

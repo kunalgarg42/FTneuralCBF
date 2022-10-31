@@ -1,11 +1,11 @@
-TRAIN_STEPS = 1000000
+TRAIN_STEPS = 10000000
 EVAL_STEPS = 1000
 EVAL_EPOCHS = 100
 POLICY_UPDATE_INTERVAL = 20000
 INIT_STATE_UPDATE = 500
 FAULT_DURATION = EVAL_STEPS / 10
 
-fault = int(input("Fault (1) or pre-fault (0):"))
+fault = int(input("Fault (1) or pre-fault (0): "))
 
 FIXED_WING_PARAMS = {
     "m": 100.0,

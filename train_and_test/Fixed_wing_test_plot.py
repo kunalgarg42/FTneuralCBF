@@ -5,15 +5,15 @@ import math
 import random
 import numpy as np
 from dynamics.fixed_wing import FixedWing
-from qp_control import config
-from qp_control.constraints_fw import constraints
-from qp_control.datagen import Dataset_with_Grad
-from qp_control.trainer_new import Trainer
-from qp_control.utils import Utils
-from qp_control.NNfuncgrad import CBF, alpha_param, NNController_new
+from trainer import config
+from trainer.constraints_fw import constraints
+from trainer.datagen import Dataset_with_Grad
+from trainer.trainer_new import Trainer
+from trainer.utils import Utils
+from trainer.NNfuncgrad import CBF, alpha_param, NNController_new
 import matplotlib.pyplot as plt
 
-sys.path.insert(1, os.path.abspath('.'))
+sys.path.insert(1, os.path.abspath('..'))
 
 xg = torch.tensor([[120.0,
                     0.2,

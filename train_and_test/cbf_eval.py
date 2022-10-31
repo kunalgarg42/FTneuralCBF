@@ -3,12 +3,12 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from qp_control.NNfuncgrad_CF import CBF, NNController_new, alpha_param
+from trainer.NNfuncgrad_CF import CBF, NNController_new, alpha_param
 from dynamics.Crazyflie import CrazyFlies
-from qp_control.utils_crazy import Utils
-from qp_control import config
+from trainer.utils_crazy import Utils
+from trainer import config
 
-sys.path.insert(1, os.path.abspath('.'))
+sys.path.insert(1, os.path.abspath('..'))
 plt.style.use('seaborn-white')
 
 n_state = 12

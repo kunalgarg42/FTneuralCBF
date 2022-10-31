@@ -1,17 +1,19 @@
 import os
 import sys
+sys.path.insert(1, os.path.abspath('..'))
+sys.path.insert(1, os.path.abspath('.'))
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from qp_control import config
-from qp_control.constraints_fw import constraints
-from qp_control.NNfuncgrad import CBF, NNController_new, alpha_param
 from dynamics.fixed_wing import FixedWing
-from qp_control.utils import Utils
+from trainer import config
+from trainer.constraints_fw import constraints
+from trainer.NNfuncgrad import CBF, NNController_new, alpha_param
+from trainer.utils import Utils
+
+
 
 plt.style.use('seaborn-white')
-
-sys.path.insert(1, os.path.abspath('.'))
 
 which_data = int(input("Good data (1) or Last data (0): "))
 
@@ -97,6 +99,14 @@ safe_m, safe_l = dynamics.safe_limits(su, sl)
 
 u_nominal = torch.zeros(N1 + N2, m_control)
 
+um, ul = dynamics.control_limits()
+batch_size = N1 + N2
+um = um.reshape(1, m_control).repeat(batch_size, 1)
+ul = ul.reshape(1, m_control).repeat(batch_size, 1)
+
+um = um.type(torch.FloatTensor)
+ul = ul.type(torch.FloatTensor)
+
 deriv_safe = 0.0
 safety_rate = 0.0
 un_safety_rate = 0.0
@@ -110,43 +120,51 @@ for k in range(iterations):
     state_bndr = util.x_bndr(safe_m, safe_l, n_sample)
 
     state_bndr = state_bndr.reshape(N1, n_state)
+    state0 = state_bndr + 5 * torch.randn(N1, n_state)
 
-    state = state_bndr + 2 * torch.randn(N1, n_state)
+    state1 = util.x_samples(su, sl, N2)
+    state1 = state1.reshape(N2, n_state)  # + 5 * torch.randn(N2, n_state)
 
-    for j in range(N2):
-        state_temp = (su.clone() + sl.clone()) / 2 + 1 * torch.randn(1, n_state)
-        state = torch.vstack((state, state_temp))
+    # for j in range(N2):
+    #     state_temp = (su.clone() + sl.clone()) / 2 + 1 * torch.randn(1, n_state)
+    #     state = torch.vstack((state, state_temp))
+    state = torch.vstack((state0, state1))
 
     state = state.reshape(N1 + N2, n_state)
 
     h, grad_h = cbf.V_with_jacobian(state)
 
-    fx = dynamics._f(state, params=nominal_params)
+    h = h.reshape(N1 + N2, 1)
+
+    # fx = dynamics._f(state, params=nominal_params)
 
     gx = dynamics._g(state, params=nominal_params)
 
-    # u_n = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics, constraints=constraints)
+    # u = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics, constraints=constraints)
 
-    # u_nominal = util.neural_controller(u_n, fx, gx, h, grad_h, fault_start=fault)
+    # u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start=fault)
 
     # u_nominal = u_n.reshape(N1+N2, m_control)
 
-    u = nn_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
+    # u = nn_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
 
-    dsdt = fx + torch.matmul(gx, u.reshape(N1 + N2, m_control, 1))
+    # dsdt = fx + torch.matmul(gx, u.reshape(N1 + N2, m_control, 1))
 
-    dsdt = torch.reshape(dsdt, (N1 + N2, n_state))
+    # dsdt = torch.reshape(dsdt, (N1 + N2, n_state))
 
     alpha_p = alpha(state)
+    alpha_p = alpha_p.reshape(N1 + N2, 1)
 
-    dot_h = torch.matmul(grad_h.reshape(N1 + N2, 1, n_state),
-                         dsdt.reshape(N1 + N2, n_state, 1))
+    # dot_h = torch.matmul(grad_h.reshape(N1 + N2, 1, n_state),
+    #                      dsdt.reshape(N1 + N2, n_state, 1))
+
+    dot_h = util.doth_max(grad_h, gx, um, ul)
 
     dot_h = dot_h.reshape(N1 + N2, 1)
 
     deriv_cond = dot_h + alpha_p * h
 
-    deriv_safe += torch.sum((deriv_cond >= 0).reshape(N1+N2, 1) * util.is_safe(state).reshape(N1+N2, 1)) / (N1 + N2)
+    deriv_safe += torch.sum((deriv_cond >= 0).reshape(N1 + N2, 1) * util.is_safe(state).reshape(N1 + N2, 1)) / (N1 + N2)
 
     safety_rate += torch.sum(util.is_safe(state)) / (N1 + N2)
 

@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.insert(1, os.path.abspath('.'))
+sys.path.insert(1, os.path.abspath('..'))
 
 
 import torch
@@ -11,16 +11,16 @@ from sympy import Symbol, sin, cos
 import matplotlib.pyplot as plt
 from dynamics.fixed_wing_dyn import fw_dyn_ext, fw_dyn
 from dynamics.fixed_wing import FixedWing
-from qp_control import config
+from trainer import config
 from CBF import CBF
-from qp_control.qp_con import QP_con
-from qp_control.constraints_fw import constraints
+from trainer.qp_con import QP_con
+from trainer.constraints_fw import constraints
 import math
 
-from qp_control.datagen import Dataset_with_Grad
-from qp_control.utils import Utils
+from trainer.datagen import Dataset_with_Grad
+from trainer.utils import Utils
 
-from qp_control.NNfuncgrad import CBF, alpha_param, NNController_new
+from trainer.NNfuncgrad import CBF, alpha_param, NNController_new
 
 
 # import cProfile

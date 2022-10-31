@@ -1,7 +1,7 @@
 import os
 import sys
 
-sys.path.insert(1, os.path.abspath('.'))
+sys.path.insert(1, os.path.abspath('..'))
 
 import torch
 import math
@@ -9,15 +9,15 @@ import random
 import numpy as np
 # from dynamics.fixed_wing_dyn import fw_dyn_ext, fw_dyn
 from dynamics.Crazyflie import CrazyFlies
-from qp_control import config
+from trainer import config
 from CBF import CBF
-from qp_control.constraints_crazy import constraints
+from trainer.constraints_crazy import constraints
 
-from qp_control.datagen import Dataset_with_Grad
-from qp_control.trainer_crazy import Trainer
-from qp_control.utils_crazy import Utils
+from trainer.datagen import Dataset_with_Grad
+from trainer.trainer_crazy import Trainer
+from trainer.utils_crazy import Utils
 
-from qp_control.NNfuncgrad_CF import CBF, alpha_param, NNController_new
+from trainer.NNfuncgrad_CF import CBF, alpha_param, NNController_new
 
 import matplotlib.pyplot as plt
 

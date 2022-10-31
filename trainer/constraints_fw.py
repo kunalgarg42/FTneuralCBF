@@ -2,7 +2,7 @@ import numpy as np
 import math
 import torch
 # from CBF import CBF
-from qp_control.lie_der import Lie
+from trainer.lie_der import Lie
 
 
 def LfLg_new(x, xr, fx, gx, sm, sl):

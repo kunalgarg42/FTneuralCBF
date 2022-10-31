@@ -1,8 +1,8 @@
 import numpy as np
 import math
-from CBF import CBF
-# from qp_control.lie_der import lie_der
-from qp_control.constraints_fw import constraints
+from train_and_test.CBF import CBF
+# from trainer.lie_der import lie_der
+from trainer.constraints_fw import constraints
 from scipy.sparse import identity
 from scipy.sparse import vstack, csr_matrix, csc_matrix
 

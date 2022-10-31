@@ -4,8 +4,9 @@ import torch
 
 class Dataset_with_Grad(object):
 
-    def __init__(self, n_state, m_control, buffer_size=100000):
+    def __init__(self, n_state, m_control, train_u, buffer_size=100000):
         self.n_state = n_state
+        self.train_u = train_u
         self.m_control = m_control
         self.buffer_size = buffer_size
         self.buffer_data_s = torch.tensor([]).reshape(0, n_state)
@@ -45,7 +46,11 @@ class Dataset_with_Grad(object):
             indices = np.arange(indices_init, indices_end, 1)
 
         s = self.buffer_data_s[indices, :]
-        u_NN = self.buffer_data_u_NN[indices, :]
-        u = self.buffer_data_u[indices, :]
-        u = np.array(u)
+        if self.train_u > 0:
+            u_NN = self.buffer_data_u_NN[indices, :]
+            u = self.buffer_data_u[indices, :]
+            u = np.array(u)
+        else:
+            u_NN = []
+            u = []
         return s, u_NN, u
