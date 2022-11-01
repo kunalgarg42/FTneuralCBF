@@ -7,6 +7,7 @@ from osqp import OSQP
 from scipy.sparse import identity
 from scipy.sparse import vstack, csr_matrix, csc_matrix
 import torch.distributions as td
+from trainer.constraints_fw import LfLg_new
 
 class Utils(object):
 
@@ -62,7 +63,7 @@ class Utils(object):
 
         return dsdt
 
-    def nominal_controller(self, state, goal, u_norm_max, dyn, constraints):
+    def nominal_controller(self, state, goal, dyn):
         """
         args:
             state (n_state,)
@@ -88,7 +89,7 @@ class Utils(object):
         fx = fx.reshape(n_state, 1)
         gx = gx.reshape(n_state, m_control)
 
-        V, Lg, Lf = constraints.LfLg_new(state, goal, fx, gx, n_state, m_control, j_const, 1, 0.3)
+        V, Lg, Lf = LfLg_new(state, goal, fx, gx, n_state, m_control)
 
         A = torch.hstack((Lg, V))
         B = Lf

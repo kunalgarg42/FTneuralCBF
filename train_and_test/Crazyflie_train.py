@@ -11,9 +11,8 @@ from trainer import config
 from trainer.constraints_crazy import constraints
 from trainer.datagen import Dataset_with_Grad
 from trainer.trainer_crazy import Trainer
-from trainer.utils_crazy import Utils
+from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, alpha_param, NNController_new
-
 
 xg = torch.tensor([[0.0,
                     0.0,
@@ -62,9 +61,6 @@ print(train_u)
 n_sample = 10000
 
 fault = nominal_params["fault"]
-
-# state = []
-# goal = []
 
 fault_control_index = 1
 
@@ -125,6 +121,7 @@ def main():
 
     sm, sl = dynamics.state_limits()
     safe_m, safe_l = dynamics.safe_limits(sm, sl)
+    u_nominal = torch.zeros(1, m_control)
 
     if train_u == 1:
         for i in range(config.TRAIN_STEPS):
@@ -153,8 +150,7 @@ def main():
             fx = dynamics._f(state, params=nominal_params)
             gx = dynamics._g(state, params=nominal_params)
 
-            u_nominal = util.nominal_controller(state=state, goal=goal, u_norm_max=5, dyn=dynamics,
-                                                constraints=constraints)
+            u_nominal = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics)
             # u_nominal = dynamics.u_eq()
 
             for j in range(m_control):
@@ -181,7 +177,8 @@ def main():
             dataset.add_data(state, u, u_nominal)
 
             is_safe = int(util.is_safe(state))
-            safety_rate = safety_rate * (1 - 1 / config.POLICY_UPDATE_INTERVAL) + is_safe / config.POLICY_UPDATE_INTERVAL
+            safety_rate = safety_rate * (
+                        1 - 1 / config.POLICY_UPDATE_INTERVAL) + is_safe / config.POLICY_UPDATE_INTERVAL
 
             state = state_next.clone()
             goal_err = state_next.detach().cpu() - goal

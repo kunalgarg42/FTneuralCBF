@@ -144,8 +144,7 @@ def main():
                     init_states = init_states.reshape(n_sample, n_state) + torch.normal(mean=(sm + sl) / 10,
                                                                                         std=torch.ones(n_state))
                     init_u_nominal = torch.zeros(n_sample, m_control)
-                    init_u = util.nominal_controller(init_states, goal, init_u_nominal, dyn=dynamics,
-                                                     constraints=constraints)
+                    init_u = util.nominal_controller(init_states, goal, init_u_nominal, dyn=dynamics)
                     init_u = init_u.reshape(n_sample, m_control)
                     init_unn = nn_controller(torch.tensor(init_states, dtype=torch.float32),
                                              torch.tensor(init_u, dtype=torch.float32))
@@ -193,8 +192,7 @@ def main():
             fx = dynamics._f(state, params=nominal_params)
             gx = dynamics._g(state, params=nominal_params)
 
-            u_nominal = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics,
-                                                constraints=constraints)
+            u_nominal = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics)
             # u_nominal = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start=0)
 
             u_nominal = u_nominal.reshape(1, m_control)
@@ -205,7 +203,8 @@ def main():
                 if u_nominal[0, j] > um[j]:
                     u_nominal[0, j] = um[j].clone()
 
-            u = nn_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
+            u = nn_controller.forward(state, u_nominal)
+            # u = nn_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
 
             u = torch.tensor(u).reshape(1, m_control)
             # u = torch.squeeze(u.detach())

@@ -6,7 +6,7 @@ import numpy as np
 from qpsolvers import solve_qp
 from scipy.sparse import identity
 from scipy.sparse import csc_matrix
-
+from trainer.FxTS_GF import FxTS_Momentum
 from pytictoc import TicToc
 
 torch.autograd.set_detect_anomaly(True)
@@ -48,18 +48,18 @@ class Trainer(object):
         self.fault = fault
         self.fault_control_index = fault_control_index
 
-        self.controller_optimizer = torch.optim.Adam(
-            self.controller.parameters(), lr=5e-4, weight_decay=1e-5)
-        self.cbf_optimizer = torch.optim.Adam(
-            self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
-        self.alpha_optimizer = torch.optim.Adam(
-            self.alpha.parameters(), lr=1e-4, weight_decay=1e-5)
-        # self.controller_optimizer = FxTS_Momentum(
-        #     self.controller.parameters(), lr=5e-4,momentum = 0.2)
-        # self.cbf_optimizer = FxTS_Momentum(
-        #     self.cbf.parameters(), lr=1e-4,momentum = 0.2)
-        # self.alpha_optimizer = FxTS_Momentum(
-        #     self.alpha.parameters(), lr=5e-4,momentum = 0.2)
+        # self.controller_optimizer = torch.optim.Adam(
+        #     self.controller.parameters(), lr=5e-4, weight_decay=1e-5)
+        # self.cbf_optimizer = torch.optim.Adam(
+        #     self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
+        # self.alpha_optimizer = torch.optim.Adam(
+        #     self.alpha.parameters(), lr=1e-4, weight_decay=1e-5)
+        self.controller_optimizer = FxTS_Momentum(
+            self.controller.parameters(), lr=5e-4, momentum=0.2)
+        self.cbf_optimizer = FxTS_Momentum(
+            self.cbf.parameters(), lr=1e-4, momentum=0.2)
+        self.alpha_optimizer = FxTS_Momentum(
+            self.alpha.parameters(), lr=5e-4, momentum=0.2)
 
         self.n_pos = n_pos
         self.dt = dt

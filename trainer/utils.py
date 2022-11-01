@@ -70,7 +70,7 @@ class Utils(object):
 
         return dsdt
 
-    def nominal_controller(self, state, goal, u_n, dyn, constraints):
+    def nominal_controller(self, state, goal, u_n, dyn):
         """
         args:
             state (n_state,)
@@ -131,7 +131,7 @@ class Utils(object):
             # print(t.toc())
         return u_nominal
 
-    def nominal_controller_batch(self, state, goal, u_n, dyn, constraints):
+    def nominal_controller_batch(self, state, goal, u_n, dyn):
         """
         args:
             state (n_state,)
@@ -222,10 +222,7 @@ class Utils(object):
             u_nominal (m_control,)
         """
         um, ul = self.dyn.control_limits()
-        n_state = self.n_state
         m_control = self.m_control
-        params = self.params
-        j_const = self.j_const
 
         size_Q = m_control + 1
 
@@ -245,8 +242,6 @@ class Utils(object):
         Lf = torch.matmul(grad_h, fx)
 
         if fault_start == 1:
-            # Lg[]
-            # print(Lg.shape)
             Lf = Lf - torch.abs(Lg[0, 0, self.fault_control_index]) * um[self.fault_control_index]
             Lg[0, 0, self.fault_control_index] = 0
 
@@ -262,18 +257,10 @@ class Utils(object):
         A = scipy.sparse.csc.csc_matrix(A)
         u = solve_qp(Q, F, A, B, solver="osqp")
 
-        # print(A)
-        # print(B)
-        # print(u)
-        # print(asasa)
-
         if u is None:
             u_neural = u_nominal.reshape(m_control)
         else:
             u_neural = torch.tensor([u[0:self.m_control]]).reshape(1, m_control)
-            # u = np.array(um.clone()) / 2
-        #     u = u.reshape(1,m_control)
-        # print(u.shape)
 
         return u_neural
 
