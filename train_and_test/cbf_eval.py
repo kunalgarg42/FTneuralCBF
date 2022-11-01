@@ -3,13 +3,18 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+
+sys.path.insert(1, os.path.abspath('..'))
+sys.path.insert(1, os.path.abspath('.'))
+
 from trainer.NNfuncgrad_CF import CBF, NNController_new, alpha_param
 from dynamics.Crazyflie import CrazyFlies
 from trainer.utils_crazy import Utils
 from trainer import config
 
-sys.path.insert(1, os.path.abspath('..'))
 plt.style.use('seaborn-white')
+
+which_data = int(input("Good data (1) or Last data (0): "))
 
 n_state = 12
 m_control = 4
@@ -23,7 +28,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 fault = nominal_params["fault"]
 
-fault_control_index = 0
+fault_control_index = 1
 
 state0 = torch.tensor([[2.0,
                         2.0,
@@ -40,31 +45,59 @@ state0 = torch.tensor([[2.0,
 
 dynamics = CrazyFlies(x=state0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
 util = Utils(n_state=12, m_control=4, j_const=2, dyn=dynamics, dt=dt, params=nominal_params, fault=fault,
-             fault_control_index=0)
+             fault_control_index=fault_control_index)
 
 su, sl = dynamics.state_limits()
 cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=fault, fault_control_index=0)
 nn_controller = NNController_new(n_state=n_state, m_control=m_control)
 alpha = alpha_param(n_state=n_state)
 
-if fault == 0:
-    cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
-    nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
-    alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
-    cbf.eval()
-    nn_controller.eval()
-    alpha.eval()
+if which_data == 0:
+    if fault == 0:
+        cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
+        nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
+        alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
+    else:
+        cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weights.pth'))
+        nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
+        alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
 else:
-    cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weights.pth'))
-    nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
-    alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
-    cbf.eval()
-    nn_controller.eval()
-    alpha.eval()
+    try:
+        if fault == 0:
+            cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weights.pth'))
+            nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
+            alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
+        else:
+            cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weights.pth'))
+            nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
+            alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
+    except:
+        print("No good data available, evaluating on last data")
+        if fault == 0:
+            cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
+            nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
+            alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
+        else:
+            cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weights.pth'))
+            nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
+            alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
+
+cbf.eval()
+nn_controller.eval()
+alpha.eval()
+
 
 safe_m, safe_l = dynamics.safe_limits(su, sl)
 
-u_nominal = torch.zeros(N1 + N2, m_control)
+um, ul = dynamics.control_limits()
+batch_size = N1 + N2
+um = um.reshape(1, m_control).repeat(batch_size, 1)
+ul = ul.reshape(1, m_control).repeat(batch_size, 1)
+
+um = um.type(torch.FloatTensor)
+ul = ul.type(torch.FloatTensor)
+
+# u_nominal = torch.zeros(N1 + N2, m_control)
 
 deriv_safe = 0.0
 safety_rate = 0.0
@@ -90,26 +123,49 @@ for k in range(iterations):
 
     h, grad_h = cbf.V_with_jacobian(state)
 
-    fx = dynamics._f(state, params=nominal_params)
+    # fx = dynamics._f(state, params=nominal_params)
+
+    # gx = dynamics._g(state, params=nominal_params)
+    #
+    # u = nn_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
+    #
+    # dsdt = fx + torch.matmul(gx, u.reshape(N1 + N2, m_control, 1))
+    #
+    # dsdt = torch.reshape(dsdt, (N1 + N2, n_state))
+    #
+    # alpha_p = alpha(state)
+    #
+    # dot_h = torch.matmul(grad_h.reshape(N1 + N2, 1, n_state),
+    #                      dsdt.reshape(N1 + N2, n_state, 1))
+    #
+    # dot_h = dot_h.reshape(N1 + N2, 1)
+    #
+
+    h = h.reshape(N1 + N2, 1)
+
+    # fx = dynamics._f(state, params=nominal_params)
 
     gx = dynamics._g(state, params=nominal_params)
 
-    # u_n = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics, constraints=constraints)
+    # u = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics, constraints=constraints)
 
-    # u_nominal = util.neural_controller(u_n, fx, gx, h, grad_h, fault_start=fault)
+    # u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start=fault)
 
     # u_nominal = u_n.reshape(N1+N2, m_control)
 
-    u = nn_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
+    # u = nn_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
 
-    dsdt = fx + torch.matmul(gx, u.reshape(N1 + N2, m_control, 1))
+    # dsdt = fx + torch.matmul(gx, u.reshape(N1 + N2, m_control, 1))
 
-    dsdt = torch.reshape(dsdt, (N1 + N2, n_state))
+    # dsdt = torch.reshape(dsdt, (N1 + N2, n_state))
 
     alpha_p = alpha(state)
+    alpha_p = alpha_p.reshape(N1 + N2, 1)
 
-    dot_h = torch.matmul(grad_h.reshape(N1 + N2, 1, n_state),
-                         dsdt.reshape(N1 + N2, n_state, 1))
+    # dot_h = torch.matmul(grad_h.reshape(N1 + N2, 1, n_state),
+    #                      dsdt.reshape(N1 + N2, n_state, 1))
+
+    dot_h = util.doth_max(grad_h, gx, um, ul)
 
     dot_h = dot_h.reshape(N1 + N2, 1)
 

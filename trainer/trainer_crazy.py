@@ -31,7 +31,7 @@ class Trainer(object):
                  safe_alpha=0.3,
                  dang_alpha=0.4,
                  action_loss_weight=0.0001,
-                 gpu_id=-1,
+                 gpu_id=0,
                  lr_decay_stepsize=-1,
                  fault=0,
                  fault_control_index=-1):
@@ -232,6 +232,8 @@ class Trainer(object):
 
                 if self.gpu_id >= 0:
                     state = state.cuda(self.gpu_id)
+                    self.cbf.to(torch.device('cuda'))
+                    self.alpha.to(torch.device('cuda'))
 
                 safe_mask, dang_mask, mid_mask = self.get_mask(state)
 
@@ -309,19 +311,30 @@ class Trainer(object):
             # learning rate decay
             self.cbf_lr_scheduler.step()
 
-        return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_alpha_np, loss_deriv_safe_np, loss_deriv_dang_np
+        return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_alpha_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
     def doth_max(self, state, grad_h, um, ul):
         bs = grad_h.shape[0]
 
         gx = self.dyn._g(state, self.params)
         if self.gpu_id >= 0:
-            gx = gx.cuda()
+            gx = gx.cuda(self.gpu_id)
+
         LhG = torch.matmul(grad_h, gx)
 
         sign_grad_h = torch.sign(LhG).reshape(bs, 1, self.m_control)
-        doth = torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)) + \
-                     torch.matmul(1 - sign_grad_h, ul.reshape(bs, self.m_control, 1))
+        if self.fault == 0:
+            doth = torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)) + \
+                   torch.matmul(1 - sign_grad_h, ul.reshape(bs, self.m_control, 1))
+        else:
+            doth = torch.zeros(bs, 1).cuda(self.gpu_id)
+            for i in range(self.m_control):
+                if i == self.fault_control_index:
+                    doth = doth - sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) - \
+                           (1 - sign_grad_h[:, 0, i].reshape(bs, 1)) * ul[:, i].reshape(bs, 1)
+                else:
+                    doth = doth + sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) + \
+                           (1 - sign_grad_h[:, 0, i].reshape(bs, 1)) * ul[:, i].reshape(bs, 1)
 
         return doth.reshape(1, bs)
 

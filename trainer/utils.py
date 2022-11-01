@@ -10,6 +10,7 @@ from scipy.sparse import identity
 from scipy.sparse import vstack, csr_matrix, csc_matrix
 from pytictoc import TicToc
 from trainer.constraints_fw import LfLg_new
+
 # from qpth.qp import QPFunction
 
 t = TicToc()
@@ -362,12 +363,23 @@ class Utils(object):
         return samples
 
     def doth_max(self, grad_h, gx, um, ul):
+
         bs = grad_h.shape[0]
 
         LhG = torch.matmul(grad_h, gx)
 
         sign_grad_h = torch.sign(LhG).reshape(bs, 1, self.m_control)
-        doth = torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)) + \
-                     torch.matmul(1 - sign_grad_h, ul.reshape(bs, self.m_control, 1))
+        if self.fault == 0:
+            doth = torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)) + \
+                   torch.matmul(1 - sign_grad_h, ul.reshape(bs, self.m_control, 1))
+        else:
+            doth = torch.zeros(bs, 1)
+            for i in range(self.m_control):
+                if i == self.fault_control_index:
+                    doth = doth - sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) - \
+                           (1 - sign_grad_h[:, 0, i].reshape(bs, 1)) * ul[:, i].reshape(bs, 1)
+                else:
+                    doth = doth + sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) + \
+                           (1 - sign_grad_h[:, 0, i].reshape(bs, 1)) * ul[:, i].reshape(bs, 1)
 
         return doth.reshape(1, bs)
