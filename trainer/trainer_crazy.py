@@ -238,14 +238,14 @@ class Trainer(object):
 
                 safe_mask, dang_mask, mid_mask = self.get_mask(state)
 
-                h, grad_h = self.cbf.V_with_jacobian(state)
-
-                alpha = self.alpha(state)
-
-                dot_h_max = self.doth_max(state, grad_h, um, ul)
-                if np.mod(k, 2) == 0:
+                if k < 0.5:
+                    h, _ = self.cbf.V_with_jacobian(state)
+                    alpha = eps * torch.ones(1, batch_size).to(device) / 10
                     deriv_cond = torch.ones(1, batch_size).to(device)
                 else:
+                    h, grad_h = self.cbf.V_with_jacobian(state)
+                    alpha = self.alpha(state)
+                    dot_h_max = self.doth_max(state, grad_h, um, ul)
                     deriv_cond = dot_h_max + alpha.reshape(1, batch_size) * h.reshape(1, batch_size)
 
                 num_safe = torch.sum(safe_mask)
