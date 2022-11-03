@@ -5,7 +5,7 @@ POLICY_UPDATE_INTERVAL = 20000
 INIT_STATE_UPDATE = 500
 FAULT_DURATION = EVAL_STEPS / 10
 
-fault = int(input("Fault (1) or pre-fault (0): "))
+fault = 0  # int(input("Fault (1) or pre-fault (0): "))
 
 FIXED_WING_PARAMS = {
     "m": 100.0,

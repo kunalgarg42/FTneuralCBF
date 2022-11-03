@@ -55,13 +55,13 @@ nominal_params = config.FIXED_WING_PARAMS
 fault = nominal_params["fault"]
 print(fault)
 
-init_add = int(input("init data add? (0 -> no, 1 -> yes): "))
+init_add = 1  # int(input("init data add? (0 -> no, 1 -> yes): "))
 print(init_add)
 
-init_param = int(input("use previous weights? (0 -> no, 1 -> yes): "))
+init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 print(init_param)
 
-train_u = int(input("Train only CBF (0) or both CBF and u (1): "))
+train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
 print(train_u)
 
 fault_control_index = 1
@@ -123,6 +123,9 @@ def main():
                       fault_control_index=fault_control_index)
     state = x0
     goal = xg
+
+    loss_np = 1.0
+
     goal = np.array(goal).reshape(1, n_state)
 
     safety_rate = 0.0
@@ -308,7 +311,12 @@ def main():
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
 
             # if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
-            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf(k=i / int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL))
+
+            if loss_np < 0.01:
+                i_train = int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1
+            else:
+                i_train = i
+            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf(k=i_train / int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL))
             print(
                 'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
                 'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_alpha, {:.3f}, loss_deriv_safe, {:.3f}, '
@@ -333,7 +341,7 @@ def main():
                     torch.save(cbf.state_dict(), './good_data/data/FW_cbf_FT_weights.pth')
                     # torch.save(nn_controller.state_dict(), './good_data/data/FW_controller_FT_weights.pth')
                     torch.save(alpha.state_dict(), './good_data/data/FW_alpha_FT_weights.pth')
-            if loss_np < 0.001:
+            if loss_np < 0.001 and i > int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2:
                 break
 
 

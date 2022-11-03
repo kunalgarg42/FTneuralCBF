@@ -89,7 +89,7 @@ class Trainer(object):
         loss_action_np = 0.0
         acc_np = np.zeros((5,), dtype=np.float32)
         print("training")
-        for j in range(10):
+        for _ in range(10):
             for i in range(opt_iter):
                 # t.tic()
                 state, u, u_nominal = self.dataset.sample_data(batch_size, i)
@@ -153,7 +153,8 @@ class Trainer(object):
 
                 loss_action = torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
 
-                loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight  # + loss_limit1 + loss_limit2 + loss_limit3 +
+                loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + \
+                       loss_action * self.action_loss_weight  # + loss_limit1 + loss_limit2 + loss_limit3 +
                 # loss_limit4
 
                 self.controller_optimizer.zero_grad()
@@ -385,7 +386,7 @@ class Trainer(object):
 
         return dsdt
 
-    def nominal_controller(self, state, goal, u_norm_max, dyn, constraints):
+    def nominal_controller(self, state, goal, dyn):
         """
         args:
             state (n_state,)
