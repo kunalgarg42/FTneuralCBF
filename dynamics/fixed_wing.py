@@ -228,28 +228,22 @@ class FixedWing(ControlAffineSystemNew):
         fault = self.params["fault"]
 
         # safe_m, safe_l = self.safe_limits()
-        safe_m = su
-        safe_l = sl
+        safe_m = su * 0.9
+        safe_l = sl * 0.9
 
         if fault == 0:
             safe_alpha = np.pi / 8.0
             safe_alpha_l = - np.pi / 80.0
-            safe_beta = np.pi / 15
             safe_V = 100.0
         else:
             safe_alpha = np.pi / 6.0
             safe_alpha_l = - np.pi / 60.0
-            safe_beta = np.pi / 12
             safe_V = 90.0
         # safe_radius = 3
 
         safe_l[FixedWing.ALPHA] = safe_alpha_l
         safe_l[FixedWing.V] = safe_V
-        # safe_l[FixedWing.BETA] = -safe_beta
         safe_m[FixedWing.ALPHA] = safe_alpha
-        # safe_m[FixedWing.BETA] = safe_beta
-        # safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] <= safe_beta)
-        # safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] >= -safe_beta)
 
         return safe_m, safe_l
 

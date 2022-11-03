@@ -349,18 +349,19 @@ class Utils(object):
 
         return samples
 
-    def doth_max(self, grad_h, gx, um, ul):
+    def doth_max(self, grad_h, fx, gx, um, ul):
 
         bs = grad_h.shape[0]
 
         LhG = torch.matmul(grad_h, gx)
-
+        doth = torch.matmul(grad_h, fx)
         sign_grad_h = torch.sign(LhG).reshape(bs, 1, self.m_control)
+
         if self.fault == 0:
-            doth = torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)) + \
+            doth = doth + torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)) + \
                    torch.matmul(1 - sign_grad_h, ul.reshape(bs, self.m_control, 1))
         else:
-            doth = torch.zeros(bs, 1)
+            # doth = torch.zeros(bs, 1)
             for i in range(self.m_control):
                 if i == self.fault_control_index:
                     doth = doth - sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) - \

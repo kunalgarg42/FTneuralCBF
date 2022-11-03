@@ -9,7 +9,7 @@ sys.path.insert(1, os.path.abspath('.'))
 
 from trainer.NNfuncgrad_CF import CBF, NNController_new, alpha_param
 from dynamics.Crazyflie import CrazyFlies
-from trainer.utils_crazy import Utils
+from trainer.utils import Utils
 from trainer import config
 
 plt.style.use('seaborn-white')
@@ -43,8 +43,8 @@ state0 = torch.tensor([[2.0,
                         np.pi / 40.0,
                         np.pi / 40.0]])
 
-dynamics = CrazyFlies(x=state0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
-util = Utils(n_state=12, m_control=4, j_const=2, dyn=dynamics, dt=dt, params=nominal_params, fault=fault,
+dynamics = CrazyFlies(x=state0, nominal_params=nominal_params)
+util = Utils(n_state=12, m_control=4, j_const=2, dyn=dynamics, params=nominal_params, fault=fault,
              fault_control_index=fault_control_index)
 
 su, sl = dynamics.state_limits()
@@ -123,49 +123,17 @@ for k in range(iterations):
 
     h, grad_h = cbf.V_with_jacobian(state)
 
-    # fx = dynamics._f(state, params=nominal_params)
-
-    # gx = dynamics._g(state, params=nominal_params)
-    #
-    # u = nn_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
-    #
-    # dsdt = fx + torch.matmul(gx, u.reshape(N1 + N2, m_control, 1))
-    #
-    # dsdt = torch.reshape(dsdt, (N1 + N2, n_state))
-    #
-    # alpha_p = alpha(state)
-    #
-    # dot_h = torch.matmul(grad_h.reshape(N1 + N2, 1, n_state),
-    #                      dsdt.reshape(N1 + N2, n_state, 1))
-    #
-    # dot_h = dot_h.reshape(N1 + N2, 1)
-    #
-
     h = h.reshape(N1 + N2, 1)
-
-    # fx = dynamics._f(state, params=nominal_params)
 
     gx = dynamics._g(state, params=nominal_params)
 
-    # u = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics, constraints=constraints)
-
-    # u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start=fault)
-
-    # u_nominal = u_n.reshape(N1+N2, m_control)
-
-    # u = nn_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal, dtype=torch.float32))
-
-    # dsdt = fx + torch.matmul(gx, u.reshape(N1 + N2, m_control, 1))
-
-    # dsdt = torch.reshape(dsdt, (N1 + N2, n_state))
-
-    alpha_p = alpha(state)
+    alpha_p = alpha.forward(state)
     alpha_p = alpha_p.reshape(N1 + N2, 1)
 
     # dot_h = torch.matmul(grad_h.reshape(N1 + N2, 1, n_state),
     #                      dsdt.reshape(N1 + N2, n_state, 1))
 
-    dot_h = util.doth_max(grad_h, gx, um, ul)
+    dot_h = util.doth_max(grad_h, fx, gx, um, ul)
 
     dot_h = dot_h.reshape(N1 + N2, 1)
 

@@ -146,7 +146,7 @@ def main():
                     init_u_nominal = torch.zeros(n_sample, m_control)
                     init_u = util.nominal_controller(init_states, goal, init_u_nominal, dyn=dynamics)
                     init_u = init_u.reshape(n_sample, m_control)
-                    init_unn = nn_controller(torch.tensor(init_states, dtype=torch.float32),
+                    init_unn = nn_controller.forward(torch.tensor(init_states, dtype=torch.float32),
                                              torch.tensor(init_u, dtype=torch.float32))
                     init_unn = torch.tensor(init_unn).reshape(n_sample, m_control)
                     for j in range(n_sample):
@@ -277,22 +277,38 @@ def main():
             else:
                 init_states0 = torch.tensor([]).reshape(0, n_state)
 
-            init_states1 = util.x_samples(sm, sl, config.POLICY_UPDATE_INTERVAL)
+            if np.mod(i, 4) <= 1:
+                init_states1 = util.x_samples(safe_m, safe_l, config.POLICY_UPDATE_INTERVAL)
+            else:
+                init_states1 = util.x_samples(sm, sl, config.POLICY_UPDATE_INTERVAL)
+
+            # init_states2 = util.x_samples(safe_m, safe_l, int(config.POLICY_UPDATE_INTERVAL / 3))
+            #
+            # init_states3 = util.x_samples(safe_l, sl, int(config.POLICY_UPDATE_INTERVAL / 3))
+            #
+            # init_states = torch.vstack((init_states0, init_states1, init_states2, init_states3))
 
             init_states = torch.vstack((init_states0, init_states1))
 
             num_states = init_states.shape[0]
 
-            dataset.add_data(init_states + 10 * torch.randn(num_states, n_state),
+            init_states = init_states + 2 * torch.randn(num_states, n_state)
+
+            init_states = init_states.reshape(num_states, n_state)
+
+            init_states[:, 0] = init_states[:, 0] + 20 * torch.randn(num_states, 1).reshape(num_states)
+
+            dataset.add_data(init_states,
                              torch.tensor([]).reshape(0, m_control), torch.tensor([]).reshape(0, m_control))
 
             is_safe = int(torch.sum(util.is_safe(init_states))) / num_states
 
-            safety_rate = safety_rate * (1 - config.POLICY_UPDATE_INTERVAL / config.TRAIN_STEPS) + \
-                          is_safe * config.POLICY_UPDATE_INTERVAL / config.TRAIN_STEPS
+            # safety_rate = safety_rate * (1 - config.POLICY_UPDATE_INTERVAL / config.TRAIN_STEPS) + \
+            #               is_safe * config.POLICY_UPDATE_INTERVAL / config.TRAIN_STEPS
+            safety_rate = (i * safety_rate + is_safe) / (i + 1)
 
             # if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
-            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf()
+            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf(k=i / int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL))
             print(
                 'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
                 'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_alpha, {:.3f}, loss_deriv_safe, {:.3f}, '

@@ -48,18 +48,18 @@ class Trainer(object):
         self.fault = fault
         self.fault_control_index = fault_control_index
 
-        # self.controller_optimizer = torch.optim.Adam(
-        #     self.controller.parameters(), lr=5e-4, weight_decay=1e-5)
-        # self.cbf_optimizer = torch.optim.Adam(
-        #     self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
-        # self.alpha_optimizer = torch.optim.Adam(
-        #     self.alpha.parameters(), lr=1e-4, weight_decay=1e-5)
-        self.controller_optimizer = FxTS_Momentum(
-            self.controller.parameters(), lr=5e-4, momentum=0.2)
-        self.cbf_optimizer = FxTS_Momentum(
-            self.cbf.parameters(), lr=1e-4, momentum=0.2)
-        self.alpha_optimizer = FxTS_Momentum(
-            self.alpha.parameters(), lr=5e-4, momentum=0.2)
+        self.controller_optimizer = torch.optim.Adam(
+            self.controller.parameters(), lr=5e-4, weight_decay=1e-5)
+        self.cbf_optimizer = torch.optim.Adam(
+            self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
+        self.alpha_optimizer = torch.optim.Adam(
+            self.alpha.parameters(), lr=1e-4, weight_decay=1e-5)
+        # self.controller_optimizer = FxTS_Momentum(
+        #     self.controller.parameters(), lr=5e-4, momentum=0.2)
+        # self.cbf_optimizer = FxTS_Momentum(
+        #     self.cbf.parameters(), lr=1e-4, momentum=0.2)
+        # self.alpha_optimizer = FxTS_Momentum(
+        #     self.alpha.parameters(), lr=5e-4, momentum=0.2)
 
         self.n_pos = n_pos
         self.dt = dt
@@ -204,7 +204,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_alpha_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np, loss_action_np
 
-    def train_cbf(self, batch_size=1000, opt_iter=100, eps=0.1, eps_deriv=0.03, eps_action=0.2):
+    def train_cbf(self, batch_size=1000, opt_iter=100, eps=0.1, eps_deriv=0.03, k=1):
         loss_np = 0.0
         loss_h_safe_np = 0.0
         loss_h_dang_np = 0.0
@@ -224,13 +224,14 @@ class Trainer(object):
             um = um.cuda()
             ul = ul.cuda()
 
-        print("training only CBF")
-        for j in range(10):
+        # print("training only CBF")
+        for _ in range(10):
             for i in range(opt_iter):
                 # t.tic()
                 state, _, _ = self.dataset.sample_data(batch_size, i)
-
+                device = 'cpu'
                 if self.gpu_id >= 0:
+                    device = self.gpu_id
                     state = state.cuda(self.gpu_id)
                     self.cbf.to(torch.device('cuda'))
                     self.alpha.to(torch.device('cuda'))
@@ -242,8 +243,10 @@ class Trainer(object):
                 alpha = self.alpha(state)
 
                 dot_h_max = self.doth_max(state, grad_h, um, ul)
-
-                deriv_cond = dot_h_max + alpha.reshape(1, batch_size) * h.reshape(1, batch_size)
+                if np.mod(k, 2) == 0:
+                    deriv_cond = torch.ones(1, batch_size).to(device)
+                else:
+                    deriv_cond = dot_h_max + alpha.reshape(1, batch_size) * h.reshape(1, batch_size)
 
                 num_safe = torch.sum(safe_mask)
                 num_dang = torch.sum(dang_mask)
@@ -316,18 +319,20 @@ class Trainer(object):
     def doth_max(self, state, grad_h, um, ul):
         bs = grad_h.shape[0]
 
+        fx = self.dyn._f(state, self.params)
+
         gx = self.dyn._g(state, self.params)
         if self.gpu_id >= 0:
+            fx = fx.cuda(self.gpu_id)
             gx = gx.cuda(self.gpu_id)
-
+        doth = torch.matmul(grad_h, fx)
         LhG = torch.matmul(grad_h, gx)
 
         sign_grad_h = torch.sign(LhG).reshape(bs, 1, self.m_control)
         if self.fault == 0:
-            doth = torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)) + \
+            doth = doth + torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)) + \
                    torch.matmul(1 - sign_grad_h, ul.reshape(bs, self.m_control, 1))
         else:
-            doth = torch.zeros(bs, 1).cuda(self.gpu_id)
             for i in range(self.m_control):
                 if i == self.fault_control_index:
                     doth = doth - sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) - \
