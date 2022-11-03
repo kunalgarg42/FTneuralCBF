@@ -4,16 +4,16 @@ aiosignal==1.2.0
 async-timeout==4.0.2
 attrs==22.1.0
 black==21.12b0
-Bottleneck @ file:///opt/conda/conda-bld/bottleneck_1657175564434/work
+Bottleneck==1.3.5
 brotlipy==0.7.0
 brunette==0.2.7
 cachetools==5.2.0
 casadi==3.5.5
-certifi @ file:///opt/conda/conda-bld/certifi_1655968806487/work/certifi
-cffi @ file:///tmp/abs_98z5h56wf8/croots/recipe/cffi_1659598650955/work
+certifi==2022.6.15
+cffi==1.15.1
 charset-normalizer==2.1.1
 click==8.1.3
-cryptography @ file:///croot/cryptography_1665612644927/work
+cryptography==38.0.1
 cvxpy==1.1.13
 cvxpylayers==0.1.5
 cycler==0.11.0
@@ -23,37 +23,38 @@ flake8==5.0.4
 fonttools==4.36.0
 frozenlist==1.3.1
 fsspec==2022.7.1
-future @ file:///tmp/build/80754af9/future_1607571303524/work
+future==0.18.2
 google-auth==2.11.0
 google-auth-oauthlib==0.4.6
 grpcio==1.47.0
 gurobipy==9.1.2
-idna @ file:///croot/idna_1666125576474/work
+idna==3.4
 importlib-metadata==4.12.0
 iniconfig==1.1.1
-Jinja2 @ file:///opt/conda/conda-bld/jinja2_1647436528585/work
-joblib @ file:///croot/joblib_1666298844297/work
+Jinja2==3.0.3
+joblib==1.1.1
 kiwisolver==1.4.4
 Markdown==3.4.1
-MarkupSafe @ file:///opt/conda/conda-bld/markupsafe_1654597864307/work
+MarkupSafe==2.1.1
 matplotlib==3.5.3
 mccabe==0.7.0
 mkl-fft==1.3.1
-mkl-random @ file:///tmp/build/80754af9/mkl_random_1626186066731/work
+mkl-random==1.2.2
 mkl-service==2.4.0
 mpmath==1.2.1
 multidict==6.0.2
 mypy==0.971
 mypy-extensions==0.4.3
-networkx @ file:///opt/conda/conda-bld/networkx_1657784097507/work
-numexpr @ file:///opt/conda/conda-bld/numexpr_1656940300424/work
-numpy @ file:///croot/numpy_and_numpy_base_1665773175172/work
+networkx==2.8.4
+numexpr==2.8.3
+numpy==1.23.3
 oauthlib==3.2.0
 osqp==0.6.2.post5
-packaging @ file:///tmp/build/80754af9/packaging_1637314298585/work
+packaging==21.3
 pandas==1.4.4
 pathspec==0.9.0
 Pillow==9.2.0
+pip==22.1.2
 platformdirs==2.5.2
 pluggy==1.0.0
 protobuf==3.19.4
@@ -62,16 +63,16 @@ pyasn1==0.4.8
 pyasn1-modules==0.2.8
 pybind11==2.10.0
 pycodestyle==2.9.1
-pycparser @ file:///tmp/build/80754af9/pycparser_1636541352034/work
+pycparser==2.21
 pyDeprecate==0.3.2
-pydiffqcqp @ git+https://github.com/quentinll/diffqcqp.git@dce3d8f3a9002b89eec6b90a37462faad07f5a04
+pydiffqcqp==0.0.1
 pyflakes==2.5.0
-pyOpenSSL @ file:///opt/conda/conda-bld/pyopenssl_1643788558760/work
-pyparsing @ file:///opt/conda/conda-bld/pyparsing_1661452539315/work
-PySocks @ file:///tmp/build/80754af9/pysocks_1605305812635/work
+pyOpenSSL==22.0.0
+pyparsing==3.0.9
+PySocks==1.7.1
 pytest==7.1.2
-python-dateutil @ file:///tmp/build/80754af9/python-dateutil_1626374649649/work
-python-louvain @ file:///tmp/build/80754af9/python-louvain_1612304551119/work
+python-dateutil==2.8.2
+python-louvain==0.15
 pytictoc==1.5.2
 pytorch-lightning==1.7.1
 pytz==2022.2.1
@@ -79,15 +80,16 @@ PyYAML==6.0
 qdldl==0.1.5.post2
 qpsolvers==2.2.0
 qpth==0.0.15
-requests @ file:///opt/conda/conda-bld/requests_1657734628632/work
+requests==2.28.1
 requests-oauthlib==1.3.1
 rsa==4.9
-scikit-learn @ file:///croot/scikit-learn_1665482011620/work
+scikit-learn==1.1.2
 scipy==1.9.1
 scs==3.2.0
 seaborn==0.11.2
+setuptools==63.4.1
 Shapely==1.8.4
-six @ file:///tmp/build/80754af9/six_1644875935023/work
+six==1.16.0
 sympy==1.11
 tensorboard==2.10.0
 tensorboard-data-server==0.6.1
@@ -95,16 +97,17 @@ tensorboard-plugin-wit==1.8.1
 threadpoolctl==3.1.0
 tomli==1.2.3
 torch==1.12.1
-torch-cluster @ file:///usr/share/miniconda/envs/test/conda-bld/pytorch-cluster_1647004271317/work
-torch-geometric @ file:///usr/share/miniconda/envs/test/conda-bld/pyg_1647088937677/work
-torch-scatter @ file:///usr/share/miniconda/envs/test/conda-bld/pytorch-scatter_1647238018862/work
-torch-sparse @ file:///usr/share/miniconda/envs/test/conda-bld/pytorch-sparse_1647011454451/work
-torch-spline-conv @ file:///usr/share/miniconda/envs/test/conda-bld/pytorch-spline-conv_1647002426239/work
+torch-cluster==1.6.0
+torch-geometric==2.0.4
+torch-scatter==2.0.9
+torch-sparse==0.6.13
+torch-spline-conv==1.2.1
 torchmetrics==0.10.0
-tqdm @ file:///opt/conda/conda-bld/tqdm_1664392687731/work
-typing_extensions @ file:///tmp/abs_ben9emwtky/croots/recipe/typing_extensions_1659638822008/work
-urllib3 @ file:///croot/urllib3_1666298941550/work
+tqdm==4.64.1
+typing_extensions==4.3.0
+urllib3==1.26.12
 Werkzeug==2.2.2
-yacs @ file:///tmp/build/80754af9/yacs_1634047592950/work
+wheel==0.37.1
+yacs==0.1.6
 yarl==1.8.1
 zipp==3.8.1
