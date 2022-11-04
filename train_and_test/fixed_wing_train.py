@@ -137,6 +137,7 @@ def main():
     safe_m, safe_l = dynamics.safe_limits(sm, sl)
 
     u_nominal = torch.zeros(1, m_control)
+    i_train = 0
     if train_u == 1:
         for i in range(config.TRAIN_STEPS):
             # t.tic()
@@ -280,10 +281,10 @@ def main():
             else:
                 init_states0 = torch.tensor([]).reshape(0, n_state)
 
-            if np.mod(i, 4) <= 1:
-                init_states1 = util.x_samples(safe_m, safe_l, config.POLICY_UPDATE_INTERVAL)
-            else:
-                init_states1 = util.x_samples(sm, sl, config.POLICY_UPDATE_INTERVAL)
+            # if np.mod(i, 4) <= -1:
+            #     init_states1 = util.x_samples(safe_m, safe_l, config.POLICY_UPDATE_INTERVAL)
+            # else:
+            init_states1 = util.x_samples(sm, sl, config.POLICY_UPDATE_INTERVAL)
 
             # init_states2 = util.x_samples(safe_m, safe_l, int(config.POLICY_UPDATE_INTERVAL / 3))
             #
@@ -312,7 +313,7 @@ def main():
 
             # if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
 
-            if loss_np < 0.01:
+            if loss_np < 0.01 or i_train >= i-1:
                 i_train = int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1
             else:
                 i_train = i
@@ -341,7 +342,7 @@ def main():
                     torch.save(cbf.state_dict(), './good_data/data/FW_cbf_FT_weights.pth')
                     # torch.save(nn_controller.state_dict(), './good_data/data/FW_controller_FT_weights.pth')
                     torch.save(alpha.state_dict(), './good_data/data/FW_alpha_FT_weights.pth')
-            if loss_np < 0.001 and i > int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2:
+            if loss_np < 0.001 and i > int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1:
                 break
 
 
