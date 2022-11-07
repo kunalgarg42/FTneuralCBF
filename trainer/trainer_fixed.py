@@ -53,9 +53,9 @@ class Trainer(object):
         self.controller_optimizer = torch.optim.Adam(
             self.controller.parameters(), lr=5e-4, weight_decay=1e-5)
         self.cbf_optimizer = torch.optim.Adam(
-            self.cbf.parameters(), lr=5e-4, weight_decay=1e-5)
+            self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
         self.alpha_optimizer = torch.optim.Adam(
-            self.alpha.parameters(), lr=5e-4, weight_decay=1e-5)
+            self.alpha.parameters(), lr=1e-4, weight_decay=1e-5)
         # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=5e-4, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
@@ -266,8 +266,10 @@ class Trainer(object):
                 loss_alpha = 0.01 * torch.sum(nn.ReLU()(alpha - eps).reshape(1, batch_size) *
                                               safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
 
-                acc_h_safe = torch.sum((h >= 0).float() * safe_mask) / (1e-5 + num_safe)
-                acc_h_dang = torch.sum((h < 0).float() * dang_mask) / (1e-5 + num_dang)
+                acc_h_safe = torch.sum(
+                    (h >= 0).reshape(1, batch_size).float() * safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
+                acc_h_dang = torch.sum(
+                    (h < 0).reshape(1, batch_size).float() * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
                 loss_deriv_safe = torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (

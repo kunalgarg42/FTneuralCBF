@@ -81,9 +81,10 @@ class CBF(nn.Module):
         x_norm = x_norm.reshape(bs, self.n_state)
         su, sl = self.dynamics.state_limits()
         safe_m, safe_l = self.dynamics.safe_limits(su, sl)
-        if x.get_device() == 0:
-            safe_m = safe_m.cuda()
-            safe_l = safe_l.cuda()
+        device_id = x.get_device()
+        if x.get_device() >= 0:
+            safe_m = safe_m.cuda(device_id)
+            safe_l = safe_l.cuda(device_id)
 
         x_norm, x_range = self.normalize(x_norm, safe_m, safe_l)
         x_range = x_range.reshape(self.dynamics.n_dims)

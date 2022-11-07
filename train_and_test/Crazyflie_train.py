@@ -75,40 +75,40 @@ def main():
     alpha = alpha_param(n_state=n_state)
 
     if init_param == 1:
-        # try:
-        #     if fault == 0:
-        #         cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weights.pth'))
-        #         nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
-        #         alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
-        #     else:
-        #         cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weights.pth'))
-        #         nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
-        #         alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
-        #     cbf.eval()
-        #     nn_controller.eval()
-        #     alpha.eval()
-        # except:
         try:
             if fault == 0:
-                cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
-                nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
-                alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
+                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weights.pth'))
+                nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
+                alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
             else:
-                cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weights.pth'))
-                nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
-                alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
+                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weights.pth'))
+                nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
+                alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
             cbf.eval()
             nn_controller.eval()
             alpha.eval()
         except:
-            print("No pre-train data available")
-            # print("No good data available")
+            print("No good data available")
+            try:
+                if fault == 0:
+                    cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
+                    nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
+                    alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
+                else:
+                    cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weights.pth'))
+                    nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
+                    alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
+                cbf.eval()
+                nn_controller.eval()
+                alpha.eval()
+            except:
+                print("No pre-train data available")
 
     dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u)
     trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       n_pos=1,
                       dt=dt, safe_alpha=0.3, dang_alpha=0.4, action_loss_weight=0.001, params=nominal_params,
-                      fault=fault, gpu_id=0,
+                      fault=fault, gpu_id=1,
                       fault_control_index=fault_control_index)
     state = x0
     goal = xg
@@ -236,7 +236,7 @@ def main():
             else:
                 i_train = i
 
-            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf(k=i_train / int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL))
+            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf()
             print(
                 'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
                 'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_alpha, {:.3f}, loss_deriv_safe, {:.3f}, '

@@ -222,8 +222,8 @@ class Trainer(object):
         um = um.type(torch.FloatTensor)
         ul = ul.type(torch.FloatTensor)
         if self.gpu_id >= 0:
-            um = um.cuda()
-            ul = ul.cuda()
+            um = um.cuda(self.gpu_id)
+            ul = ul.cuda(self.gpu_id)
 
         # print("training only CBF")
         for _ in range(10):
@@ -234,8 +234,8 @@ class Trainer(object):
                 if self.gpu_id >= 0:
                     device = self.gpu_id
                     state = state.cuda(self.gpu_id)
-                    self.cbf.to(torch.device('cuda'))
-                    self.alpha.to(torch.device('cuda'))
+                    self.cbf.to(torch.device(self.gpu_id))
+                    self.alpha.to(torch.device(self.gpu_id))
 
                 safe_mask, dang_mask, mid_mask = self.get_mask(state)
 
@@ -261,8 +261,10 @@ class Trainer(object):
                 loss_alpha = torch.sum(nn.ReLU()(alpha - 0.01).reshape(1, batch_size) *
                                        safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
 
-                acc_h_safe = torch.sum((h >= 0).float() * safe_mask) / (1e-5 + num_safe)
-                acc_h_dang = torch.sum((h < 0).float() * dang_mask) / (1e-5 + num_dang)
+                acc_h_safe = torch.sum(
+                    (h >= 0).reshape(1, batch_size).float() * safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
+                acc_h_dang = torch.sum(
+                    (h < 0).reshape(1, batch_size).float() * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
                 loss_deriv_safe = torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
