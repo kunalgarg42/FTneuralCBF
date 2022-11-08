@@ -58,7 +58,7 @@ print(fault)
 init_add = 1  # int(input("init data add? (0 -> no, 1 -> yes): "))
 print(init_add)
 
-init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
+init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 print(init_param)
 
 train_u = 1  # int(input("Train only CBF (0) or both CBF and u (1): "))

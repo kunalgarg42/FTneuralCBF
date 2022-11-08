@@ -114,7 +114,7 @@ class CBF(nn.Module):
                              ((safe_m - safe_l) / 2).reshape(self.n_state, 1))
 
         V_shape = V.shape
-        V = V + V_pre.reshape(V_shape)
+        V = V + 0.0 * V_pre.reshape(V_shape)
 
         # JV_pre = torch.zeros(JV.shape)
 
@@ -124,7 +124,7 @@ class CBF(nn.Module):
         #     JV_pre[:, 0, j] = - x_er[:, 0, j].reshape(bs)
 
         # print(JV.shape)
-        JV = JV + JV_pre
+        JV = JV + 0.0 * JV_pre
         return V, JV
 
     def normalize(self, x: torch.Tensor, x_max, x_min):

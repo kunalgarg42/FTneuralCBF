@@ -144,16 +144,18 @@ class Trainer(object):
                 loss_deriv_safe = torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
                                           1e-5 + num_safe)
-                loss_deriv_dang = torch.sum(
-                    nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
-                                          1e-5 + num_dang)
-                loss_deriv_mid = torch.sum(
+
+                loss_deriv_mid = 0.1 * torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * mid_mask.reshape(1, batch_size)) / (
                                          1e-5 + num_mid)
 
+                loss_deriv_dang = 0.01 * torch.sum(
+                    nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
+                                          1e-5 + num_dang)
+
                 acc_deriv_safe = torch.sum((deriv_cond > 0).reshape(1, batch_size).float() * safe_mask) / (1e-5 + num_safe)
-                acc_deriv_dang = torch.sum((deriv_cond > 0).reshape(1, batch_size).reshape(1, batch_size).float() * dang_mask) / (1e-5 + num_dang)
-                acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
+                acc_deriv_dang = torch.sum((deriv_cond > 0).reshape(1, batch_size).float() * dang_mask) / (1e-5 + num_dang)
+                acc_deriv_mid = torch.sum((deriv_cond > 0).reshape(1, batch_size).float() * mid_mask) / (1e-5 + num_mid)
 
                 loss_action = 0.0 * torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
                 loss_limit = torch.sum(nn.ReLU()(eps - u[:, 0])) / batch_size
