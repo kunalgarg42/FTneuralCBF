@@ -22,9 +22,9 @@ m_control = 4
 fault_control_index = 1
 
 dt = 0.01
-n_sample = 10000
+n_sample = 50000
 N1 = n_sample
-N2 = 10000
+N2 = 50000
 
 nominal_params = config.FIXED_WING_PARAMS
 fault = nominal_params["fault"]
@@ -119,7 +119,7 @@ for k in range(iterations):
     state_bndr = util.x_bndr(safe_m, safe_l, n_sample)
 
     state_bndr = state_bndr.reshape(N1, n_state)
-    state0 = state_bndr + 5 * torch.randn(N1, n_state)
+    state0 = state_bndr + 1 * torch.randn(N1, n_state)
 
     state1 = util.x_samples(su, sl, N2)
     state1 = state1.reshape(N2, n_state)  # + 5 * torch.randn(N2, n_state)
@@ -135,7 +135,7 @@ for k in range(iterations):
 
     h = h.reshape(N1 + N2, 1)
 
-    # fx = dynamics._f(state, params=nominal_params)
+    fx = dynamics._f(state, params=nominal_params)
 
     gx = dynamics._g(state, params=nominal_params)
 
@@ -151,13 +151,13 @@ for k in range(iterations):
 
     # dsdt = torch.reshape(dsdt, (N1 + N2, n_state))
 
-    alpha_p = alpha(state)
+    alpha_p = alpha.forward(state)
     alpha_p = alpha_p.reshape(N1 + N2, 1)
 
     # dot_h = torch.matmul(grad_h.reshape(N1 + N2, 1, n_state),
     #                      dsdt.reshape(N1 + N2, n_state, 1))
 
-    dot_h = util.doth_max(grad_h, gx, um, ul)
+    dot_h = util.doth_max(grad_h, fx, gx, um, ul)
 
     dot_h = dot_h.reshape(N1 + N2, 1)
 

@@ -53,9 +53,9 @@ class Trainer(object):
         self.controller_optimizer = torch.optim.Adam(
             self.controller.parameters(), lr=5e-4, weight_decay=1e-5)
         self.cbf_optimizer = torch.optim.Adam(
-            self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
+            self.cbf.parameters(), lr=5e-4, weight_decay=1e-5)
         self.alpha_optimizer = torch.optim.Adam(
-            self.alpha.parameters(), lr=1e-4, weight_decay=1e-5)
+            self.alpha.parameters(), lr=5e-4, weight_decay=1e-5)
         # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=5e-4, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
@@ -158,7 +158,7 @@ class Trainer(object):
                 acc_deriv_mid = torch.sum((deriv_cond > 0).reshape(1, batch_size).float() * mid_mask) / (1e-5 + num_mid)
 
                 loss_action = 0.0 * torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
-                loss_limit = torch.sum(nn.ReLU()(eps - u[:, 0])) / batch_size
+                loss_limit = 0.0 * torch.sum(nn.ReLU()(eps - u[:, 0])) / batch_size
 
                 loss = loss_h_safe + loss_h_dang + loss_alpha + loss_limit + loss_deriv_safe + loss_deriv_dang + \
                        loss_deriv_mid

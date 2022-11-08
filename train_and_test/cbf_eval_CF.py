@@ -125,6 +125,7 @@ for k in range(iterations):
 
     h = h.reshape(N1 + N2, 1)
 
+    fx = dynamics._f(state, params=nominal_params)
     gx = dynamics._g(state, params=nominal_params)
 
     alpha_p = alpha.forward(state)

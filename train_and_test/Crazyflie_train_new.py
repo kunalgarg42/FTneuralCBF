@@ -129,8 +129,8 @@ def main():
                 init_states0 = torch.tensor([]).reshape(0, n_state)
 
             init_states1 = util.x_samples(sm, sl, n_sample)
-            init_states1 = init_states1.reshape(n_sample, n_state) + torch.normal(mean=(sm + sl) / 2,
-                                                                                  std=torch.ones(n_state))
+            # init_states1 = init_states1.reshape(n_sample, n_state) + torch.normal(mean=(sm + sl) / 2,
+            #                                                                       std=torch.ones(n_state))
             init_states = torch.vstack((init_states0, init_states1))
 
             num_states = init_states.shape[0]
