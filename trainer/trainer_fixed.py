@@ -151,15 +151,15 @@ class Trainer(object):
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * mid_mask.reshape(1, batch_size)) / (
                                          1e-5 + num_mid)
 
-                acc_deriv_safe = torch.sum((deriv_cond > 0).float() * safe_mask) / (1e-5 + num_safe)
-                acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
+                acc_deriv_safe = torch.sum((deriv_cond > 0).reshape(1, batch_size).float() * safe_mask) / (1e-5 + num_safe)
+                acc_deriv_dang = torch.sum((deriv_cond > 0).reshape(1, batch_size).reshape(1, batch_size).float() * dang_mask) / (1e-5 + num_dang)
                 acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
 
                 loss_action = 0.0 * torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
                 loss_limit = torch.sum(nn.ReLU()(eps - u[:, 0])) / batch_size
 
-                loss = loss_h_safe + loss_h_dang + loss_alpha + loss_action * self.action_loss_weight + loss_limit \
-                       + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid
+                loss = loss_h_safe + loss_h_dang + loss_alpha + loss_limit + loss_deriv_safe + loss_deriv_dang + \
+                       loss_deriv_mid
 
                 # print("time in loss setup: ")
                 # print(t.toc())

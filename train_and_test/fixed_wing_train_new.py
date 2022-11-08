@@ -154,7 +154,7 @@ def main():
                 # init_u = util.nominal_controller(init_states, goal, init_u_nominal, dyn=dynamics)
                 # init_u = init_u.reshape(n_sample, m_control)
 
-            init_states1 = util.x_bndr(sm, sl, n_sample)
+            init_states1 = util.x_samples(sm, sl, n_sample)
             init_states1 = init_states1.reshape(n_sample, n_state) + torch.normal(mean=(sm + sl) / 10,
                                                                                     std=torch.ones(n_state))
             init_states = torch.vstack((init_states0, init_states1))
