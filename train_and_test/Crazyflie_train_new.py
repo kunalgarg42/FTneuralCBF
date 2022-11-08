@@ -108,7 +108,7 @@ def main():
     trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       n_pos=1,
                       dt=dt, safe_alpha=0.3, dang_alpha=0.4, action_loss_weight=0.001, params=nominal_params,
-                      fault=fault, gpu_id=1,
+                      fault=fault, gpu_id=0,
                       fault_control_index=fault_control_index)
     loss_np = 1.0
     safety_rate = 0.0
