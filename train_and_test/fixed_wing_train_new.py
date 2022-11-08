@@ -140,7 +140,7 @@ def main():
         i_train = 0
 
         if train_u == 1:
-            for i in range(3):  # range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
+            for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
                 # t.tic()
                 # print(i)
                 # if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
