@@ -74,7 +74,7 @@ t = TicToc()
 
 def main():
     for iter_NN in range(10):
-        t.tic()
+
         print('iteration = ')
         print(iter_NN)
         dynamics = FixedWing(x=x0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
@@ -141,6 +141,7 @@ def main():
 
         if train_u == 1:
             for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
+                t.tic()
                 # t.tic()
                 # print(i)
                 # if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
@@ -225,10 +226,8 @@ def main():
                         torch.save(nn_controller.state_dict(), str_controller)
                         str_alpha = './good_data/data/FW_alpha_FT_weights{}.pth'.format(iter_NN)
                         torch.save(alpha.state_dict(), str_alpha)
-                if loss_np <= 0.002 and i > int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2:
-
+                if loss_np <= 0.003 and i > int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 5:
                     break
-
         else:
             for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
                 if init_add == 1:
