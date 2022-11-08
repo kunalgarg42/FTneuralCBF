@@ -11,8 +11,9 @@ import numpy as np
 
 class CBF(nn.Module):
 
-    def __init__(self, dynamics, n_state, m_control, preprocess_func=None, fault_control_index=1, fault=0):
+    def __init__(self, dynamics, n_state, m_control, iter_NN=0, preprocess_func=None, fault_control_index=1, fault=0):
         super().__init__()
+        # self.iter_NN = iter_NN
         self.n_state = n_state
         self.fault = fault
         self.m_control = m_control
@@ -21,8 +22,15 @@ class CBF(nn.Module):
         self.fault_control_index = fault_control_index
 
         self.n_dims_extended = self.n_state
-        self.cbf_hidden_layers = 3
-        self.cbf_hidden_size = 128
+        if np.mod(iter_NN, 2) == 0:
+            self.cbf_hidden_size = 128
+            self.cbf_hidden_layers = 2 + iter_NN
+        else:
+            self.cbf_hidden_layers = 1 + iter_NN
+            self.cbf_hidden_size = 256
+
+        print(self.cbf_hidden_layers)
+        print(self.cbf_hidden_size)
 
         self.V_layers: OrderedDict[str, nn.Module] = OrderedDict()
 
@@ -47,24 +55,9 @@ class CBF(nn.Module):
         returns:
             h (bs, k_obstacle)
         """
-        # state = torch.unsqueeze(state, 2)    # (bs, n_state, 1)
-        # state_diff = state
-
-        # if self.preprocess_func is not None:
-        #     state_diff = self.preprocess_func(state_diff)
-
-        # x = self.activation(self.conv0(state_diff))
-        # x = self.activation(self.conv1(x))
-        # x = self.activation(self.conv2(x))   # (bs, 128, k_obstacle)
-        # x = self.activation(self.conv3(x))
-        # x = self.conv4(x)
-        # h = torch.squeeze(x, dim=1)          # (bs, k_obstacle)
-
         h, Jh = self.V_with_jacobian(state)
-        # H = torch.tensor(h).reshape(1,1)
-        # JH = torch.tensor(Jh).reshape(1,self.n_state)
         HJH = torch.hstack((h.reshape(1, 1), Jh.reshape(1, self.n_state)))
-        # dh1 = F.conv1d(h,x)
+
         return HJH
 
     def V_with_jacobian(self, x: torch.Tensor):
@@ -109,8 +102,9 @@ class CBF(nn.Module):
 
         x_er = (x.reshape(bs, self.n_state) - (safe_m + safe_l).reshape(1, self.n_state) / 2).reshape(bs, 1,
                                                                                                       self.n_state)
-        V_pre = - 0.5 * torch.matmul(x_er, x_er.reshape(bs, self.n_state, 1)) + \
-                torch.matmul(((safe_m - safe_l) / 2).reshape(1, self.n_state),
+        V_pre = - 0.5 * torch.matmul(x_er,
+                                     x_er.reshape(bs, self.n_state, 1)) + torch.matmul(
+            ((safe_m - safe_l) / 2).reshape(1, self.n_state),
                              ((safe_m - safe_l) / 2).reshape(self.n_state, 1))
 
         V_shape = V.shape
