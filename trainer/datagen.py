@@ -46,11 +46,11 @@ class Dataset_with_Grad(object):
             indices = np.arange(indices_init, indices_end, 1)
 
         s = self.buffer_data_s[indices, :]
-        if self.train_u > 0:
-            u_NN = self.buffer_data_u_NN[indices, :]
-            u = self.buffer_data_u[indices, :]
-            u = np.array(u)
-        else:
-            u_NN = []
-            u = []
+        # if self.train_u > 0:
+        #     u_NN = self.buffer_data_u_NN[indices, :]
+        #     u = self.buffer_data_u[indices, :]
+        #     u = np.array(u)
+        # else:
+        u_NN = []
+        u = []
         return s, u_NN, u

@@ -91,25 +91,26 @@ class Trainer(object):
         loss_action_np = 0.0
         loss_limit_np = 0.0
         acc_np = np.zeros((5,), dtype=np.float32)
-        print("training both CBF and u")
+        # print("training both CBF and u")
         # t.tic()
-        for j in range(10):
+        u_nominal = torch.zeros(batch_size, self.m_control)
+
+        for _ in range(10):
             for i in range(opt_iter):
                 # t.tic()
                 # print(i)
-                state, u, u_nominal = self.dataset.sample_data(batch_size, i)
-                u_nominal = torch.from_numpy(u_nominal)
+                state, _, _ = self.dataset.sample_data(batch_size, i)
 
                 if self.gpu_id >= 0:
                     state = state.cuda(self.gpu_id)
                     u_nominal = u_nominal.cuda(self.gpu_id)
-                    self.cbf.to(torch.device('cuda'))
-                    self.controller.to(torch.device('cuda'))
-                    self.alpha.to(torch.device('cuda'))
+                    self.cbf.to(torch.device(self.gpu_id))
+                    self.controller.to(torch.device(self.gpu_id))
+                    self.alpha.to(torch.device(self.gpu_id))
 
                 safe_mask, dang_mask, mid_mask = self.get_mask(state)
 
-                u = self.controller(state, u_nominal.reshape(batch_size, self.m_control))
+                u = self.controller(state, u_nominal)
                 h, grad_h = self.cbf.V_with_jacobian(state)
                 alpha = self.alpha(state)
 
@@ -135,8 +136,10 @@ class Trainer(object):
                 loss_alpha = 0.01 * torch.sum(nn.ReLU()(alpha - eps).reshape(1, batch_size) *
                                               safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
 
-                acc_h_safe = torch.sum((h >= 0).float() * safe_mask) / (1e-5 + num_safe)
-                acc_h_dang = torch.sum((h < 0).float() * dang_mask) / (1e-5 + num_dang)
+                acc_h_safe = torch.sum(
+                    (h >= 0).reshape(1, batch_size).float() * safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
+                acc_h_dang = torch.sum(
+                    (h < 0).reshape(1, batch_size).float() * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
                 loss_deriv_safe = torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
@@ -152,8 +155,8 @@ class Trainer(object):
                 acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
                 acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
 
-                loss_action = torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
-                loss_limit = torch.sum(nn.ReLU()(eps - u[:, 0]))
+                loss_action = 0.0 * torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
+                loss_limit = torch.sum(nn.ReLU()(eps - u[:, 0])) / batch_size
 
                 loss = loss_h_safe + loss_h_dang + loss_alpha + loss_action * self.action_loss_weight + loss_limit \
                        + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid

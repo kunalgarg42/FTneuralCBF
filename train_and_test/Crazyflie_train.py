@@ -194,13 +194,13 @@ def main():
                         loss_deriv_safe, loss_deriv_dang, loss_deriv_mid))
 
                 if fault == 0:
-                    torch.save(cbf.state_dict(), '../data/CF_cbf_NN_weights.pth')
-                    torch.save(nn_controller.state_dict(), '../data/CF_controller_NN_weights.pth')
-                    torch.save(alpha.state_dict(), '../data/CF_alpha_NN_weights.pth')
+                    torch.save(cbf.state_dict(), './data/CF_cbf_NN_weights.pth')
+                    torch.save(nn_controller.state_dict(), './data/CF_controller_NN_weights.pth')
+                    torch.save(alpha.state_dict(), './data/CF_alpha_NN_weights.pth')
                 else:
-                    torch.save(cbf.state_dict(), '../data/CF_cbf_FT_weights.pth')
-                    torch.save(nn_controller.state_dict(), '../data/CF_controller_FT_weights.pth')
-                    torch.save(alpha.state_dict(), '../data/CF_alpha_FT_weights.pth')
+                    torch.save(cbf.state_dict(), './data/CF_cbf_FT_weights.pth')
+                    torch.save(nn_controller.state_dict(), './data/CF_controller_FT_weights.pth')
+                    torch.save(alpha.state_dict(), './data/CF_alpha_FT_weights.pth')
 
             if done:
                 dist = np.linalg.norm(np.array(state_next, dtype=float) - np.array(goal, dtype=float))
