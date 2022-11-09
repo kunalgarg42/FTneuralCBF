@@ -107,24 +107,23 @@ class CBF(nn.Module):
             elif isinstance(layer, nn.ReLU):
                 JV = torch.matmul(torch.diag_embed(torch.sign(V)), JV)
 
-        x_er = (x.reshape(bs, self.n_state) - (safe_m + safe_l).reshape(1, self.n_state) / 2).reshape(bs, 1,
-                                                                                                      self.n_state)
-        V_pre = - 0.5 * torch.matmul(x_er, x_er.reshape(bs, self.n_state, 1)) + \
-                torch.matmul(((safe_m - safe_l) / 2).reshape(1, self.n_state),
-                             ((safe_m - safe_l) / 2).reshape(self.n_state, 1))
-
-        V_shape = V.shape
-        V = V + 0.0 * V_pre.reshape(V_shape)
-
-        # JV_pre = torch.zeros(JV.shape)
-
-        JV_pre = -x_er.reshape(bs, 1, self.n_state)
-
-        # for j in range(self.n_state):
-        #     JV_pre[:, 0, j] = - x_er[:, 0, j].reshape(bs)
-
-        # print(JV.shape)
-        JV = JV + 0.0 * JV_pre
+        # x_er = (x.reshape(bs, self.n_state) - (safe_m + safe_l).reshape(1, self.n_state) / 2).reshape(bs, 1,
+        #                                                                                               self.n_state)
+        # x_er = x_norm.reshape(bs, 1, self.n_state)
+        # V_pre = 1 - 0.5 * torch.matmul(x_er, x_er.reshape(bs, self.n_state, 1))
+        #
+        # V_shape = V.shape
+        # V = V + V_pre.reshape(V_shape)
+        #
+        # # JV_pre = torch.zeros(JV.shape)
+        #
+        # JV_pre = -x_er.reshape(bs, 1, self.n_state) / x_range.reshape(1, 1, self.n_state)
+        #
+        # # for j in range(self.n_state):
+        # #     JV_pre[:, 0, j] = - x_er[:, 0, j].reshape(bs)
+        #
+        # # print(JV.shape)
+        # JV = JV + JV_pre
         return V, JV
 
     def normalize(self, x: torch.Tensor, x_max, x_min):

@@ -57,11 +57,11 @@ class Trainer(object):
         self.alpha_optimizer = torch.optim.Adam(
             self.alpha.parameters(), lr=5e-4, weight_decay=1e-5)
         # self.controller_optimizer = FxTS_Momentum(
-        #     self.controller.parameters(), lr=5e-4, momentum=0.2)
+        #     self.controller.parameters(), lr=1e-5, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
-        #     self.cbf.parameters(), lr=1e-4, momentum=0.2)
+        #     self.cbf.parameters(), lr=1e-5, momentum=0.2)
         # self.alpha_optimizer = FxTS_Momentum(
-        #     self.alpha.parameters(), lr=5e-4, momentum=0.2)
+        #     self.alpha.parameters(), lr=1e-5, momentum=0.2)
 
         self.n_pos = n_pos
         self.dt = dt
@@ -95,7 +95,12 @@ class Trainer(object):
         # t.tic()
         u_nominal = torch.zeros(batch_size, self.m_control)
 
-        for _ in range(10):
+        for j in range(10):
+            if j < 5:
+                deriv_factor = 0
+            else:
+                deriv_factor = 1
+
             for i in range(opt_iter):
                 # t.tic()
                 # print(i)
@@ -141,15 +146,15 @@ class Trainer(object):
                 acc_h_dang = torch.sum(
                     (h < 0).reshape(1, batch_size).float() * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
-                loss_deriv_safe = torch.sum(
+                loss_deriv_safe = deriv_factor * torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
                                           1e-5 + num_safe)
 
-                loss_deriv_mid = 0.1 * torch.sum(
+                loss_deriv_mid = deriv_factor * 0.1 * torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * mid_mask.reshape(1, batch_size)) / (
                                          1e-5 + num_mid)
 
-                loss_deriv_dang = 0.01 * torch.sum(
+                loss_deriv_dang = deriv_factor * 0.01 * torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
                                           1e-5 + num_dang)
 
@@ -171,7 +176,7 @@ class Trainer(object):
                 self.cbf_optimizer.zero_grad()
                 self.alpha_optimizer.zero_grad()
 
-                loss.backward(retain_graph=True)
+                loss.backward()
 
                 self.controller_optimizer.step()
                 self.cbf_optimizer.step()

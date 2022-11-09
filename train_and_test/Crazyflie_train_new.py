@@ -52,7 +52,7 @@ print(fault)
 init_add = 1  # int(input("init data add? (0 -> no, 1 -> yes): "))
 print(init_add)
 
-init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
+init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 print(init_param)
 
 train_u = 1  # int(input("Train only CBF (0) or both CBF and u (1): "))
@@ -123,13 +123,15 @@ def main():
             # print(i)
             if init_add == 1:
                 init_states0 = util.x_bndr(safe_m, safe_l, n_sample)
-                init_states0 = init_states0.reshape(n_sample, n_state) + torch.normal(mean=(sm + sl) / 10,
+                init_states0 = init_states0.reshape(n_sample, n_state) + 0.1 * torch.normal(mean=(sm + sl) / 2,
                                                                                       std=torch.ones(n_state))
             else:
                 init_states0 = torch.tensor([]).reshape(0, n_state)
 
             init_states1 = util.x_samples(sm, sl, n_sample)
-            # init_states1 = init_states1.reshape(n_sample, n_state) + torch.normal(mean=(sm + sl) / 2,
+            # init_states1 = init_states1.reshape(n_sample, n_state) + torch.randn(n_sample, n_state)
+            # torch.normal(mean=(sm + sl) / 2,
+            #
             #                                                                       std=torch.ones(n_state))
             init_states = torch.vstack((init_states0, init_states1))
 
@@ -149,7 +151,7 @@ def main():
 
             safety_rate = (safety_rate * i + is_safe) / (i + 1)
 
-            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action, loss_limit = trainer.train_cbf_and_controller()
+            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action, loss_limit = trainer.train_cbf_and_controller(eps=0.01)
             print(
                 'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
                 'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_alpha, {:.3f}, loss_deriv_safe, {:.3f}, '
