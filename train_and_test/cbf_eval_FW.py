@@ -57,7 +57,7 @@ util = Utils(n_state=9, m_control=4, j_const=2, dyn=dynamics, dt=dt, params=nomi
 
 su, sl = dynamics.state_limits()
 
-cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=fault, fault_control_index=fault_control_index)
+cbf = CBF(dynamics, n_state=n_state, m_control=m_control, iter_NN=-1, fault=fault, fault_control_index=fault_control_index)
 nn_controller = NNController_new(n_state=9, m_control=4)
 alpha = alpha_param(n_state=9)
 if which_data == 0:

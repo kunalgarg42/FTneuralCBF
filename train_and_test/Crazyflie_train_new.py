@@ -52,7 +52,7 @@ print(fault)
 init_add = 1  # int(input("init data add? (0 -> no, 1 -> yes): "))
 print(init_add)
 
-init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
+init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 print(init_param)
 
 train_u = 1  # int(input("Train only CBF (0) or both CBF and u (1): "))
@@ -173,7 +173,8 @@ def main():
                     torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weights.pth')
                     torch.save(nn_controller.state_dict(), './good_data/data/CF_controller_FT_weights.pth')
                     torch.save(alpha.state_dict(), './good_data/data/CF_alpha_FT_weights.pth')
-
+            if loss_np < 0.001 and i > 50:
+                break
     else:
         for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
             if init_add == 1:

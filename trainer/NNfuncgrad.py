@@ -22,12 +22,16 @@ class CBF(nn.Module):
         self.fault_control_index = fault_control_index
 
         self.n_dims_extended = self.n_state
-        if np.mod(iter_NN, 2) == 0:
+        if iter_NN < 0:
             self.cbf_hidden_size = 128
-            self.cbf_hidden_layers = 2 + iter_NN
+            self.cbf_hidden_layers = 3
         else:
-            self.cbf_hidden_layers = 1 + iter_NN
-            self.cbf_hidden_size = 256
+            if np.mod(iter_NN, 2) == 0:
+                self.cbf_hidden_size = 128
+                self.cbf_hidden_layers = 2 + iter_NN
+            else:
+                self.cbf_hidden_layers = 1 + iter_NN
+                self.cbf_hidden_size = 256
 
         print(self.cbf_hidden_layers)
         print(self.cbf_hidden_size)
