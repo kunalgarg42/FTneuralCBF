@@ -4,6 +4,7 @@
 import torch
 from torch.optim import Optimizer
 
+
 class FxTS_Momentum(Optimizer):
     """ Implements FxTS-GF optimizer with momentum
     
@@ -12,7 +13,8 @@ class FxTS_Momentum(Optimizer):
         betas (tuple of two floats): FxTS beta parameters (b1,b2). Default: (0.9,0.9)
         alphas (tuple of two floats): FxTS alpha parameters (a1,a2). Default: (20,1.98)
     """
-    def __init__(self, params, lr=1e-3, betas=(0.9,0.9), alphas=(2.5,1.95), momentum=0.3):
+
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.9), alphas=(2.5, 1.95), momentum=0.3):
         if lr < 0.0:
             raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
         if betas[0] < 0.0:
@@ -25,14 +27,13 @@ class FxTS_Momentum(Optimizer):
             raise ValueError("Invalid alpha parameter: {} - should be >= in [1.01, 1.99]".format(alphas[1]))
         if not 0.0 < momentum < 0.5:
             raise ValueError("Invalid momentum parameter: {} - should be >= in [0, 0.5]".format(momentum))
-            
+
         defaults = dict(lr=lr, betas=betas, alphas=alphas, momentum=momentum)
         super(FxTS_Momentum, self).__init__(params, defaults)
-        
-    
+
     def __setstate__(self, state):
         super(FxTS_Momentum, self).__setstate__(state)
-        
+
     def step(self, closure=None):
         """ Performs a single optimization step.
         Arguments:
@@ -42,38 +43,41 @@ class FxTS_Momentum(Optimizer):
         loss = None
         if closure is not None:
             loss = closure()
-            
-            
+
         for group in self.param_groups:
-            beta1, beta2   = group['betas']
+            beta1, beta2 = group['betas']
             alpha1, alpha2 = group['alphas']
-            lr             = group['lr']
-            momentum       = group['momentum']
-            
+            lr = group['lr']
+            momentum = group['momentum']
+
             for p in group['params']:
                 if p.grad is None:
                     continue
-                
-                grad      = p.grad.data
-                
+
+                grad = p.grad.data
+
                 state = self.state[p]
                 if len(state) == 0:
                     state['step'] = 0
-                    
+
                     state['v'] = torch.zeros_like(p.data)
-                    
+
                 v = state['v']
                 state['step'] += 1
                 # v = torch.mul(1-lr*momentum,v)
                 # v = torch.mul(lr*momentum,grad) - v
 
-                v.mul_(momentum).add_(1-momentum,grad)
-                
+                v.mul_(momentum).add_(1 - momentum, grad)
+                p1 = 1 - (alpha1 - 2) / (alpha1 - 1)
+                p2 = 1 - (alpha2 - 2) / (alpha2 - 1)
+
                 v_norm = v.norm()
-                factor = beta1/(v_norm ** ((alpha1-2)/(alpha1-1))) + beta2/(v_norm ** ((alpha2-2)/(alpha2-1)))
-                v.mul_(factor)
+                factor = beta1 * v_norm ** p1 + beta2 * v_norm ** p2
+                # factor = beta1 / (v_norm ** ((alpha1 - 2) / (alpha1 - 1))) + beta2 / (
+                #             v_norm ** ((alpha2 - 2) / (alpha2 - 1)))
+                torch.sign(v).mul_(factor)
                 # v = torch.mul(v,factor)
                 # p.data = p.data+torch.mul(-lr,v)
-                p.data.add_(-lr,v)
-                
+                p.data.add_(-lr, v)
+
         return loss

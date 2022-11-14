@@ -73,7 +73,7 @@ t = TicToc()
 
 
 def main():
-    for iter_NN in range(10):
+    for iter_NN in range(4):
 
         print('iteration = ')
         print(iter_NN)
@@ -146,15 +146,11 @@ def main():
                 # print(i)
                 # if np.mod(i, config.INIT_STATE_UPDATE) == 0 and i > 0:
                 if init_add == 1:
-                    # init_u_nominal = torch.zeros(2 * n_sample, m_control)
                     init_states0 = util.x_bndr(safe_m, safe_l, n_sample)
                     init_states0 = init_states0.reshape(n_sample, n_state) + torch.normal(mean=(sm + sl) / 10,
                                                                                           std=torch.ones(n_state))
                 else:
-                    # init_u_nominal = torch.zeros(n_sample, m_control)
                     init_states0 = torch.tensor([]).reshape(0, n_state)
-                    # init_u = util.nominal_controller(init_states, goal, init_u_nominal, dyn=dynamics)
-                    # init_u = init_u.reshape(n_sample, m_control)
 
                 init_states1 = util.x_samples(sm, sl, n_sample)
                 # init_states1 = init_states1.reshape(n_sample, n_state) + torch.normal(mean=(sm + sl) / 10,
@@ -173,12 +169,6 @@ def main():
                         if init_states[j, k] > sm[k] * 2:
                             init_states[j, k] = sm[k].clone()
 
-                    # for k in range(m_control):
-                    #     if init_unn[j, k] < ul[k]:
-                    #         init_unn[j, k] = ul[k].clone()
-                    #     if init_unn[j, k] > um[k]:
-                    #         init_unn[j, k] = um[k].clone()
-
                 dataset.add_data(init_states, torch.tensor([]).reshape(0, m_control),
                                  torch.tensor([]).reshape(0, m_control))
 
@@ -186,16 +176,14 @@ def main():
 
                 safety_rate = (safety_rate * i + is_safe) / (i + 1)
 
-                # done = torch.linalg.norm(state_next.detach().cpu() - goal) < 5
-                # if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
-                loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action, loss_limit = trainer.train_cbf_and_controller()
+                loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf_and_controller()
                 print(
                     'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
                     'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_alpha, {:.3f}, loss_deriv_safe, {:.3f}, '
-                    'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}, loss_action, {:.3f}, loss_limit, {:.3f}, '
+                    'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}, '
                     'time of exec, {:.3f}'.format(
                         i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang, loss_alpha,
-                        loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action, loss_limit, t.tocvalue()))
+                        loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, t.tocvalue()))
 
                 if fault == 0:
                     str_cbf = './data/FW_cbf_NN_weights{}.pth'.format(iter_NN)

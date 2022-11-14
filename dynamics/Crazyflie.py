@@ -165,16 +165,15 @@ class CrazyFlies(ControlAffineSystemNew):
         fault = params["fault"]
 
         if fault == 0:
-            safe_z_l = 3
-            safe_z_u = 4
-            safe_w_u = 2
-            safe_w_l = -2
-
+            safe_z_l = 1
+            safe_z_u = 8
+            safe_w_u = 5
+            safe_w_l = -5
         else:
-            safe_z_l = 1.0
+            safe_z_l = 0.4
             safe_z_u = 10
-            safe_w_u = 2
-            safe_w_l = -2
+            safe_w_u = 6
+            safe_w_l = -6
 
         upper_limit = 0.9 * sm
         lower_limit = 0.9 * sl

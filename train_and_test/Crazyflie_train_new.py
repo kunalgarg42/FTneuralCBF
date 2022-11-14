@@ -55,7 +55,7 @@ print(init_add)
 init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 print(init_param)
 
-train_u = 1  # int(input("Train only CBF (0) or both CBF and u (1): "))
+train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
 print(train_u)
 
 n_sample = 10000
@@ -123,8 +123,8 @@ def main():
             # print(i)
             if init_add == 1:
                 init_states0 = util.x_bndr(safe_m, safe_l, n_sample)
-                init_states0 = init_states0.reshape(n_sample, n_state) + 0.1 * torch.normal(mean=(sm + sl) / 2,
-                                                                                      std=torch.ones(n_state))
+                init_states0 = init_states0.reshape(n_sample, n_state) + 1 * torch.normal(mean=(sm + sl) / 2,
+                                                                                            std=torch.ones(n_state))
             else:
                 init_states0 = torch.tensor([]).reshape(0, n_state)
 
@@ -151,13 +151,14 @@ def main():
 
             safety_rate = (safety_rate * i + is_safe) / (i + 1)
 
-            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action, loss_limit = trainer.train_cbf_and_controller(eps=0.01)
+            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf_and_controller(
+                eps=0.01)
             print(
                 'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
                 'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_alpha, {:.3f}, loss_deriv_safe, {:.3f}, '
-                'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}, loss_action, {:.3f}, loss_limit, {:.3f}'.format(
+                'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}'.format(
                     i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang, loss_alpha,
-                    loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action, loss_limit))
+                    loss_deriv_safe, loss_deriv_dang, loss_deriv_mid))
             if fault == 0:
                 torch.save(cbf.state_dict(), './data/CF_cbf_NN_weights.pth')
                 torch.save(nn_controller.state_dict(), './data/CF_controller_NN_weights.pth')
@@ -175,7 +176,7 @@ def main():
                     torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weights.pth')
                     torch.save(nn_controller.state_dict(), './good_data/data/CF_controller_FT_weights.pth')
                     torch.save(alpha.state_dict(), './good_data/data/CF_alpha_FT_weights.pth')
-            if loss_np < 0.001 and i > 50:
+            if loss_np < 0.001 and i > 150:
                 break
     else:
         for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
@@ -202,7 +203,7 @@ def main():
 
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
 
-            if loss_np < 0.01 or i_train >= i-1:
+            if loss_np < 0.01 or i_train >= i - 1:
                 i_train = int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1
             else:
                 i_train = i
