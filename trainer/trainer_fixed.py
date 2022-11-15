@@ -80,7 +80,10 @@ class Trainer(object):
             self.controller_lr_scheduler = torch.optim.lr_scheduler.StepLR(
                 self.controller_optimizer, step_size=lr_decay_stepsize, gamma=0.5)
 
-    def train_cbf_and_controller(self, batch_size=10000, opt_iter=10, eps=0.1, eps_deriv=0.03):
+    def train_cbf_and_controller(self, iter_NN, eps=0.1, eps_deriv=0.03):
+        batch_size = 4000 + int(iter_NN / 4) * 2000
+
+        opt_iter = int(100000 / batch_size) + 1
         loss_np = 0.0
         loss_h_safe_np = 0.0
         loss_h_dang_np = 0.0

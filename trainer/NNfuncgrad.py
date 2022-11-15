@@ -13,7 +13,6 @@ class CBF(nn.Module):
 
     def __init__(self, dynamics, n_state, m_control, iter_NN=0, preprocess_func=None, fault_control_index=1, fault=0):
         super().__init__()
-        # self.iter_NN = iter_NN
         self.n_state = n_state
         self.fault = fault
         self.m_control = m_control
@@ -23,18 +22,17 @@ class CBF(nn.Module):
 
         self.n_dims_extended = self.n_state
         if iter_NN < 0:
-            self.cbf_hidden_size = 128
             self.cbf_hidden_layers = 3
         else:
-            if np.mod(iter_NN, 2) == 0:
-                self.cbf_hidden_size = 128
-                self.cbf_hidden_layers = 2 + iter_NN
-            else:
-                self.cbf_hidden_layers = 1 + iter_NN
-                self.cbf_hidden_size = 256
+            self.cbf_hidden_layers = 2 + iter_NN
+        self.cbf_hidden_layers = 128
 
-        print(self.cbf_hidden_layers)
-        print(self.cbf_hidden_size)
+        # if np.mod(iter_NN, 2) == 0:
+        #     self.cbf_hidden_size = 128
+        #     self.cbf_hidden_layers = 2 + iter_NN
+        # else:
+        #     self.cbf_hidden_layers = 1 + iter_NN
+        #     self.cbf_hidden_size = 256
 
         self.V_layers: OrderedDict[str, nn.Module] = OrderedDict()
 

@@ -73,16 +73,14 @@ t = TicToc()
 
 
 def main():
-    for iter_NN in range(4):
-
-        print('iteration = ')
-        print(iter_NN)
+    for iter_NN in range(16):
+        NN_layers = np.mod(iter_NN, 4)
         dynamics = FixedWing(x=x0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
         util = Utils(n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics, dt=dt, params=nominal_params,
                      fault=fault,
                      fault_control_index=fault_control_index)
         nn_controller = NNController_new(n_state=n_state, m_control=m_control)
-        cbf = CBF(dynamics, n_state=n_state, m_control=m_control, iter_NN=iter_NN)
+        cbf = CBF(dynamics, n_state=n_state, m_control=m_control, iter_NN=NN_layers)
         alpha = alpha_param(n_state=n_state)
         if init_param == 1:
             try:
@@ -176,7 +174,7 @@ def main():
 
                 safety_rate = (safety_rate * i + is_safe) / (i + 1)
 
-                loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf_and_controller()
+                loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf_and_controller(iter_NN)
                 print(
                     'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
                     'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_alpha, {:.3f}, loss_deriv_safe, {:.3f}, '
