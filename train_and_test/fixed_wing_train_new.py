@@ -2,7 +2,7 @@ import os
 import sys
 import torch
 import numpy as np
-
+import argparse
 sys.path.insert(1, os.path.abspath('..'))
 sys.path.insert(1, os.path.abspath('.'))
 
@@ -53,9 +53,6 @@ m_control = 4
 
 nominal_params = config.FIXED_WING_PARAMS
 
-fault = nominal_params["fault"]
-print(fault)
-
 init_add = 1  # int(input("init data add? (0 -> no, 1 -> yes): "))
 print(init_add)
 
@@ -72,7 +69,8 @@ n_sample = 10000
 t = TicToc()
 
 
-def main():
+def main(args):
+    fault = args.fault
     for iter_NN in range(16):
         NN_layers = np.mod(iter_NN, 4)
         dynamics = FixedWing(x=x0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
@@ -287,4 +285,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-fault', type=int, default=0)
+    args = parser.parse_args()
+    main(args)

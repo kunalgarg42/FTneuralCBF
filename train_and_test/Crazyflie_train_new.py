@@ -2,6 +2,7 @@ import os
 import sys
 import torch
 import numpy as np
+import argparse
 
 sys.path.insert(1, os.path.abspath('..'))
 sys.path.insert(1, os.path.abspath('.'))
@@ -65,7 +66,8 @@ fault = nominal_params["fault"]
 fault_control_index = 1
 
 
-def main():
+def main(args):
+    fault = args.fault
     dynamics = CrazyFlies(x=x0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)
@@ -233,4 +235,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-fault', type=int, default=0)
+    args = parser.parse_args()
+    main(args)
