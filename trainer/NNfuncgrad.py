@@ -25,7 +25,7 @@ class CBF(nn.Module):
             self.cbf_hidden_layers = 3
         else:
             self.cbf_hidden_layers = 2 + iter_NN
-        self.cbf_hidden_layers = 128
+        self.cbf_hidden_size = 128
 
         # if np.mod(iter_NN, 2) == 0:
         #     self.cbf_hidden_size = 128
