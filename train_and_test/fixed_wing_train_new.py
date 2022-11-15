@@ -3,6 +3,7 @@ import sys
 import torch
 import numpy as np
 import argparse
+
 sys.path.insert(1, os.path.abspath('..'))
 sys.path.insert(1, os.path.abspath('.'))
 
@@ -14,7 +15,6 @@ from trainer.trainer_fixed import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad import CBF, alpha_param, NNController_new
 from pytictoc import TicToc
-
 
 # from sympy import symbols, Eq, solve
 
@@ -172,7 +172,8 @@ def main(args):
 
                 safety_rate = (safety_rate * i + is_safe) / (i + 1)
 
-                loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf_and_controller(iter_NN)
+                loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf_and_controller(
+                    iter_NN)
                 print(
                     'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
                     'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_alpha, {:.3f}, loss_deriv_safe, {:.3f}, '
