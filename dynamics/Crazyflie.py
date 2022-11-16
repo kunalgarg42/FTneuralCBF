@@ -211,11 +211,10 @@ class CrazyFlies(ControlAffineSystemNew):
         fault = params["fault"]
 
         if fault == 0:
-            safe_z_l = 3
-            safe_z_u = 4
-            safe_w_u = 2
-            safe_w_l = -2
-
+            safe_z_l = 1
+            safe_z_u = 8
+            safe_w_u = 5
+            safe_w_l = -5
         else:
             safe_z_l = 1.0
             safe_z_u = 10
@@ -246,10 +245,10 @@ class CrazyFlies(ControlAffineSystemNew):
         unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
 
         if fault == 0:
-            unsafe_z_l = 2
-            unsafe_z_u = 5
-            unsafe_w_l = -2.5
-            unsafe_w_u = 2.5
+            unsafe_z_l = 0.5
+            unsafe_z_u = 9
+            unsafe_w_l = -5.5
+            unsafe_w_u = 5.5
         else:
             unsafe_z_l = 0.5
             unsafe_z_u = 12

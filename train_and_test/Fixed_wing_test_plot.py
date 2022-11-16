@@ -118,7 +118,7 @@ def main():
         gx = dynamics._g(state, params=nominal_params)
 
         u_nominal = util.nominal_controller(state=state, goal=goal, u_n=u_nominal, dyn=dynamics,
-                                            constraints=constraints)
+                                            )
         # if fault_start == 0: u_nominal = NN_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(
         # u_nominal, dtype=torch.float32)) else: u_nominal = FT_controller(torch.tensor(state, dtype=torch.float32),
         # torch.tensor(u_nominal, dtype=torch.float32))

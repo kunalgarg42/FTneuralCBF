@@ -3,11 +3,16 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+
+sys.path.insert(1, os.path.abspath('..'))
+sys.path.insert(1, os.path.abspath('.'))
+
 from trainer.NNfuncgrad import CBF
 from dynamics.fixed_wing import FixedWing
 from trainer import config
+from trainer.utils import Utils
 plt.style.use('seaborn-white')
-sys.path.insert(1, os.path.abspath('..'))
+
 
 n_state = 9
 m_control = 4
@@ -16,6 +21,8 @@ dt = 0.01
 nominal_params = config.FIXED_WING_PARAMS
 
 fault = nominal_params["fault"]
+
+fault_control_index = 1
 
 state = torch.tensor([[0.0,
                        0.0,
@@ -28,9 +35,11 @@ state = torch.tensor([[0.0,
                        0.0]])
 
 dynamics = FixedWing(x=state, nominal_params=nominal_params, dt=dt, controller_dt=dt)
+util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
+                 fault_control_index=fault_control_index)
 if fault == 0:
-    NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
-    NN_cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weights.pth'))
+    NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control, iter_NN=4)
+    NN_cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_NN_weights4.pth'))
     NN_cbf.eval()
 else:
     FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
@@ -59,24 +68,33 @@ ylen = y.size
 h_store = torch.zeros((1, zlen))
 state_new = state
 
-hmin = 100
-for j in range(0, xlen):
-    for k in range(0, ylen):
-        state_new[0, 0] = x[j]
-        state_new[0, 2] = y[k]
-        state = torch.vstack((state, state_new))
-        # print(state)
-bs = xlen * ylen + 1
+# hmin = 100
+# for j in range(0, xlen):
+#     for k in range(0, ylen):
+#         state_new[0, 0] = x[j]
+#         state_new[0, 2] = y[k]
+#         state = torch.vstack((state, state_new))
+#         # print(state)
+# bs = xlen * ylen + 1
+#
+# for i in range(0, zlen):
+#     state[:, 1] = torch.ones(bs) * z[i]
+#     if fault == 0:
+#         h, _ = NN_cbf.V_with_jacobian(state.reshape(bs, n_state, 1))
+#     else:
+#         h, _ = FT_cbf.V_with_jacobian(state.reshape(bs, n_state, 1))
+#     hmin = torch.min(h)
+#     h_store[0, i] = hmin
 
-for i in range(0, zlen):
-    state[:, 1] = torch.ones(bs) * z[i]
-    if fault == 0:
-        h, _ = NN_cbf.V_with_jacobian(state.reshape(bs, n_state, 1))
-    else:
-        h, _ = FT_cbf.V_with_jacobian(state.reshape(bs, n_state, 1))
-    hmin = torch.min(h)
-    h_store[0, i] = hmin
+sm, sl = dynamics.state_limits()
 
+states = util.x_samples(sm, sl, 10000)
+z = states[:, 1]
+z_ind = np.argsort(z)
+z = z[z_ind]
+
+h_store, _ = NN_cbf.V_with_jacobian(states)
+h_store = h_store[z_ind]
 # initialize fig
 fig, ax = plt.subplots(1, 1)
 fig.set_size_inches(12, 8)
