@@ -97,6 +97,16 @@ class Trainer(object):
         # t.tic()
         u_nominal = 0.1 * torch.ones(batch_size, self.m_control)
         dang_loss = 1
+        if self.fault == 1:
+            um, ul = self.dyn.control_limits()
+            um = um.reshape(1, self.m_control).repeat(batch_size, 1)
+            ul = ul.reshape(1, self.m_control).repeat(batch_size, 1)
+
+            um = um.type(torch.FloatTensor)
+            ul = ul.type(torch.FloatTensor)
+            if self.gpu_id >= 0:
+                um = um.cuda(self.gpu_id)
+                ul = ul.cuda(self.gpu_id)
 
         for j in range(10):
             # if j<5:
@@ -121,7 +131,7 @@ class Trainer(object):
                 h, grad_h = self.cbf.V_with_jacobian(state)
                 alpha = self.alpha(state)
 
-                dsdt = self.nominal_dynamics(state, u.reshape(batch_size, self.m_control, 1), batch_size)
+                dsdt = self.nominal_dynamics(state, u.reshape(batch_size, self.m_control, 1))
 
                 dsdt = torch.reshape(dsdt, (batch_size, self.n_state))
 
@@ -129,7 +139,18 @@ class Trainer(object):
                                      dsdt.reshape(batch_size, self.n_state, 1))
                 dot_h = dot_h.reshape(batch_size, 1)
 
-                deriv_cond = dot_h + alpha * h
+                if self.fault == 0:
+                    deriv_cond = dot_h + alpha * h
+                else:
+                    gx = self.dyn._g(state, self.params)
+                    LhG = torch.matmul(grad_h, gx)
+                    sign_grad_h = torch.sign(LhG).reshape(batch_size, 1, self.m_control)
+                    doth = - sign_grad_h[:, 0, self.fault_control_index].reshape(batch_size, 1) * \
+                           um[:, self.fault_control_index].reshape(batch_size, 1) - \
+                           (1 - sign_grad_h[:, 0, self.fault_control_index].reshape(batch_size, 1)) * \
+                           ul[:, self.fault_control_index].reshape(batch_size, 1)
+
+                    deriv_cond = dot_h + alpha * h + doth.reshape(batch_size, 1)
 
                 num_safe = torch.sum(safe_mask)
                 num_dang = torch.sum(dang_mask)
@@ -393,7 +414,7 @@ class Trainer(object):
 
         return safe_mask, dang_mask, mid_mask
 
-    def nominal_dynamics(self, state, u, batch_size):
+    def nominal_dynamics(self, state, u):
         """
         args:
             state (n_state,)
@@ -405,11 +426,11 @@ class Trainer(object):
         fx = self.dyn._f(state, self.params)
         gx = self.dyn._g(state, self.params)
 
-        for j in range(self.m_control):
-            if self.fault == 1 and self.fault_control_index == j:
-                u[:, j] = u[:, j].clone().detach().reshape(batch_size, 1)
-            # else:
-            #     u[:, j] = u[:, j].clone().detach().requires_grad_(True).reshape(batch_size, 1)
+        # for j in range(self.m_control):
+        if self.fault == 1:
+            u[:, self.fault_control_index] = 0 * u[:, 0].clone()
+        #     # else:
+        #     #     u[:, j] = u[:, j].clone().detach().requires_grad_(True).reshape(batch_size, 1)
 
         dsdt = fx + torch.matmul(gx, u)
 

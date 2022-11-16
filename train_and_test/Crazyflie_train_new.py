@@ -180,7 +180,7 @@ def main(args):
                     torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weights.pth')
                     torch.save(nn_controller.state_dict(), './good_data/data/CF_controller_FT_weights.pth')
                     torch.save(alpha.state_dict(), './good_data/data/CF_alpha_FT_weights.pth')
-            if loss_np < 0.001 and i > 150:
+            if loss_np < 0.001 and i > 100:
                 break
     else:
         for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
