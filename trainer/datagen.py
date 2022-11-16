@@ -16,6 +16,10 @@ class Dataset_with_Grad(object):
         self.safe_count = 0
         self.mid_count = 0
 
+        # Maintain a list of permuted indices so that we can scramble the data on each
+        # epoch
+        self.permuted_indices = torch.tensor([])
+
     def add_data(self, state, u, u_nominal):
         """
         args:
@@ -33,19 +37,51 @@ class Dataset_with_Grad(object):
         self.buffer_data_u_NN = self.buffer_data_u_NN[-self.buffer_size:]
         self.buffer_data_u = self.buffer_data_u[-self.buffer_size:]
 
+        # Get a new set of permuted indices
+        self.permuted_indices = torch.randperm(self.n_pts)
+
+    @property
+    def n_pts(self):
+        return self.buffer_data_s.shape[0]
+
     def sample_data(self, batch_size, index):
+        """
+        Sample batch_size data points from the data buffers.
+
+        args:
+            batch_size: how many points to sample
+            index: the index of the batch to sample (so that we can sample without
+                replacement)
+        returns:
+            a random selection of batch_size data points, sampled without replacement.
+        """
 
         # s, u_NN, u = self.sample_data_from_buffer(batch_size, self.buffer_data, index)
 
-        indices_init = (index - 1) * batch_size
+        # We'll sample these points by pulling a range of indices from the list of
+        # permuted indices. Start by getting the start and end points of this range
+        indices_init = index * batch_size
+        indices_end = (index + 1) * batch_size
 
-        indices_end = index * batch_size
-        if indices_end > self.buffer_data_s.shape[1]:
-            indices = np.random.randint(len(self.buffer_data_s), size=batch_size)
-        else:
-            indices = np.arange(indices_init, indices_end, 1)
+        # If the end of the range exceeds the number of available data points,
+        # shift both the start and the end back until the batch fits
+        if indices_end > self.n_pts:
+            extra_pts_needed = indices_end - self.n_pts
+            indices_init -= extra_pts_needed
+            indices_end -= extra_pts_needed
 
+        # Get the slice of randomly permuted indices
+        indices = self.permuted_indices[indices_init:indices_end]
+        print(index)
+        print(batch_size)
+        print((indices_init, indices_end))
+        print(indices[:10])
+
+        # Sample data from those indices.
         s = self.buffer_data_s[indices, :]
+
+        # Not sure what's happening here. Looks like we're not sampling control values?
+        # Probably OK since these return values aren't being used.
         # if self.train_u > 0:
         #     u_NN = self.buffer_data_u_NN[indices, :]
         #     u = self.buffer_data_u[indices, :]

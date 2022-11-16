@@ -56,7 +56,7 @@ print(init_add)
 init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 print(init_param)
 
-train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
+train_u = 1  # int(input("Train only CBF (0) or both CBF and u (1): "))
 print(train_u)
 
 n_sample = 10000
@@ -126,7 +126,7 @@ def main(args):
             if init_add == 1:
                 init_states0 = util.x_bndr(safe_m, safe_l, n_sample)
                 init_states0 = init_states0.reshape(n_sample, n_state) + 1 * torch.normal(mean=(sm + sl) / 2,
-                                                                                            std=torch.ones(n_state))
+                                                                                          std=torch.ones(n_state))
             else:
                 init_states0 = torch.tensor([]).reshape(0, n_state)
 

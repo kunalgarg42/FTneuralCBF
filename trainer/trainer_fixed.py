@@ -82,8 +82,7 @@ class Trainer(object):
 
     def train_cbf_and_controller(self, iter_NN=0, eps=0.1, eps_deriv=0.03):
         batch_size = 4000 + int(iter_NN / 4) * 2000
-
-        opt_iter = int(100000 / batch_size) + 1
+        opt_iter = int(self.dataset.n_pts / batch_size)
         loss_np = 0.0
         loss_h_safe_np = 0.0
         loss_h_dang_np = 0.0
