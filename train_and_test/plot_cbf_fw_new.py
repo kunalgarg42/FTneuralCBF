@@ -68,33 +68,33 @@ ylen = y.size
 h_store = torch.zeros((1, zlen))
 state_new = state
 
-# hmin = 100
-# for j in range(0, xlen):
-#     for k in range(0, ylen):
-#         state_new[0, 0] = x[j]
-#         state_new[0, 2] = y[k]
-#         state = torch.vstack((state, state_new))
-#         # print(state)
-# bs = xlen * ylen + 1
+hmin = 100
+for j in range(0, xlen):
+    for k in range(0, ylen):
+        state_new[0, 0] = x[j]
+        state_new[0, 2] = y[k]
+        state = torch.vstack((state, state_new))
+        # print(state)
+bs = xlen * ylen + 1
+
+for i in range(0, zlen):
+    state[:, 1] = torch.ones(bs) * z[i]
+    if fault == 0:
+        h, _ = NN_cbf.V_with_jacobian(state.reshape(bs, n_state, 1))
+    else:
+        h, _ = FT_cbf.V_with_jacobian(state.reshape(bs, n_state, 1))
+    hmin = torch.min(h)
+    h_store[0, i] = hmin
+
+# sm, sl = dynamics.state_limits()
 #
-# for i in range(0, zlen):
-#     state[:, 1] = torch.ones(bs) * z[i]
-#     if fault == 0:
-#         h, _ = NN_cbf.V_with_jacobian(state.reshape(bs, n_state, 1))
-#     else:
-#         h, _ = FT_cbf.V_with_jacobian(state.reshape(bs, n_state, 1))
-#     hmin = torch.min(h)
-#     h_store[0, i] = hmin
-
-sm, sl = dynamics.state_limits()
-
-states = util.x_samples(sm, sl, 10000)
-z = states[:, 1]
-z_ind = np.argsort(z)
-z = z[z_ind]
-
-h_store, _ = NN_cbf.V_with_jacobian(states)
-h_store = h_store[z_ind]
+# states = util.x_samples(sm, sl, 10000)
+# z = states[:, 1]
+# z_ind = np.argsort(z)
+# z = z[z_ind]
+#
+# h_store, _ = NN_cbf.V_with_jacobian(states)
+# h_store = h_store[z_ind]
 # initialize fig
 fig, ax = plt.subplots(1, 1)
 fig.set_size_inches(12, 8)

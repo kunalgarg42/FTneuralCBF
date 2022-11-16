@@ -96,10 +96,12 @@ class Trainer(object):
         # t.tic()
         u_nominal = torch.zeros(batch_size, self.m_control)
         dang_loss = 1
-        deriv_factor = 1
 
         for j in range(10):
-
+            # if j<5:
+            #     deriv_factor = 0
+            # else:
+            deriv_factor = 1
             for i in range(opt_iter):
                 # t.tic()
                 # print(i)
@@ -137,7 +139,7 @@ class Trainer(object):
                 loss_h_dang = dang_loss * torch.sum(
                     nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
-                loss_alpha = 0.01 * torch.sum(nn.ReLU()(alpha - eps).reshape(1, batch_size) *
+                loss_alpha = 0.01 * torch.sum(nn.ReLU()(-alpha + eps).reshape(1, batch_size) *
                                               safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
 
                 acc_h_safe = torch.sum(
@@ -156,6 +158,7 @@ class Trainer(object):
                 loss_deriv_dang = deriv_factor * 0.01 * torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
                                           1e-5 + num_dang)
+
                 # if loss_h_safe > 100 * loss_h_dang:
                 #     loss_h_dang = 0.0 * loss_h_dang
                 #     loss_deriv_mid = 0.0 * loss_deriv_mid

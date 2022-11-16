@@ -72,10 +72,10 @@ class Dataset_with_Grad(object):
 
         # Get the slice of randomly permuted indices
         indices = self.permuted_indices[indices_init:indices_end]
-        print(index)
-        print(batch_size)
-        print((indices_init, indices_end))
-        print(indices[:10])
+        # print(index)
+        # print(batch_size)
+        # print((indices_init, indices_end))
+        # print(indices[:10])
 
         # Sample data from those indices.
         s = self.buffer_data_s[indices, :]

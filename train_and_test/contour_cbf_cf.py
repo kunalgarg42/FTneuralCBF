@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.insert(1, os.path.abspath('..'))
+sys.path.insert(1, os.path.abspath('.'))
 
 import matplotlib.pyplot as plt
 plt.style.use('seaborn-white')
