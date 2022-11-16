@@ -181,7 +181,13 @@ class Trainer(object):
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
                                           1e-5 + num_dang)
                 if train_CF == 1:
-                    loss_action = 10 * torch.sum(nn.ReLU()(0.07 - u)) / batch_size
+                    if self.fault == 0:
+                        loss_action = 10 * torch.sum(nn.ReLU()(0.07 - u)) / batch_size
+                    else:
+                        loss_action = 0.0
+                        for cont_ind in range(self.m_control):
+                            if cont_ind != self.fault_control_index:
+                                loss_action += 10 * torch.sum(nn.ReLU()(0.07 - u[:, cont_ind])) / batch_size
                 else:
                     loss_action = 0 * loss_alpha
 
