@@ -1,25 +1,23 @@
 import os
 import sys
-
-sys.path.insert(1, os.path.abspath('..'))
-sys.path.insert(1, os.path.abspath('.'))
-
 import torch
 import math
 import random
 import numpy as np
+import matplotlib.pyplot as plt
+
+sys.path.insert(1, os.path.abspath('..'))
+sys.path.insert(1, os.path.abspath('.'))
+
 # from dynamics.fixed_wing_dyn import fw_dyn_ext, fw_dyn
 from dynamics.Crazyflie import CrazyFlies
 from trainer import config
 from trainer.constraints_crazy import constraints
-
 from trainer.datagen import Dataset_with_Grad
-from trainer.trainer_crazy import Trainer
+from trainer.trainer_fixed import Trainer
 from trainer.utils import Utils
-
 from trainer.NNfuncgrad_CF import CBF, alpha_param, NNController_new
 
-import matplotlib.pyplot as plt
 
 xg = torch.tensor([[2.0,
                     2.0,
@@ -69,13 +67,18 @@ def main():
     NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
     NN_alpha = alpha_param(n_state=n_state)
 
-    NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
-    NN_cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
-    # NN_alpha.load_state_dict(torch.load('./data/data/CF_alpha_NN_weights.pth'))
+    try:
+        NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
+        NN_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weights.pth'))
+        NN_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
+    except:
+        NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
+        NN_cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
+        NN_alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
 
     NN_cbf.eval()
     NN_controller.eval()
-    # NN_alpha.eval()
+    NN_alpha.eval()
 
     FT_controller = NNController_new(n_state=n_state, m_control=m_control)
     FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
@@ -96,6 +99,7 @@ def main():
     safety_rate = 0.0
     unsafety_rate = 0.0
     h_correct = 0.0
+    dot_h_correct = 0.0
     goal_reached = 0
     num_episodes = 0
     traj_following_error = 0
@@ -117,9 +121,9 @@ def main():
 
     rand_start = random.uniform(1.01, 100)
 
-    fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start)
+    fault_start_epoch = 10000000 + math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
-    u_nominal = torch.zeros(1, m_control)
+    u_nominal = torch.ones(1, m_control)
 
     for i in range(config.EVAL_STEPS):
         # print(i)
@@ -132,17 +136,6 @@ def main():
 
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
-
-        # u_nominal = util.nominal_controller(state = state, goal = goal, u_norm_max = 5, dyn = dynamics, constraints
-        # = constraints)
-        # u_nominal = NN_controller(torch.tensor(state, dtype=torch.float32), torch.tensor(u_nominal,
-        # dtype=torch.float32))
-
-        for j in range(m_control):
-            if u_nominal[0, j] < ul[j]:
-                u_nominal[0, j] = ul[j].clone()
-            if u_nominal[0, j] > um[j]:
-                u_nominal[0, j] = um[j].clone()
 
         if fault_known == 1:
             # 1 -> time-based switching, assumes knowledge of when fault occurs and stops
@@ -160,16 +153,21 @@ def main():
             else:
                 h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
-            u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+            u = NN_controller(state, u_nominal)
+            # u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
             # u = torch.squeeze(u.detach().cpu())
+            u = u.reshape(1, m_control)
+            # print(u)
+
+            # print(asap)
 
             if fault_start == 1:
                 u[fault_control_index] = torch.rand(1) / 4
 
             for j in range(m_control):
-                if u[j] < ul[j]:
+                if u[0, j] < ul[j]:
                     u[j] = ul[j].clone()
-                if u[j] > um[j]:
+                if u[0, j] > um[j]:
                     u[j] = um[j].clone()
 
             u = torch.tensor(u, dtype=torch.float32)
@@ -186,9 +184,9 @@ def main():
                 u[fault_control_index] = torch.rand(1) / 4
 
             for j in range(m_control):
-                if u[j] < ul[j]:
+                if u[0, j] < ul[j]:
                     u[j] = ul[j].clone()
-                if u[j] > um[j]:
+                if u[0, j] > um[j]:
                     u[j] = um[j].clone()
 
             u = torch.tensor(u, dtype=torch.float32)
@@ -205,15 +203,17 @@ def main():
                     u[fault_control_index] = torch.rand(1) / 4
 
                 for j in range(m_control):
-                    if u[j] <= ul[j]:
+                    if u[0, j] <= ul[j]:
                         u[j] = ul[j].clone()
-                    if u[j] >= um[j]:
+                    if u[0, j] >= um[j]:
                         u[j] = um[j].clone()
 
                 u = torch.tensor(u, dtype=torch.float32)
                 gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
                 dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
+
+        dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
 
         u_nominal = u.clone().reshape(1, m_control)
 
@@ -224,6 +224,7 @@ def main():
         safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
         unsafety_rate += is_unsafe / config.EVAL_STEPS
         h_correct += is_safe * int(h >= 0) / config.EVAL_STEPS + is_unsafe * int(h < 0) / config.EVAL_STEPS
+        dot_h_correct += torch.sign(dot_h + NN_alpha(state) * h) / config.EVAL_STEPS
 
         x_pl = np.vstack((x_pl, np.array(state.clone().detach()).reshape(1, n_state)))
         fault_activity = np.vstack((fault_activity, fault_start))
@@ -238,6 +239,7 @@ def main():
     print(safety_rate)
     print(unsafety_rate)
     print(h_correct)
+    print(dot_h_correct)
 
     u1 = u_pl[:, 0]
     u2 = u_pl[:, 1]
