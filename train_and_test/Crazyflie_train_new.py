@@ -76,6 +76,8 @@ def main(args):
               fault_control_index=fault_control_index)
     alpha = alpha_param(n_state=n_state)
 
+    # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
+    # nn_controller.eval()
     if init_param == 1:
         try:
             if fault == 0:
@@ -153,14 +155,14 @@ def main(args):
 
             safety_rate = (safety_rate * i + is_safe) / (i + 1)
 
-            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf_and_controller(
+            loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action = trainer.train_cbf_and_controller(
                 eps=0.01, train_CF=1)
             print(
                 'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
                 'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_alpha, {:.3f}, loss_deriv_safe, {:.3f}, '
-                'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}'.format(
+                'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}, loss_action, {:.3f}'.format(
                     i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang, loss_alpha,
-                    loss_deriv_safe, loss_deriv_dang, loss_deriv_mid))
+                    loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action))
             if fault == 0:
                 torch.save(cbf.state_dict(), './data/CF_cbf_NN_weights.pth')
                 torch.save(nn_controller.state_dict(), './data/CF_controller_NN_weights.pth')

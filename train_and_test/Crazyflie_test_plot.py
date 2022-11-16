@@ -123,7 +123,7 @@ def main():
 
     fault_start_epoch = 10000000 + math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
-    u_nominal = torch.ones(1, m_control)
+    u_nominal = 0.1 * torch.ones(1, m_control)
 
     for i in range(config.EVAL_STEPS):
         # print(i)

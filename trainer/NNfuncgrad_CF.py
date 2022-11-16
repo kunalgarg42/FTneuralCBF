@@ -189,57 +189,6 @@ class alpha_param(nn.Module):
         return alpha
 
 
-class NNController(nn.Module):
-
-    def __init__(self, n_state, m_control, preprocess_func=None, output_scale=1.0):
-        super().__init__()
-        self.n_state = n_state
-        self.k_obstacle = k_obstacle
-        self.m_control = m_control
-        self.preprocess_func = preprocess_func
-
-        self.conv0 = nn.Conv1d(n_state, 64, 1)
-        self.conv1 = nn.Conv1d(64, 128, 1)
-        self.conv2 = nn.Conv1d(128, 128, 1)
-        self.fc0 = nn.Linear(128 + m_control + n_state, 128)
-        self.fc1 = nn.Linear(128, 64)
-        self.fc2 = nn.Linear(64, m_control)
-        self.activation = nn.ReLU()
-        self.output_activation = nn.Tanh()
-        self.output_scale = output_scale
-
-    def forward(self, state, obstacle, u_nominal, state_error):
-        """
-        args:
-            state (bs, n_state)
-            obstacle (bs, k_obstacle, n_state)
-            u_nominal (bs, m_control)
-            state_error (bs, n_state)
-        returns:
-            u (bs, m_control)
-        """
-        state = torch.unsqueeze(state, 2)  # (bs, n_state, 1)
-        # print(state)
-        # print(len(state))
-        obstacle = obstacle.permute(0, 2, 1)  # (bs, n_state, k_obstacle)
-        state_diff = state - obstacle
-
-        if self.preprocess_func is not None:
-            state_diff = self.preprocess_func(state_diff)
-            state_error = self.preprocess_func(state_error)
-
-        x = self.activation(self.conv0(state_diff))
-        x = self.activation(self.conv1(x))
-        x = self.activation(self.conv2(x))  # (bs, 128, k_obstacle)
-        x, _ = torch.max(x, dim=2)  # (bs, 128)
-        x = torch.cat([x, u_nominal, state_error], dim=1)  # (bs, 128 + m_control)
-        x = self.activation(self.fc0(x))
-        x = self.activation(self.fc1(x))
-        x = self.output_activation(self.fc2(x)) * self.output_scale
-        u = x + u_nominal
-        return u
-
-
 class NNController_new(nn.Module):
 
     def __init__(self, n_state, m_control, preprocess_func=None, output_scale=1.0):
@@ -263,17 +212,12 @@ class NNController_new(nn.Module):
         """
         args:
             state (bs, n_state)
-            obstacle (bs, k_obstacle, n_state)
             u_nominal (bs, m_control)
             state_error (bs, n_state)
         returns:
             u (bs, m_control)
         """
         state = torch.unsqueeze(state, 2)  # (bs, n_state, 1)
-        # print(state)
-        # print(len(state))
-        # obstacle = obstacle.permute(0, 2, 1) # (bs, n_state, k_obstacle)
-        # state_diff = state - obstacle
 
         if self.preprocess_func is not None:
             state_diff = self.preprocess_func(state)
@@ -288,7 +232,53 @@ class NNController_new(nn.Module):
         x = self.activation(self.fc1(x))
         x = self.output_activation(self.fc2(x)) * self.output_scale
         x = (x ** 2)
+
+        # print(x[0, :])
         # print(x.shape)
         # print(u_nominal.shape)
-        u = x + u_nominal
+        u = x
         return u
+
+
+class NNController_new2(nn.Module):
+
+    def __init__(self, n_state, m_control, preprocess_func=None):
+        super().__init__()
+        self.n_state = n_state
+        self.m_control = m_control
+        self.preprocess_func = preprocess_func
+
+        self.cbf_hidden_layers = 2
+        self.cbf_hidden_size = 64
+
+        self.V_layers: OrderedDict[str, nn.Module] = OrderedDict()
+
+        self.V_layers["input_linear"] = nn.Linear(
+            self.n_state, self.cbf_hidden_size
+        )
+        self.V_layers["input_activation"] = nn.Tanh()
+        for i in range(self.cbf_hidden_layers):
+            self.V_layers[f"layer_{i}_linear"] = nn.Linear(
+                self.cbf_hidden_size, self.cbf_hidden_size
+            )
+            if i < self.cbf_hidden_layers - 1:
+                self.V_layers[f"layer_{i}_activation"] = nn.Tanh()
+        self.V_layers["output_linear"] = nn.Linear(self.cbf_hidden_size, m_control)
+        self.V_nn = nn.Sequential(self.V_layers)
+
+    def forward(self, x, u_nominal):
+        """
+        args:
+            state (bs, n_state)
+            obstacle (bs, k_obstacle, n_state)
+        returns:
+            h (bs, k_obstacle)
+        """
+
+        # x_norm = torch.unsqueeze(x, 2)  # (bs, n_state, 1)
+        V = x
+
+        for layer in self.V_nn:
+            V = layer(V)
+
+        return V

@@ -51,11 +51,11 @@ class Trainer(object):
         self.fault_control_index = fault_control_index
 
         self.controller_optimizer = torch.optim.Adam(
-            self.controller.parameters(), lr=5e-4, weight_decay=1e-5)
+            self.controller.parameters(), lr=1e-4, weight_decay=1e-5)
         self.cbf_optimizer = torch.optim.Adam(
             self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
         self.alpha_optimizer = torch.optim.Adam(
-            self.alpha.parameters(), lr=5e-4, weight_decay=1e-5)
+            self.alpha.parameters(), lr=1e-4, weight_decay=1e-5)
         # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=1e-5, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
@@ -90,11 +90,12 @@ class Trainer(object):
         loss_deriv_mid_np = 0.0
         loss_deriv_dang_np = 0.0
         loss_alpha_np = 0.0
+        loss_action_np = 0.0
 
         acc_np = np.zeros((5,), dtype=np.float32)
         # print("training both CBF and u")
         # t.tic()
-        u_nominal = torch.zeros(batch_size, self.m_control)
+        u_nominal = 0.1 * torch.ones(batch_size, self.m_control)
         dang_loss = 1
 
         for j in range(10):
@@ -159,13 +160,9 @@ class Trainer(object):
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
                                           1e-5 + num_dang)
                 if train_CF == 1:
-                    loss_action = torch.sum(nn.ReLU()(u - 0.2)) / batch_size
+                    loss_action = 10 * torch.sum(nn.ReLU()(0.07 - u)) / batch_size
                 else:
                     loss_action = 0 * loss_alpha
-                # if loss_h_safe > 100 * loss_h_dang:
-                #     loss_h_dang = 0.0 * loss_h_dang
-                #     loss_deriv_mid = 0.0 * loss_deriv_mid
-                #     loss_deriv_dang = 0.0 * loss_deriv_dang
 
                 acc_deriv_safe = torch.sum(
                     (deriv_cond > 0).reshape(1, batch_size).float() * safe_mask) / (1e-5 + num_safe)
@@ -176,15 +173,24 @@ class Trainer(object):
                 loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + \
                        loss_action
 
-                # print("time in loss setup: ")
-                # print(t.toc())
-                # t.tic()
-
                 self.controller_optimizer.zero_grad()
                 self.cbf_optimizer.zero_grad()
                 self.alpha_optimizer.zero_grad()
 
                 loss.backward()
+
+                # P_grad = 0
+                # for p in self.controller.parameters():
+                #     P_grad += torch.sum(torch.linalg.norm(p.grad))
+                #
+                # # print(self.controller.parameters())
+                # print(P_grad)
+
+                # P_grad = 0
+                # for p in self.alpha.parameters():
+                #     P_grad += torch.sum(torch.linalg.norm(p.grad))
+                #
+                # print(P_grad)
 
                 self.controller_optimizer.step()
                 self.cbf_optimizer.step()
@@ -205,6 +211,7 @@ class Trainer(object):
                 loss_deriv_mid_np += loss_deriv_mid.detach().cpu().numpy()
                 loss_deriv_dang_np += loss_deriv_dang.detach().cpu().numpy()
                 loss_alpha_np += loss_alpha.detach().cpu().numpy()
+                loss_action_np += loss_action.detach().cpu().numpy()
                 # print("reached here")
 
         acc_np /= opt_iter * 10
@@ -215,13 +222,14 @@ class Trainer(object):
         loss_deriv_mid_np /= opt_iter * 10
         loss_deriv_dang_np /= opt_iter * 10
         loss_alpha_np /= opt_iter * 10
+        loss_action_np /= opt_iter * 10
 
         if self.lr_decay_stepsize >= 0:
             # learning rate decay
             self.cbf_lr_scheduler.step()
             # self.controller_lr_scheduler.step()
 
-        return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_alpha_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
+        return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_alpha_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np, loss_action_np
 
     def train_cbf(self, batch_size=1000, opt_iter=100, eps=0.1, eps_deriv=0.03, k=0.6):
         loss_np = 0.0
@@ -400,8 +408,8 @@ class Trainer(object):
         for j in range(self.m_control):
             if self.fault == 1 and self.fault_control_index == j:
                 u[:, j] = u[:, j].clone().detach().reshape(batch_size, 1)
-            else:
-                u[:, j] = u[:, j].clone().detach().requires_grad_(True).reshape(batch_size, 1)
+            # else:
+            #     u[:, j] = u[:, j].clone().detach().requires_grad_(True).reshape(batch_size, 1)
 
         dsdt = fx + torch.matmul(gx, u)
 
