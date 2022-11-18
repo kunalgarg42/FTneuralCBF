@@ -56,7 +56,7 @@ print(init_add)
 init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 print(init_param)
 
-train_u = 1  # int(input("Train only CBF (0) or both CBF and u (1): "))
+train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
 print(train_u)
 
 n_sample = 10000
@@ -189,9 +189,6 @@ def main(args):
             else:
                 init_states0 = torch.tensor([]).reshape(0, n_state)
 
-            # if np.mod(i, 4) <= 1:
-            #     init_states1 = util.x_samples(safe_m, safe_l, config.POLICY_UPDATE_INTERVAL)
-            # else:
             init_states1 = util.x_samples(sm, sl, config.POLICY_UPDATE_INTERVAL)
 
             init_states = torch.vstack((init_states0, init_states1))
@@ -220,19 +217,19 @@ def main(args):
                     i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang, loss_alpha,
                     loss_deriv_safe, loss_deriv_dang, loss_deriv_mid))
             if fault == 0:
-                torch.save(cbf.state_dict(), './data/CF_cbf_NN_weights.pth')
-                torch.save(alpha.state_dict(), './data/CF_alpha_NN_weights.pth')
+                torch.save(cbf.state_dict(), './data/CF_cbf_NN_weightsCBF.pth')
+                torch.save(alpha.state_dict(), './data/CF_alpha_NN_weightsCBF.pth')
             else:
-                torch.save(cbf.state_dict(), './data/CF_cbf_FT_weights.pth')
-                torch.save(alpha.state_dict(), './data/CF_alpha_FT_weights.pth')
+                torch.save(cbf.state_dict(), './data/CF_cbf_FT_weightsCBF.pth')
+                torch.save(alpha.state_dict(), './data/CF_alpha_FT_weightsCBF.pth')
             if loss_np < 0.01:
                 if fault == 0:
-                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_NN_weights.pth')
-                    torch.save(alpha.state_dict(), './good_data/data/CF_alpha_NN_weights.pth')
+                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_NN_weightsCBF.pth')
+                    torch.save(alpha.state_dict(), './good_data/data/CF_alpha_NN_weightsCBF.pth')
                 else:
-                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weights.pth')
-                    torch.save(alpha.state_dict(), './good_data/data/CF_alpha_FT_weights.pth')
-            if loss_np < 0.001 and i > int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1:
+                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weightsCBF.pth')
+                    torch.save(alpha.state_dict(), './good_data/data/CF_alpha_FT_weightsCBF.pth')
+            if loss_np < 0.001 and i > 100:
                 break
 
 

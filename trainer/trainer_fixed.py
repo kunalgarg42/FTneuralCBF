@@ -258,7 +258,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_alpha_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np, loss_action_np
 
-    def train_cbf(self, batch_size=1000, opt_iter=100, eps=0.1, eps_deriv=0.03, k=0.6):
+    def train_cbf(self, batch_size=5000, opt_iter=20, eps=0.1, eps_deriv=0.03):
         loss_np = 0.0
         loss_h_safe_np = 0.0
         loss_h_dang_np = 0.0
@@ -284,49 +284,43 @@ class Trainer(object):
                 # t.tic()
                 # print(i)
                 state, _, _ = self.dataset.sample_data(batch_size, i)
-                device = 'cpu'
                 if self.gpu_id >= 0:
-                    device = self.gpu_id
                     state = state.cuda(self.gpu_id)
                     self.cbf.to(torch.device(self.gpu_id))
                     self.alpha.to(torch.device(self.gpu_id))
 
                 safe_mask, dang_mask, mid_mask = self.get_mask(state)
 
-                if k < 0.5:
-                    h, _ = self.cbf.V_with_jacobian(state)
-                    alpha = eps * torch.ones(1, batch_size).to(device) / 10
-                    deriv_cond = torch.ones(1, batch_size).to(device)
-                else:
-                    h, grad_h = self.cbf.V_with_jacobian(state)
-                    alpha = self.alpha(state)
-                    dot_h_max = self.doth_max(state, grad_h, um, ul)
-                    deriv_cond = dot_h_max + alpha.reshape(1, batch_size) * h.reshape(1, batch_size)
+                h, grad_h = self.cbf.V_with_jacobian(state)
+                alpha = self.alpha(state)
+                dot_h_max = self.doth_max(state, grad_h, um, ul)
+                deriv_cond = dot_h_max + alpha.reshape(1, batch_size) * h.reshape(1, batch_size)
 
                 num_safe = torch.sum(safe_mask)
                 num_dang = torch.sum(dang_mask)
                 num_mid = torch.sum(mid_mask)
-
-                loss_h_safe = torch.sum(
-                    nn.ReLU()(eps - h).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
-                loss_h_dang = torch.sum(
-                    nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
-
-                loss_alpha = 0.01 * torch.sum(nn.ReLU()(alpha - eps).reshape(1, batch_size) *
-                                              safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
 
                 acc_h_safe = torch.sum(
                     (h >= 0).reshape(1, batch_size).float() * safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
                 acc_h_dang = torch.sum(
                     (h < 0).reshape(1, batch_size).float() * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
+                loss_h_safe = 10 * torch.sum(
+                    nn.ReLU()(eps - h).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe) / acc_h_safe.clone().detach()
+
+                loss_h_dang = 10 * torch.sum(
+                    nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang) / acc_h_dang.clone().detach()
+
+                loss_alpha = 0.1 * torch.sum(nn.ReLU()(-alpha + eps).reshape(1, batch_size) *
+                                              safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
+
                 loss_deriv_safe = torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
                                           1e-5 + num_safe)
-                loss_deriv_dang = torch.sum(
+                loss_deriv_dang = 0.01 * torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
                                           1e-5 + num_dang)
-                loss_deriv_mid = torch.sum(
+                loss_deriv_mid = 0.1 * torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * mid_mask.reshape(1, batch_size)) / (
                                          1e-5 + num_mid)
 

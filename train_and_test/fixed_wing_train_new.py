@@ -59,7 +59,7 @@ print(init_add)
 init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 print(init_param)
 
-train_u = 1  # int(input("Train only CBF (0) or both CBF and u (1): "))
+train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
 print(train_u)
 
 fault_control_index = 1
@@ -71,14 +71,14 @@ t = TicToc()
 
 def main(args):
     fault = args.fault
-    for iter_NN in range(16):
+    for iter_NN in range(1):
         NN_layers = np.mod(iter_NN, 4)
         dynamics = FixedWing(x=x0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
         util = Utils(n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics, dt=dt, params=nominal_params,
                      fault=fault,
                      fault_control_index=fault_control_index)
         nn_controller = NNController_new(n_state=n_state, m_control=m_control)
-        cbf = CBF(dynamics, n_state=n_state, m_control=m_control, iter_NN=NN_layers)
+        cbf = CBF(dynamics, n_state=n_state, m_control=m_control, iter_NN=-1)
         alpha = alpha_param(n_state=n_state)
         if init_param == 1:
             try:
@@ -216,30 +216,31 @@ def main(args):
         else:
             for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
                 if init_add == 1:
-                    init_states0 = util.x_bndr(safe_m, safe_l, n_sample)
+                    init_states0 = util.x_samples(safe_m, safe_l, n_sample) + 0 * torch.randn(n_sample, n_state)
+                    # + torch.normal(mean=(sm + sl) / 10, std=torch.ones(n_state))
                 else:
                     init_states0 = torch.tensor([]).reshape(0, n_state)
 
+                # print(torch.sum(util.is_safe(init_states0)) / n_sample)
                 # if np.mod(i, 4) <= -1:
                 #     init_states1 = util.x_samples(safe_m, safe_l, config.POLICY_UPDATE_INTERVAL)
                 # else:
                 init_states1 = util.x_samples(sm, sl, config.POLICY_UPDATE_INTERVAL)
 
-                # init_states2 = util.x_samples(safe_m, safe_l, int(config.POLICY_UPDATE_INTERVAL / 3))
-                #
-                # init_states3 = util.x_samples(safe_l, sl, int(config.POLICY_UPDATE_INTERVAL / 3))
-                #
-                # init_states = torch.vstack((init_states0, init_states1, init_states2, init_states3))
-
                 init_states = torch.vstack((init_states0, init_states1))
 
                 num_states = init_states.shape[0]
 
-                init_states = init_states + 5 * torch.randn(num_states, n_state)
+                # init_states = init_states + 10 * torch.randn(num_states, n_state)
 
                 init_states = init_states.reshape(num_states, n_state)
 
-                # init_states[:, 0] = init_states[:, 0] + 5 * torch.randn(num_states, 1).reshape(num_states)
+                # for j in range(num_states):
+                #     for k in range(n_state):
+                #         if init_states[j, k] < sl[k] * 0.5:
+                #             init_states[j, k] = sl[k].clone()
+                #         if init_states[j, k] > sm[k] * 2:
+                #             init_states[j, k] = sm[k].clone()
 
                 dataset.add_data(init_states,
                                  torch.tensor([]).reshape(0, m_control), torch.tensor([]).reshape(0, m_control))
@@ -263,25 +264,24 @@ def main(args):
                     'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}, '.format(
                         i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang, loss_alpha,
                         loss_deriv_safe, loss_deriv_dang, loss_deriv_mid))
-                # print(asas)
                 if fault == 0:
-                    torch.save(cbf.state_dict(), './data/FW_cbf_NN_weights.pth')
+                    torch.save(cbf.state_dict(), './data/FW_cbf_NN_weightsCBF.pth')
                     # torch.save(nn_controller.state_dict(), './data/FW_controller_NN_weights.pth')
-                    torch.save(alpha.state_dict(), './data/FW_alpha_NN_weights.pth')
+                    torch.save(alpha.state_dict(), './data/FW_alpha_NN_weightsCBF.pth')
                 else:
-                    torch.save(cbf.state_dict(), './data/FW_cbf_FT_weights.pth')
+                    torch.save(cbf.state_dict(), './data/FW_cbf_FT_weightsCBF.pth')
                     # torch.save(nn_controller.state_dict(), './data/FW_controller_FT_weights.pth')
-                    torch.save(alpha.state_dict(), './data/FW_alpha_FT_weights.pth')
+                    torch.save(alpha.state_dict(), './data/FW_alpha_FT_weightsCBF.pth')
                 if loss_np < 0.01:
                     if fault == 0:
-                        torch.save(cbf.state_dict(), './good_data/data/FW_cbf_NN_weights.pth')
+                        torch.save(cbf.state_dict(), './good_data/data/FW_cbf_NN_weightsCBF.pth')
                         # torch.save(nn_controller.state_dict(), './good_data/data/FW_controller_NN_weights.pth')
-                        torch.save(alpha.state_dict(), './good_data/data/FW_alpha_NN_weights.pth')
+                        torch.save(alpha.state_dict(), './good_data/data/FW_alpha_NN_weightsCBF.pth')
                     else:
-                        torch.save(cbf.state_dict(), './good_data/data/FW_cbf_FT_weights.pth')
+                        torch.save(cbf.state_dict(), './good_data/data/FW_cbf_FT_weightsCBF.pth')
                         # torch.save(nn_controller.state_dict(), './good_data/data/FW_controller_FT_weights.pth')
-                        torch.save(alpha.state_dict(), './good_data/data/FW_alpha_FT_weights.pth')
-                if loss_np < 0.001 and i > int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1:
+                        torch.save(alpha.state_dict(), './good_data/data/FW_alpha_FT_weightsCBF.pth')
+                if loss_np < 0.001 and i > 100:
                     break
 
 

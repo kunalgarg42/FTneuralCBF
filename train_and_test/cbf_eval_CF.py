@@ -26,7 +26,7 @@ N2 = 10000
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
-fault = nominal_params["fault"]
+fault = 1 # nominal_params["fault"]
 
 fault_control_index = 1
 
@@ -109,7 +109,7 @@ iterations = 10
 
 for k in range(iterations):
     # print(k)
-    state_bndr = util.x_bndr(safe_m, safe_l, n_sample)
+    state_bndr = util.x_samples(su, sl, n_sample)
 
     state_bndr = state_bndr.reshape(N1, n_state)
 

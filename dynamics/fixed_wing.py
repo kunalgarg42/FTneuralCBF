@@ -257,12 +257,12 @@ class FixedWing(ControlAffineSystemNew):
         fault = params["fault"]
 
         if fault == 0:
-            unsafe_alpha = np.pi / 7.5
-            unsafe_alpha_l = - np.pi / 70.0
-            unsafe_V = 90.0
+            unsafe_alpha = np.pi / 5
+            unsafe_alpha_l = - np.pi / 10.0
+            unsafe_V = 80.0
         else:
-            unsafe_alpha = np.pi / 5.5
-            unsafe_alpha_l = - np.pi / 50.0
+            unsafe_alpha = np.pi / 5
+            unsafe_alpha_l = - np.pi / 10.0
             unsafe_V = 80.0
 
         unsafe_mask = torch.logical_or(

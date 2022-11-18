@@ -19,9 +19,22 @@ from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, alpha_param, NNController_new
 
 
-xg = torch.tensor([[2.0,
+xg = torch.tensor([[0.0,
+                    0.0,
+                    3.5,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0]])
+
+x0 = torch.tensor([[2.0,
                     2.0,
-                    4.0,
+                    3.1,
                     0.0,
                     0.0,
                     0.0,
@@ -31,21 +44,7 @@ xg = torch.tensor([[2.0,
                     0.0,
                     0.0,
                     0.0]])
-
-x0 = torch.tensor([[0.0,
-                    0.0,
-                    4.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0]])
-
-dt = 0.01
+dt = 0.001
 n_state = 12
 m_control = 4
 fault = 0
@@ -53,7 +52,7 @@ fault = 0
 nominal_params = config.CRAZYFLIE_PARAMS
 
 fault_control_index = 1
-fault_duration = 0
+fault_duration = config.FAULT_DURATION
 
 fault_known = 1
 
@@ -61,7 +60,7 @@ fault_known = 1
 def main():
     dynamics = CrazyFlies(x=x0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
-                 fault_control_index=fault_control_index)
+                 fault_control_index=fault_control_index, j_const=2)
 
     NN_controller = NNController_new(n_state=n_state, m_control=m_control)
     NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
@@ -82,27 +81,23 @@ def main():
 
     FT_controller = NNController_new(n_state=n_state, m_control=m_control)
     FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
-    # FT_alpha = alpha_param(n_state=n_state)
+    FT_alpha = alpha_param(n_state=n_state)
 
-    FT_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
-    FT_cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weights.pth'))
-    # FT_alpha.load_state_dict(torch.load('./data/data/CF_alpha_FT_weights.pth'))
+    FT_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
+    FT_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weights.pth'))
+    FT_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
 
     FT_cbf.eval()
     FT_controller.eval()
-    # FT_alpha.eval()
+    FT_alpha.eval()
 
     state = x0
     goal = xg
-    goal = np.array(goal).reshape(1, n_state)
 
     safety_rate = 0.0
     unsafety_rate = 0.0
     h_correct = 0.0
     dot_h_correct = 0.0
-    goal_reached = 0
-    num_episodes = 0
-    traj_following_error = 0
     epsilon = 0.1
 
     um, ul = dynamics.control_limits()
@@ -110,6 +105,7 @@ def main():
     ul = 0 * ul
 
     sm, sl = dynamics.state_limits()
+    safe_m, safe_l = dynamics.safe_limits(sm, sl)
 
     x_pl = np.array(state).reshape(1, n_state)
     fault_activity = np.array([0])
@@ -123,15 +119,15 @@ def main():
 
     fault_start_epoch = 10000000 + math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
-    u_nominal = 0.1 * torch.ones(1, m_control)
+    u_nominal = 0.05 * torch.ones(1, m_control)
 
     for i in range(config.EVAL_STEPS):
         # print(i)
 
         for j in range(n_state):
-            if state[0, j] < 0.5 * sl[j]:
+            if state[0, j] < sl[j]:
                 state[0, j] = sl[j].clone()
-            if state[0, j] > 2 * sm[j]:
+            if state[0, j] > sm[j]:
                 state[0, j] = sm[j].clone()
 
         fx = dynamics._f(state, params=nominal_params)
@@ -153,22 +149,24 @@ def main():
             else:
                 h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
-            u = NN_controller(state, u_nominal)
-            # u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
-            # u = torch.squeeze(u.detach().cpu())
-            u = u.reshape(1, m_control)
-            # print(u)
+            h_nom = - torch.sum((state - (safe_m + safe_l) / 2) ** 2 + ((safe_m - safe_l) / 2) ** 2)
+            h_nom = h_nom.reshape(1, 1)
+            grad_h_nom = - 2 * (state - (sm + sl) / 2).reshape(1, 1, n_state)
 
-            # print(asap)
+            u_nominal = util.neural_controller(u_nominal, fx, gx, h_nom, grad_h_nom, fault_start)
+            # u_nominal = util.nominal_controller(state, goal, u_nominal, dynamics)
+            u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+            # u = NN_controller(state, torch.tensor(u_nominal, dtype=torch.float32))
+            u = u.reshape(1, m_control)
 
             if fault_start == 1:
-                u[fault_control_index] = torch.rand(1) / 4
+                u[0, fault_control_index] = torch.rand(1) / 4
 
             for j in range(m_control):
                 if u[0, j] < ul[j]:
-                    u[j] = ul[j].clone()
+                    u[0, j] = ul[j].clone()
                 if u[0, j] > um[j]:
-                    u[j] = um[j].clone()
+                    u[0, j] = um[j].clone()
 
             u = torch.tensor(u, dtype=torch.float32)
             gxu = torch.matmul(gx, u.reshape(m_control, 1))
@@ -177,8 +175,8 @@ def main():
 
         else:
             h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
-            u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
-            # u = torch.squeeze(u.detach().cpu())
+            u = NN_controller(state, u_nominal)
+            u = util.neural_controller(u, fx, gx, h, grad_h, fault_start)
 
             if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
                 u[fault_control_index] = torch.rand(1) / 4
@@ -197,7 +195,8 @@ def main():
             dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
             if dot_h < epsilon:
                 h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
-                u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+                u = FT_controller(state, u_nominal)
+                u = util.neural_controller(u, fx, gx, h, grad_h, fault_start)
                 u = torch.squeeze(u.detach().cpu())
                 if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
                     u[fault_control_index] = torch.rand(1) / 4
@@ -214,8 +213,8 @@ def main():
                 dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
         dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
-
-        u_nominal = u.clone().reshape(1, m_control)
+        # print(u)
+        # u_nominal = u.clone().reshape(1, m_control)
 
         state_next = state + dx * dt
 
@@ -224,7 +223,7 @@ def main():
         safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
         unsafety_rate += is_unsafe / config.EVAL_STEPS
         h_correct += is_safe * int(h >= 0) / config.EVAL_STEPS + is_unsafe * int(h < 0) / config.EVAL_STEPS
-        dot_h_correct += torch.sign(dot_h + NN_alpha(state) * h) / config.EVAL_STEPS
+        dot_h_correct += torch.sign(dot_h.clone().detach().cpu() + NN_alpha(state).detach().cpu() * h.detach().cpu()) / config.EVAL_STEPS
 
         x_pl = np.vstack((x_pl, np.array(state.clone().detach()).reshape(1, n_state)))
         fault_activity = np.vstack((fault_activity, fault_start))
@@ -232,7 +231,7 @@ def main():
         h_pl = np.vstack((h_pl, np.array(h.clone().detach()).reshape(1, 1)))
 
         state = state_next.clone()
-
+        # print('h, {}, dot_h, {}'.format(h.detach().cpu().numpy()[0][0], dot_h.detach().cpu().numpy()[0][0]))
     time_pl = np.arange(0., dt * config.EVAL_STEPS + dt, dt)
 
     z_pl = x_pl[:, 2]

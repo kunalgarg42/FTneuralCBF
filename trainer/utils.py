@@ -112,6 +112,7 @@ class Utils(object):
 
             A = torch.hstack((- Lg, - V))
             B = Lf
+
             assert not A.is_cuda
 
             G = scipy.sparse.csc.csc_matrix(A)
@@ -353,21 +354,22 @@ class Utils(object):
 
         bs = grad_h.shape[0]
 
-        LhG = torch.matmul(grad_h, gx)
         doth = torch.matmul(grad_h, fx)
+        # doth = doth.reshape(bs, 1)
+        LhG = torch.matmul(grad_h, gx)
+
         sign_grad_h = torch.sign(LhG).reshape(bs, 1, self.m_control)
 
         if self.fault == 0:
             doth = doth + torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)) + \
                    torch.matmul(1 - sign_grad_h, ul.reshape(bs, self.m_control, 1))
         else:
-            # doth = torch.zeros(bs, 1)
             for i in range(self.m_control):
                 if i == self.fault_control_index:
-                    doth = doth - sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) - \
+                    doth = doth.reshape(bs, 1) - sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) - \
                            (1 - sign_grad_h[:, 0, i].reshape(bs, 1)) * ul[:, i].reshape(bs, 1)
                 else:
-                    doth = doth + sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) + \
+                    doth = doth.reshape(bs, 1) + sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) + \
                            (1 - sign_grad_h[:, 0, i].reshape(bs, 1)) * ul[:, i].reshape(bs, 1)
 
         return doth.reshape(1, bs)
