@@ -306,10 +306,10 @@ class Trainer(object):
                     (h < 0).reshape(1, batch_size).float() * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
                 loss_h_safe = 10 * torch.sum(
-                    nn.ReLU()(eps - h).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe) / acc_h_safe.clone().detach()
+                    nn.ReLU()(eps - h).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe) / (acc_h_safe.clone().detach() + 1e-5)
 
                 loss_h_dang = 10 * torch.sum(
-                    nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang) / acc_h_dang.clone().detach()
+                    nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang) / (acc_h_dang.clone().detach() + 1e-5)
 
                 loss_alpha = 0.1 * torch.sum(nn.ReLU()(-alpha + eps).reshape(1, batch_size) *
                                               safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
