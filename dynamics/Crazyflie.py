@@ -63,11 +63,11 @@ class CrazyFlies(ControlAffineSystemNew):
     F_4 = 3
 
     def __init__(
-        self,
-        x: torch.Tensor,
-        nominal_params,
-        dt: float = 0.01,
-        controller_dt: Optional[float] = None,
+            self,
+            x: torch.Tensor,
+            nominal_params,
+            dt: float = 0.01,
+            controller_dt: Optional[float] = None,
     ):
         self.x = x
         self.params = nominal_params
@@ -136,10 +136,10 @@ class CrazyFlies(ControlAffineSystemNew):
         upper_limit = torch.ones(self.n_dims)
         upper_limit[CrazyFlies.X] = 15.0
         upper_limit[CrazyFlies.Y] = 15.0
-        upper_limit[CrazyFlies.Z] = 10.0
+        upper_limit[CrazyFlies.Z] = 12.0
         upper_limit[CrazyFlies.U] = 10.0
         upper_limit[CrazyFlies.V] = 10.0
-        upper_limit[CrazyFlies.W] = 10.0
+        upper_limit[CrazyFlies.W] = 15.0
         upper_limit[CrazyFlies.PSI] = np.pi / 3.0
         upper_limit[CrazyFlies.THETA] = np.pi / 3.0
         upper_limit[CrazyFlies.PHI] = np.pi / 3.0
@@ -212,16 +212,16 @@ class CrazyFlies(ControlAffineSystemNew):
 
         if fault == 0:
             safe_z_l = 1
-            safe_z_u = 8
+            safe_z_u = 5
             safe_w_u = 5
             safe_w_l = -5
         else:
-            safe_z_l = 1.0
-            safe_z_u = 10
-            safe_w_u = 2
-            safe_w_l = -2
+            safe_z_l = 0.5
+            safe_z_u = 6
+            safe_w_u = 7
+            safe_w_l = -7
 
-        safe_mask = torch.logical_and(x[:, CrazyFlies.Z] >= safe_z_l, x[:,CrazyFlies.Z] <= safe_z_u)
+        safe_mask = torch.logical_and(x[:, CrazyFlies.Z] >= safe_z_l, x[:, CrazyFlies.Z] <= safe_z_u)
         # safe_mask.logical_and_(x[:,CrazyFlies.PHI] <= safe_angle)
         # safe_mask.logical_and_(x[:,CrazyFlies.PHI] >= -safe_angle)
         # safe_mask.logical_and_(x[:,CrazyFlies.THETA] <= safe_angle)
@@ -245,17 +245,17 @@ class CrazyFlies(ControlAffineSystemNew):
         unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
 
         if fault == 0:
-            unsafe_z_l = 0.5
-            unsafe_z_u = 9
-            unsafe_w_l = -5.5
-            unsafe_w_u = 5.5
+            unsafe_z_l = 0.1
+            unsafe_z_u = 7.5
+            unsafe_w_l = -7.5
+            unsafe_w_u = 7.5
         else:
-            unsafe_z_l = 0.5
-            unsafe_z_u = 12
-            unsafe_w_l = -2.5
-            unsafe_w_u = 2.5
+            unsafe_z_l = 0.05
+            unsafe_z_u = 8
+            unsafe_w_l = -8.5
+            unsafe_w_u = 8.5
 
-        unsafe_mask = torch.logical_or(x[:, CrazyFlies.Z] <= unsafe_z_l, x[:,CrazyFlies.Z] >= unsafe_z_u)
+        unsafe_mask = torch.logical_or(x[:, CrazyFlies.Z] <= unsafe_z_l, x[:, CrazyFlies.Z] >= unsafe_z_u)
         # unsafe_mask.logical_or_(x[:,CrazyFlies.PHI] >= unsafe_angle)
         # unsafe_mask.logical_or_(x[:,CrazyFlies.PHI] <= - unsafe_angle)
         # unsafe_mask.logical_or_(x[:,CrazyFlies.THETA] >= unsafe_angle)
@@ -300,39 +300,40 @@ class CrazyFlies(ControlAffineSystemNew):
         f = f.type_as(x)
 
         # Extract the needed parameters
-        m, Ixx, Iyy, Izz, CT, CD, d = params["m"], params["Ixx"], params["Iyy"], params["Izz"], params["CT"], params["CD"], params["d"]
+        m, Ixx, Iyy, Izz, CT, CD, d = params["m"], params["Ixx"], params["Iyy"], params["Izz"], params["CT"], params[
+            "CD"], params["d"]
 
         # Extract state variables
-        psi = x[:, CrazyFlies.PSI].reshape(batch_size,1)
-        theta = x[:, CrazyFlies.THETA].reshape(batch_size,1)
-        phi = x[:, CrazyFlies.PHI].reshape(batch_size,1)
+        psi = x[:, CrazyFlies.PSI].reshape(batch_size, 1)
+        theta = x[:, CrazyFlies.THETA].reshape(batch_size, 1)
+        phi = x[:, CrazyFlies.PHI].reshape(batch_size, 1)
 
-        u = x[:, CrazyFlies.U].reshape(batch_size,1)
-        v = x[:, CrazyFlies.V].reshape(batch_size,1)
-        w = x[:, CrazyFlies.W].reshape(batch_size,1)
+        u = x[:, CrazyFlies.U].reshape(batch_size, 1)
+        v = x[:, CrazyFlies.V].reshape(batch_size, 1)
+        w = x[:, CrazyFlies.W].reshape(batch_size, 1)
 
-        r = x[:, CrazyFlies.R].reshape(batch_size,1)
-        q = x[:, CrazyFlies.Q].reshape(batch_size,1)
-        p = x[:, CrazyFlies.P].reshape(batch_size,1)
+        r = x[:, CrazyFlies.R].reshape(batch_size, 1)
+        q = x[:, CrazyFlies.Q].reshape(batch_size, 1)
+        p = x[:, CrazyFlies.P].reshape(batch_size, 1)
 
-        s_psi = torch.sin(psi).reshape(batch_size,1)
-        s_phi = torch.sin(phi).reshape(batch_size,1)
-        s_the = torch.sin(theta).reshape(batch_size,1)
+        s_psi = torch.sin(psi).reshape(batch_size, 1)
+        s_phi = torch.sin(phi).reshape(batch_size, 1)
+        s_the = torch.sin(theta).reshape(batch_size, 1)
 
-        c_psi = torch.cos(psi).reshape(batch_size,1)
-        c_phi = torch.cos(phi).reshape(batch_size,1)
-        c_the = torch.cos(theta).reshape(batch_size,1)
+        c_psi = torch.cos(psi).reshape(batch_size, 1)
+        c_phi = torch.cos(phi).reshape(batch_size, 1)
+        c_the = torch.cos(theta).reshape(batch_size, 1)
 
-        t_psi = torch.tan(psi).reshape(batch_size,1)
-        t_phi = torch.tan(phi).reshape(batch_size,1)
-        t_the = torch.tan(theta).reshape(batch_size,1)
+        t_psi = torch.tan(psi).reshape(batch_size, 1)
+        t_phi = torch.tan(phi).reshape(batch_size, 1)
+        t_the = torch.tan(theta).reshape(batch_size, 1)
 
         # Derivatives of positions
-        f[:, CrazyFlies.X] = w * ( s_psi * s_phi + c_psi * c_phi * s_the )\
-                             - v * ( s_psi * c_phi - c_psi * s_phi * s_the )\
+        f[:, CrazyFlies.X] = w * (s_psi * s_phi + c_psi * c_phi * s_the) \
+                             - v * (s_psi * c_phi - c_psi * s_phi * s_the) \
                              + u * c_psi * c_the
-        f[:, CrazyFlies.Y] = v * ( c_psi * c_phi + s_psi * s_phi * s_the )\
-                             - w * ( c_psi * s_phi - s_psi * c_phi * s_the )\
+        f[:, CrazyFlies.Y] = v * (c_psi * c_phi + s_psi * s_phi * s_the) \
+                             - w * (c_psi * s_phi - s_psi * c_phi * s_the) \
                              + u * s_psi * c_the
         f[:, CrazyFlies.Z] = w * c_psi * c_phi - u * s_the + v * s_phi * c_the
 
@@ -347,7 +348,7 @@ class CrazyFlies(ControlAffineSystemNew):
         f[:, CrazyFlies.W] = q * u - p * v - 9.81 * c_phi * c_the
 
         # Derivatives of angular velocities
-        f[:, CrazyFlies.R] = ( Ixx - Iyy ) / Izz * p * q
+        f[:, CrazyFlies.R] = (Ixx - Iyy) / Izz * p * q
         f[:, CrazyFlies.Q] = (Izz - Ixx) / Iyy * p * r
         f[:, CrazyFlies.P] = (Izz - Iyy) / Ixx * p * q
 
@@ -379,20 +380,20 @@ class CrazyFlies(ControlAffineSystemNew):
         g[:, CrazyFlies.W, CrazyFlies.F_3] = 1 / m
         g[:, CrazyFlies.W, CrazyFlies.F_4] = 1 / m
 
-        g[:, CrazyFlies.R, CrazyFlies.F_1] = ( 1 / Izz ) * ( -np.sqrt(2) * d )
-        g[:, CrazyFlies.R, CrazyFlies.F_2] = ( 1 / Izz ) * ( -np.sqrt(2) * d )
-        g[:, CrazyFlies.R, CrazyFlies.F_3] = ( 1 / Izz ) * ( np.sqrt(2) * d )
-        g[:, CrazyFlies.R, CrazyFlies.F_4] = ( 1 / Izz ) * ( np.sqrt(2) * d )
+        g[:, CrazyFlies.R, CrazyFlies.F_1] = (1 / Izz) * (-np.sqrt(2) * d)
+        g[:, CrazyFlies.R, CrazyFlies.F_2] = (1 / Izz) * (-np.sqrt(2) * d)
+        g[:, CrazyFlies.R, CrazyFlies.F_3] = (1 / Izz) * (np.sqrt(2) * d)
+        g[:, CrazyFlies.R, CrazyFlies.F_4] = (1 / Izz) * (np.sqrt(2) * d)
 
-        g[:, CrazyFlies.Q, CrazyFlies.F_1] = ( 1 / Iyy )* ( -np.sqrt(2) * d )
-        g[:, CrazyFlies.Q, CrazyFlies.F_2] = ( 1 / Iyy ) * ( np.sqrt(2) * d )
-        g[:, CrazyFlies.Q, CrazyFlies.F_3] = ( 1 / Iyy ) * ( np.sqrt(2) * d )
-        g[:, CrazyFlies.Q, CrazyFlies.F_4] = ( 1 / Iyy ) * (-np.sqrt(2) * d )
+        g[:, CrazyFlies.Q, CrazyFlies.F_1] = (1 / Iyy) * (-np.sqrt(2) * d)
+        g[:, CrazyFlies.Q, CrazyFlies.F_2] = (1 / Iyy) * (np.sqrt(2) * d)
+        g[:, CrazyFlies.Q, CrazyFlies.F_3] = (1 / Iyy) * (np.sqrt(2) * d)
+        g[:, CrazyFlies.Q, CrazyFlies.F_4] = (1 / Iyy) * (-np.sqrt(2) * d)
 
-        g[:, CrazyFlies.P, CrazyFlies.F_1] = ( 1 / Ixx ) * ( -CD / CT )
-        g[:, CrazyFlies.P, CrazyFlies.F_2] = ( 1 / Ixx ) * ( CD / CT )
-        g[:, CrazyFlies.P, CrazyFlies.F_3] = ( 1 / Ixx ) * ( -CD / CT )
-        g[:, CrazyFlies.P, CrazyFlies.F_4] = ( 1 / Ixx ) * ( CD / CT )
+        g[:, CrazyFlies.P, CrazyFlies.F_1] = (1 / Ixx) * (-CD / CT)
+        g[:, CrazyFlies.P, CrazyFlies.F_2] = (1 / Ixx) * (CD / CT)
+        g[:, CrazyFlies.P, CrazyFlies.F_3] = (1 / Ixx) * (-CD / CT)
+        g[:, CrazyFlies.P, CrazyFlies.F_4] = (1 / Ixx) * (CD / CT)
 
         return g
 
