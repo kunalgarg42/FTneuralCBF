@@ -373,3 +373,36 @@ class Utils(object):
                            (1 - sign_grad_h[:, 0, i].reshape(bs, 1)) * ul[:, i].reshape(bs, 1)
 
         return doth.reshape(1, bs)
+
+    def doth_max_alpha(self, h, grad_h, fx, gx, um, ul):
+
+        bs = grad_h.shape[0]
+
+        doth = torch.matmul(grad_h, fx)
+        # doth = doth.reshape(bs, 1)
+        LhG = torch.matmul(grad_h, gx).reshape(bs, self.m_control)
+
+        LhG = torch.hstack((LhG, h))
+        vec_ones = 10 * torch.ones(bs, 1)
+        um = torch.hstack((um, vec_ones)).reshape(self.m_control + 1, bs)
+        ul = torch.hstack((ul, -1 * vec_ones)).reshape(self.m_control + 1, bs)
+
+        sign_grad_h = torch.sign(LhG).reshape(bs, 1, self.m_control + 1)
+        # ind_pos = sign_grad_h > 0
+        # ind_neg = sign_grad_h <= 0
+
+        uin = um.reshape(self.m_control + 1, bs) * \
+              (sign_grad_h > 0).reshape(self.m_control + 1, bs) + \
+              ul.reshape(self.m_control + 1, bs) * \
+              (sign_grad_h <= 0).reshape(self.m_control + 1, bs)
+
+        if self.fault == 0:
+            doth = doth + torch.matmul(LhG.reshape(bs, 1, self.m_control + 1), uin.reshape(bs, self.m_control + 1, 1))
+        else:
+            for i in range(self.m_control + 1):
+                if i == self.fault_control_index:
+                    doth = doth.reshape(bs, 1) + LhG[:, i].reshape(bs, 1) * uin[i, :].reshape(bs, 1)
+                else:
+                    doth = doth.reshape(bs, 1) - LhG[:, i].reshape(bs, 1) * uin[i, :].reshape(bs, 1)
+
+        return doth.reshape(1, bs)

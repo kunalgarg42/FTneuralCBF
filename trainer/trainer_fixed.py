@@ -293,8 +293,8 @@ class Trainer(object):
 
                 h, grad_h = self.cbf.V_with_jacobian(state)
                 alpha = self.alpha(state)
-                dot_h_max = self.doth_max(state, grad_h, um, ul)
-                deriv_cond = dot_h_max + alpha.reshape(1, batch_size) * h.reshape(1, batch_size)
+                dot_h_max = self.doth_max(h, state, grad_h, um, ul)
+                deriv_cond = dot_h_max  # + alpha.reshape(1, batch_size) * h.reshape(1, batch_size)
 
                 num_safe = torch.sum(safe_mask)
                 num_dang = torch.sum(dang_mask)
@@ -306,13 +306,15 @@ class Trainer(object):
                     (h < 0).reshape(1, batch_size).float() * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
                 loss_h_safe = 10 * torch.sum(
-                    nn.ReLU()(eps - h).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe) / (acc_h_safe.clone().detach() + 1e-5)
+                    nn.ReLU()(eps - h).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
+                                          1e-5 + num_safe) / (acc_h_safe.clone().detach() + 1e-5)
 
                 loss_h_dang = 10 * torch.sum(
-                    nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang) / (acc_h_dang.clone().detach() + 1e-5)
+                    nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
+                                          1e-5 + num_dang) / (acc_h_dang.clone().detach() + 1e-5)
 
-                loss_alpha = 0.1 * torch.sum(nn.ReLU()(-alpha + eps).reshape(1, batch_size) *
-                                              safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
+                loss_alpha = 0.0 * torch.sum(nn.ReLU()(-alpha + eps).reshape(1, batch_size) *
+                                             safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
 
                 loss_deriv_safe = torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
@@ -331,12 +333,12 @@ class Trainer(object):
                 loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid
 
                 self.cbf_optimizer.zero_grad()
-                self.alpha_optimizer.zero_grad()
+                # self.alpha_optimizer.zero_grad()
 
                 loss.backward(retain_graph=True)
 
                 self.cbf_optimizer.step()
-                self.alpha_optimizer.step()
+                # self.alpha_optimizer.step()
 
                 # log statics
                 acc_np[0] += acc_h_safe.detach().cpu()
@@ -370,31 +372,41 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_alpha_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def doth_max(self, state, grad_h, um, ul):
+    def doth_max(self, h, state, grad_h, um, ul):
         bs = grad_h.shape[0]
 
         # LhG = LhG.detach().cpu()
         fx = self.dyn._f(state, self.params)
         gx = self.dyn._g(state, self.params)
+        vec_ones = 10 * torch.ones(bs, 1)
         if self.gpu_id >= 0:
             fx = fx.cuda(self.gpu_id)
             gx = gx.cuda(self.gpu_id)
+            vec_ones = vec_ones.cuda(self.gpu_id)
 
         doth = torch.matmul(grad_h, fx)
-        LhG = torch.matmul(grad_h, gx)
 
-        sign_grad_h = torch.sign(LhG).reshape(bs, 1, self.m_control)
+        LhG = torch.matmul(grad_h, gx).reshape(bs, self.m_control)
+        LhG = torch.hstack((LhG, h))
+
+        sign_grad_h = torch.sign(LhG).reshape(bs, 1, self.m_control + 1)
+
+        um = torch.hstack((um, vec_ones)).reshape(self.m_control + 1, bs)
+        ul = torch.hstack((ul, -1 * vec_ones)).reshape(self.m_control + 1, bs)
+
+        uin = um.reshape(self.m_control + 1, bs) * \
+              (sign_grad_h > 0).reshape(self.m_control + 1, bs) + \
+              ul.reshape(self.m_control + 1, bs) * \
+              (sign_grad_h <= 0).reshape(self.m_control + 1, bs)
+
         if self.fault == 0:
-            doth = doth.reshape(bs, 1) + torch.matmul(sign_grad_h, um.reshape(bs, self.m_control, 1)).reshape(bs, 1) + \
-                   torch.matmul(1 - sign_grad_h, ul.reshape(bs, self.m_control, 1)).reshape(bs, 1)
+            doth = doth + torch.matmul(LhG.reshape(bs, 1, self.m_control + 1), uin.reshape(bs, self.m_control + 1, 1))
         else:
-            for i in range(self.m_control):
+            for i in range(self.m_control + 1):
                 if i == self.fault_control_index:
-                    doth = doth.reshape(bs, 1) - sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) - \
-                           (1 - sign_grad_h[:, 0, i].reshape(bs, 1)) * ul[:, i].reshape(bs, 1)
+                    doth = doth.reshape(bs, 1) + LhG[:, i].reshape(bs, 1) * uin[i, :].reshape(bs, 1)
                 else:
-                    doth = doth.reshape(bs, 1) + sign_grad_h[:, 0, i].reshape(bs, 1) * um[:, i].reshape(bs, 1) + \
-                           (1 - sign_grad_h[:, 0, i].reshape(bs, 1)) * ul[:, i].reshape(bs, 1)
+                    doth = doth.reshape(bs, 1) - LhG[:, i].reshape(bs, 1) * uin[i, :].reshape(bs, 1)
 
         return doth.reshape(1, bs)
 

@@ -27,7 +27,7 @@ N1 = n_sample
 N2 = 50000
 
 nominal_params = config.FIXED_WING_PARAMS
-fault = nominal_params["fault"]
+fault = 1  # nominal_params["fault"]
 
 state = torch.tensor([[100.0,
                        0.0,
@@ -107,6 +107,7 @@ um = um.type(torch.FloatTensor)
 ul = ul.type(torch.FloatTensor)
 
 deriv_safe = 0.0
+deriv_unsafe = 0.0
 safety_rate = 0.0
 un_safety_rate = 0.0
 correct_h_safe = 0.0
@@ -117,8 +118,8 @@ iterations = 10
 for k in range(iterations):
     state_bndr = util.x_bndr(safe_m, safe_l, n_sample)
 
-    state_bndr = state_bndr.reshape(N1, n_state)
-    state0 = state_bndr + 5 * torch.randn(N1, n_state)
+    state0 = state_bndr.reshape(N1, n_state)
+    # state0 = state0 + 1 * torch.randn(N1, n_state)
 
     state1 = util.x_samples(su, sl, N2)
     state1 = state1.reshape(N2, n_state)  # + 5 * torch.randn(N2, n_state)
@@ -135,16 +136,20 @@ for k in range(iterations):
 
     gx = dynamics._g(state, params=nominal_params)
 
-    alpha_p = alpha.forward(state)
-    alpha_p = alpha_p.reshape(N1 + N2, 1)
+    # alpha_p = alpha.forward(state)
+    # alpha_p = alpha_p.reshape(N1 + N2, 1)
 
-    dot_h = util.doth_max(grad_h, fx, gx, um, ul)
+    dot_h = util.doth_max_alpha(h, grad_h, fx, gx, um, ul)
 
-    dot_h = dot_h.reshape(N1 + N2, 1)
+    # dot_h = dot_h.reshape(N1 + N2, 1)
 
-    deriv_cond = dot_h + alpha_p * h
+    deriv_cond = dot_h  # + alpha_p * h
+
+    # print(deriv_cond.min())
 
     deriv_safe += torch.sum((deriv_cond >= 0).reshape(N1 + N2, 1) * util.is_safe(state).reshape(N1 + N2, 1)) / (N1 + N2)
+
+    deriv_unsafe += torch.sum((deriv_cond >= 0).reshape(N1 + N2, 1) * util.is_unsafe(state).reshape(N1 + N2, 1)) / (N1 + N2)
 
     safety_rate += torch.sum(util.is_safe(state)) / (N1 + N2)
 
@@ -163,6 +168,8 @@ print(correct_h_safe / safety_rate)
 print(correct_h_un_safe / un_safety_rate)
 
 print(deriv_safe / safety_rate)
+
+print(deriv_safe / un_safety_rate)
 
 # print(N_safe)
 # import matplotlib.pyplot as plt
