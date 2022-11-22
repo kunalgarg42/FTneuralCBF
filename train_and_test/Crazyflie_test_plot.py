@@ -120,6 +120,7 @@ def main():
     fault_start_epoch = 10000000 + math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
     u_nominal = 0.05 * torch.ones(1, m_control)
+    u_nominal = dynamics.u_eq()
 
     for i in range(config.EVAL_STEPS):
         # print(i)
@@ -152,8 +153,7 @@ def main():
             h_nom = - torch.sum((state - (safe_m + safe_l) / 2) ** 2 + ((safe_m - safe_l) / 2) ** 2)
             h_nom = h_nom.reshape(1, 1)
             grad_h_nom = - 2 * (state - (sm + sl) / 2).reshape(1, 1, n_state)
-
-            u_nominal = util.neural_controller(u_nominal, fx, gx, h_nom, grad_h_nom, fault_start)
+            # u_nominal = util.neural_controller(u_nominal, fx, gx, h_nom, grad_h_nom, fault_start)
             # u_nominal = util.nominal_controller(state, goal, u_nominal, dynamics)
             u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
             # u = NN_controller(state, torch.tensor(u_nominal, dtype=torch.float32))
