@@ -136,10 +136,10 @@ class CrazyFlies(ControlAffineSystemNew):
         upper_limit = torch.ones(self.n_dims)
         upper_limit[CrazyFlies.X] = 15.0
         upper_limit[CrazyFlies.Y] = 15.0
-        upper_limit[CrazyFlies.Z] = 12.0
+        upper_limit[CrazyFlies.Z] = 15.0
         upper_limit[CrazyFlies.U] = 10.0
         upper_limit[CrazyFlies.V] = 10.0
-        upper_limit[CrazyFlies.W] = 15.0
+        upper_limit[CrazyFlies.W] = 10.0
         upper_limit[CrazyFlies.PSI] = np.pi / 3.0
         upper_limit[CrazyFlies.THETA] = np.pi / 3.0
         upper_limit[CrazyFlies.PHI] = np.pi / 3.0
@@ -171,7 +171,7 @@ class CrazyFlies(ControlAffineSystemNew):
             safe_w_l = -5
         else:
             safe_z_l = 0.4
-            safe_z_u = 10
+            safe_z_u = 9
             safe_w_u = 6
             safe_w_l = -6
 
