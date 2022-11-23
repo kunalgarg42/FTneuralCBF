@@ -22,7 +22,6 @@ class Trainer(object):
                  cbf,
                  dataset,
                  dyn,
-                 n_pos,
                  params,
                  n_state,
                  m_control,
@@ -53,7 +52,6 @@ class Trainer(object):
         # self.alpha_optimizer = FxTS_Momentum(
         #     self.alpha.parameters(), lr=1e-5, momentum=0.2)
 
-        self.n_pos = n_pos
         self.dt = dt
 
         self.action_loss_weight = action_loss_weight

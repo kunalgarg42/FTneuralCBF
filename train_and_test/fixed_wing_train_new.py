@@ -77,50 +77,48 @@ def main(args):
         util = Utils(n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics, dt=dt, params=nominal_params,
                      fault=fault,
                      fault_control_index=fault_control_index)
-        nn_controller = NNController_new(n_state=n_state, m_control=m_control)
+        # nn_controller = NNController_new(n_state=n_state, m_control=m_control)
         cbf = CBF(dynamics, n_state=n_state, m_control=m_control, iter_NN=-1)
-        alpha = alpha_param(n_state=n_state)
+        # alpha = alpha_param(n_state=n_state)
         if init_param == 1:
             try:
                 if fault == 0:
                     cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_NN_weights.pth'))
-                    nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_NN_weights.pth'))
-                    alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_NN_weights.pth'))
+                    # nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_NN_weights.pth'))
+                    # alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_NN_weights.pth'))
                     cbf.eval()
-                    nn_controller.eval()
-                    alpha.eval()
+                    # nn_controller.eval()
+                    # alpha.eval()
                 else:
                     cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_FT_weights.pth'))
-                    nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_FT_weights.pth'))
-                    alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_FT_weights.pth'))
+                    # nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_FT_weights.pth'))
+                    # alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_FT_weights.pth'))
                     cbf.eval()
-                    nn_controller.eval()
-                    alpha.eval()
+                    # nn_controller.eval()
+                    # alpha.eval()
             except:
                 print("No good data available")
                 try:
                     if fault == 0:
                         cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weights.pth'))
-                        nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
-                        alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weights.pth'))
+                        # nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
+                        # alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weights.pth'))
                         cbf.eval()
-                        nn_controller.eval()
-                        alpha.eval()
+                        # nn_controller.eval()
+                        # alpha.eval()
                     else:
                         cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weights.pth'))
-                        nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
-                        alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
+                        # nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
+                        # alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
                         cbf.eval()
-                        nn_controller.eval()
-                        alpha.eval()
+                        # nn_controller.eval()
+                        # alpha.eval()
                 except:
                     print("No pre-train data available")
 
         dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u)
-        trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=n_state, m_control=m_control, j_const=2,
-                          dyn=dynamics,
-                          n_pos=1,
-                          dt=dt, safe_alpha=0.3, dang_alpha=0.4, action_loss_weight=1, params=nominal_params,
+        trainer = Trainer(cbf, dataset, dynamics, n_state=n_state, m_control=m_control, j_const=2,
+                          dt=dt, action_loss_weight=1, params=nominal_params,
                           fault=fault, gpu_id=0,
                           fault_control_index=fault_control_index)
 
@@ -217,30 +215,16 @@ def main(args):
             for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
                 if init_add == 1:
                     init_states0 = util.x_samples(safe_m, safe_l, n_sample) + 0 * torch.randn(n_sample, n_state)
-                    # + torch.normal(mean=(sm + sl) / 10, std=torch.ones(n_state))
                 else:
                     init_states0 = torch.tensor([]).reshape(0, n_state)
 
-                # print(torch.sum(util.is_safe(init_states0)) / n_sample)
-                # if np.mod(i, 4) <= -1:
-                #     init_states1 = util.x_samples(safe_m, safe_l, config.POLICY_UPDATE_INTERVAL)
-                # else:
                 init_states1 = util.x_samples(sm, sl, config.POLICY_UPDATE_INTERVAL)
 
                 init_states = torch.vstack((init_states0, init_states1))
 
                 num_states = init_states.shape[0]
 
-                # init_states = init_states + 10 * torch.randn(num_states, n_state)
-
                 init_states = init_states.reshape(num_states, n_state)
-
-                # for j in range(num_states):
-                #     for k in range(n_state):
-                #         if init_states[j, k] < sl[k] * 0.5:
-                #             init_states[j, k] = sl[k].clone()
-                #         if init_states[j, k] > sm[k] * 2:
-                #             init_states[j, k] = sm[k].clone()
 
                 dataset.add_data(init_states,
                                  torch.tensor([]).reshape(0, m_control), torch.tensor([]).reshape(0, m_control))
@@ -257,30 +241,30 @@ def main(args):
                     i_train = int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1
                 else:
                     i_train = i
-                loss_np, acc_np, loss_h_safe, loss_h_dang, loss_alpha, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf()
+                loss_np, acc_np, loss_h_safe, loss_h_dang, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf()
                 print(
                     'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
-                    'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_alpha, {:.3f}, loss_deriv_safe, {:.3f}, '
+                    'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_deriv_safe, {:.3f}, '
                     'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}, '.format(
-                        i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang, loss_alpha,
+                        i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang,
                         loss_deriv_safe, loss_deriv_dang, loss_deriv_mid))
                 if fault == 0:
                     torch.save(cbf.state_dict(), './data/FW_cbf_NN_weightsCBF.pth')
                     # torch.save(nn_controller.state_dict(), './data/FW_controller_NN_weights.pth')
-                    torch.save(alpha.state_dict(), './data/FW_alpha_NN_weightsCBF.pth')
+                    # torch.save(alpha.state_dict(), './data/FW_alpha_NN_weightsCBF.pth')
                 else:
                     torch.save(cbf.state_dict(), './data/FW_cbf_FT_weightsCBF.pth')
                     # torch.save(nn_controller.state_dict(), './data/FW_controller_FT_weights.pth')
-                    torch.save(alpha.state_dict(), './data/FW_alpha_FT_weightsCBF.pth')
+                    # torch.save(alpha.state_dict(), './data/FW_alpha_FT_weightsCBF.pth')
                 if loss_np < 0.01:
                     if fault == 0:
                         torch.save(cbf.state_dict(), './good_data/data/FW_cbf_NN_weightsCBF.pth')
                         # torch.save(nn_controller.state_dict(), './good_data/data/FW_controller_NN_weights.pth')
-                        torch.save(alpha.state_dict(), './good_data/data/FW_alpha_NN_weightsCBF.pth')
+                        # torch.save(alpha.state_dict(), './good_data/data/FW_alpha_NN_weightsCBF.pth')
                     else:
                         torch.save(cbf.state_dict(), './good_data/data/FW_cbf_FT_weightsCBF.pth')
                         # torch.save(nn_controller.state_dict(), './good_data/data/FW_controller_FT_weights.pth')
-                        torch.save(alpha.state_dict(), './good_data/data/FW_alpha_FT_weightsCBF.pth')
+                        # torch.save(alpha.state_dict(), './good_data/data/FW_alpha_FT_weightsCBF.pth')
                 if loss_np < 0.001 and i > 100:
                     break
 
