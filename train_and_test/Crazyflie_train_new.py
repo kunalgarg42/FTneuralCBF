@@ -71,7 +71,7 @@ def main(args):
     dynamics = CrazyFlies(x=x0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)
-    nn_controller = NNController_new(n_state=n_state, m_control=m_control)
+    # nn_controller = NNController_new(n_state=n_state, m_control=m_control)
     cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
               fault_control_index=fault_control_index)
     # alpha = alpha_param(n_state=n_state)
@@ -110,7 +110,6 @@ def main(args):
 
     dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u)
     trainer = Trainer(cbf, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
-                      n_pos=1,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=0,
                       fault_control_index=fault_control_index)
