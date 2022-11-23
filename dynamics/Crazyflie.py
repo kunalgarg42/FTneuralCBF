@@ -148,7 +148,7 @@ class CrazyFlies(ControlAffineSystemNew):
         upper_limit[CrazyFlies.P] = 2
 
         lower_limit = -1.0 * upper_limit
-        lower_limit[CrazyFlies.Z] = 0.01
+        lower_limit[CrazyFlies.Z] = -1
         # lower_limit = torch.tensor(lower_limit)
         # upper_limit = torch.tensor(upper_limit)
 
