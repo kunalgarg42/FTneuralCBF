@@ -74,7 +74,7 @@ def main(args):
     nn_controller = NNController_new(n_state=n_state, m_control=m_control)
     cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
               fault_control_index=fault_control_index)
-    alpha = alpha_param(n_state=n_state)
+    # alpha = alpha_param(n_state=n_state)
 
     # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
     # nn_controller.eval()
@@ -82,34 +82,34 @@ def main(args):
         try:
             if fault == 0:
                 cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weights.pth'))
-                nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
-                alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
+                # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
+                # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
             else:
                 cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weights.pth'))
-                nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
-                alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
+                # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
+                # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
             cbf.eval()
-            nn_controller.eval()
-            alpha.eval()
+            # nn_controller.eval()
+            # alpha.eval()
         except:
             print("No good data available")
             try:
                 if fault == 0:
                     cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
-                    nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
-                    alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
+                    # nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
+                    # alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
                 else:
                     cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weights.pth'))
-                    nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
-                    alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
+                    # nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
+                    # alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
                 cbf.eval()
-                nn_controller.eval()
-                alpha.eval()
+                # nn_controller.eval()
+                # alpha.eval()
             except:
                 print("No pre-train data available")
 
     dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u)
-    trainer = Trainer(nn_controller, cbf, alpha, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
+    trainer = Trainer(cbf, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       n_pos=1,
                       dt=dt, safe_alpha=0.3, dang_alpha=0.4, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=0,

@@ -19,9 +19,7 @@ t = TicToc()
 class Trainer(object):
 
     def __init__(self,
-                 controller,
                  cbf,
-                 alpha,
                  dataset,
                  dyn,
                  n_pos,
@@ -30,8 +28,6 @@ class Trainer(object):
                  m_control,
                  j_const=1,
                  dt=0.05,
-                 safe_alpha=0.3,
-                 dang_alpha=0.4,
                  action_loss_weight=0.1,
                  gpu_id=0,
                  lr_decay_stepsize=-1,
@@ -42,20 +38,14 @@ class Trainer(object):
         self.n_state = n_state
         self.m_control = m_control
         self.j_const = j_const
-        self.controller = controller
         self.dyn = dyn
         self.cbf = cbf
-        self.alpha = alpha
         self.dataset = dataset
         self.fault = fault
         self.fault_control_index = fault_control_index
 
-        self.controller_optimizer = torch.optim.Adam(
-            self.controller.parameters(), lr=1e-4, weight_decay=1e-5)
         self.cbf_optimizer = torch.optim.Adam(
             self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
-        self.alpha_optimizer = torch.optim.Adam(
-            self.alpha.parameters(), lr=1e-4, weight_decay=1e-5)
         # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=1e-5, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
@@ -65,8 +55,7 @@ class Trainer(object):
 
         self.n_pos = n_pos
         self.dt = dt
-        self.safe_alpha = safe_alpha
-        self.dang_alpha = dang_alpha
+
         self.action_loss_weight = action_loss_weight
         # if gpu_id >=0, use gpu in training
         self.gpu_id = gpu_id
@@ -77,8 +66,6 @@ class Trainer(object):
         if lr_decay_stepsize >= 0:
             self.cbf_lr_scheduler = torch.optim.lr_scheduler.StepLR(
                 self.cbf_optimizer, step_size=lr_decay_stepsize, gamma=0.5)
-            self.controller_lr_scheduler = torch.optim.lr_scheduler.StepLR(
-                self.controller_optimizer, step_size=lr_decay_stepsize, gamma=0.5)
 
     def train_cbf_and_controller(self, iter_NN=0, eps=0.1, eps_deriv=0.03, train_CF=0):
         batch_size = 4000 + int(iter_NN / 4) * 2000
@@ -287,12 +274,10 @@ class Trainer(object):
                 if self.gpu_id >= 0:
                     state = state.cuda(self.gpu_id)
                     self.cbf.to(torch.device(self.gpu_id))
-                    self.alpha.to(torch.device(self.gpu_id))
 
                 safe_mask, dang_mask, mid_mask = self.get_mask(state)
 
                 h, grad_h = self.cbf.V_with_jacobian(state)
-                alpha = self.alpha(state)
                 dot_h_max = self.doth_max(h, state, grad_h, um, ul)
                 deriv_cond = dot_h_max  # + alpha.reshape(1, batch_size) * h.reshape(1, batch_size)
 
@@ -316,19 +301,19 @@ class Trainer(object):
                 loss_alpha = 0.0 * torch.sum(nn.ReLU()(-alpha + eps).reshape(1, batch_size) *
                                              safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
 
-                loss_deriv_safe = torch.sum(
-                    nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
-                                          1e-5 + num_safe)
-                loss_deriv_dang = 0.01 * torch.sum(
-                    nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
-                                          1e-5 + num_dang)
-                loss_deriv_mid = 0.1 * torch.sum(
-                    nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * mid_mask.reshape(1, batch_size)) / (
-                                         1e-5 + num_mid)
-
                 acc_deriv_safe = torch.sum((deriv_cond > 0).float() * safe_mask) / (1e-5 + num_safe)
                 acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
                 acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
+
+                loss_deriv_safe = torch.sum(
+                    nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
+                                          1e-5 + num_safe) / (acc_deriv_safe.detach() + 1e-5)
+                loss_deriv_dang = 0.01 * torch.sum(
+                    nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
+                                          1e-5 + num_dang) / (acc_deriv_dang.detach() + 1e-5)
+                loss_deriv_mid = 0.1 * torch.sum(
+                    nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * mid_mask.reshape(1, batch_size)) / (
+                                         1e-5 + num_mid) / (acc_deriv_mid.detach() + 1e-5)
 
                 loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid
 
