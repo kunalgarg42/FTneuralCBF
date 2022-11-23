@@ -148,9 +148,6 @@ class Trainer(object):
                 loss_h_dang = dang_loss * torch.sum(
                     nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
-                loss_alpha = 0.01 * torch.sum(nn.ReLU()(-alpha + eps).reshape(1, batch_size) *
-                                              safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
-
                 acc_h_safe = torch.sum(
                     (h >= 0).reshape(1, batch_size).float() * safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
                 acc_h_dang = torch.sum(
@@ -184,8 +181,7 @@ class Trainer(object):
                     (deriv_cond > 0).reshape(1, batch_size).float() * dang_mask) / (1e-5 + num_dang)
                 acc_deriv_mid = torch.sum((deriv_cond > 0).reshape(1, batch_size).float() * mid_mask) / (1e-5 + num_mid)
 
-                loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + \
-                       loss_action
+                loss = loss_h_safe + loss_h_dang + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action
 
                 self.controller_optimizer.zero_grad()
                 self.cbf_optimizer.zero_grad()
@@ -298,9 +294,6 @@ class Trainer(object):
                     nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
                                       1e-5 + num_dang) / (acc_h_dang.clone().detach() + 1e-5)
 
-                loss_alpha = 0.0 * torch.sum(nn.ReLU()(-alpha + eps).reshape(1, batch_size) *
-                                             safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
-
                 acc_deriv_safe = torch.sum((deriv_cond > 0).float() * safe_mask) / (1e-5 + num_safe)
                 acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
                 acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
@@ -315,7 +308,7 @@ class Trainer(object):
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * mid_mask.reshape(1, batch_size)) / (
                                          1e-5 + num_mid) / (acc_deriv_mid.detach() + 1e-5)
 
-                loss = loss_h_safe + loss_h_dang + loss_alpha + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid
+                loss = loss_h_safe + loss_h_dang + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid
 
                 self.cbf_optimizer.zero_grad()
                 # self.alpha_optimizer.zero_grad()
@@ -339,7 +332,6 @@ class Trainer(object):
                 loss_deriv_safe_np += loss_deriv_safe.detach().cpu().numpy()
                 loss_deriv_mid_np += loss_deriv_mid.detach().cpu().numpy()
                 loss_deriv_dang_np += loss_deriv_dang.detach().cpu().numpy()
-                loss_alpha_np += loss_alpha.detach().cpu().numpy()
 
         acc_np /= opt_iter * 10
         loss_np /= opt_iter * 10
@@ -355,7 +347,7 @@ class Trainer(object):
             self.cbf_lr_scheduler.step()
             # self.controller_lr_scheduler.step()
 
-        return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_alpha_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
+        return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
     def doth_max(self, h, state, grad_h, um, ul):
         bs = grad_h.shape[0]
