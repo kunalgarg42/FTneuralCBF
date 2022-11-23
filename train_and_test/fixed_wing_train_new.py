@@ -83,14 +83,14 @@ def main(args):
         if init_param == 1:
             try:
                 if fault == 0:
-                    cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_NN_weights.pth'))
+                    cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_NN_weightsCBF.pth'))
                     # nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_NN_weights.pth'))
                     # alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_NN_weights.pth'))
                     cbf.eval()
                     # nn_controller.eval()
                     # alpha.eval()
                 else:
-                    cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_FT_weights.pth'))
+                    cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_FT_weightsCBF.pth'))
                     # nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_FT_weights.pth'))
                     # alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_FT_weights.pth'))
                     cbf.eval()
@@ -100,14 +100,14 @@ def main(args):
                 print("No good data available")
                 try:
                     if fault == 0:
-                        cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weights.pth'))
+                        cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weightsCBF.pth'))
                         # nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
                         # alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weights.pth'))
                         cbf.eval()
                         # nn_controller.eval()
                         # alpha.eval()
                     else:
-                        cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weights.pth'))
+                        cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weightsCBF.pth'))
                         # nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
                         # alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
                         cbf.eval()
