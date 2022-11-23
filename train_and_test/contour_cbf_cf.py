@@ -45,11 +45,11 @@ dynamics = CrazyFlies(x=state, nominal_params=nominal_params, dt=dt, controller_
 
 if fault == 0:
     NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=fault, fault_control_index=fault_control_index)
-    NN_cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
+    NN_cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
     NN_cbf.eval()
 else:
     FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=fault, fault_control_index=fault_control_index)
-    FT_cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weights.pth'))
+    FT_cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF.pth'))
     FT_cbf.eval()
 
 # h contour in 2D: z and w
@@ -58,8 +58,8 @@ zu = 10
 # wl = -np.pi / 2
 # wu = np.pi / 2
 # w_ind = 4
-wl = -5
-wu = 5
+wl = -10
+wu = 10
 w_ind = 8
 z_mesh = 20
 w_mesh = 20

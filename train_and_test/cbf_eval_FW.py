@@ -62,37 +62,37 @@ nn_controller = NNController_new(n_state=9, m_control=4)
 alpha = alpha_param(n_state=9)
 if which_data == 0:
     if fault == 0:
-        cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weights.pth'))
-        nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
-        alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weights.pth'))
+        cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weightsCBF.pth'))
+        # nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weightsCBF.pth'))
+        # alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weightsCBF.pth'))
     else:
-        cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weights.pth'))
-        nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
-        alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
+        cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weightsCBF.pth'))
+        # nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
+        # alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
 else:
     try:
         if fault == 0:
-            cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_NN_weights.pth'))
-            nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_NN_weights.pth'))
-            alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_NN_weights.pth'))
+            cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_NN_weightsCBF.pth'))
+            # nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_NN_weights.pth'))
+            # alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_NN_weights.pth'))
         else:
-            cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_FT_weights.pth'))
-            nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_FT_weights.pth'))
-            alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_FT_weights.pth'))
+            cbf.load_state_dict(torch.load('./good_data/data/FW_cbf_FT_weightsCBF.pth'))
+            # nn_controller.load_state_dict(torch.load('./good_data/data/FW_controller_FT_weights.pth'))
+            # alpha.load_state_dict(torch.load('./good_data/data/FW_alpha_FT_weights.pth'))
     except:
         print("No good data available, evaluating on last data")
         if fault == 0:
-            cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weights.pth'))
-            nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
-            alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weights.pth'))
+            cbf.load_state_dict(torch.load('./data/FW_cbf_NN_weightsCBF.pth'))
+            # nn_controller.load_state_dict(torch.load('./data/FW_controller_NN_weights.pth'))
+            # alpha.load_state_dict(torch.load('./data/FW_alpha_NN_weights.pth'))
         else:
-            cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weights.pth'))
-            nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
-            alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
+            cbf.load_state_dict(torch.load('./data/FW_cbf_FT_weightsCBF.pth'))
+            # nn_controller.load_state_dict(torch.load('./data/FW_controller_FT_weights.pth'))
+            # alpha.load_state_dict(torch.load('./data/FW_alpha_FT_weights.pth'))
 
 cbf.eval()
-nn_controller.eval()
-alpha.eval()
+# nn_controller.eval()
+# alpha.eval()
 
 safe_m, safe_l = dynamics.safe_limits(su, sl)
 
@@ -149,7 +149,8 @@ for k in range(iterations):
 
     deriv_safe += torch.sum((deriv_cond >= 0).reshape(N1 + N2, 1) * util.is_safe(state).reshape(N1 + N2, 1)) / (N1 + N2)
 
-    deriv_unsafe += torch.sum((deriv_cond >= 0).reshape(N1 + N2, 1) * util.is_unsafe(state).reshape(N1 + N2, 1)) / (N1 + N2)
+    deriv_unsafe += torch.sum(
+        (deriv_cond >= 0).reshape(N1 + N2, 1) * util.is_unsafe(state).reshape(N1 + N2, 1)) / (N1 + N2)
 
     safety_rate += torch.sum(util.is_safe(state)) / (N1 + N2)
 
@@ -169,7 +170,7 @@ print(correct_h_un_safe / un_safety_rate)
 
 print(deriv_safe / safety_rate)
 
-print(deriv_safe / un_safety_rate)
+print(deriv_unsafe / un_safety_rate)
 
 # print(N_safe)
 # import matplotlib.pyplot as plt

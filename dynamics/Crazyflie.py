@@ -170,7 +170,7 @@ class CrazyFlies(ControlAffineSystemNew):
             safe_w_u = 5
             safe_w_l = -5
         else:
-            safe_z_l = 0.4
+            safe_z_l = 0.8
             safe_z_u = 9
             safe_w_u = 6
             safe_w_l = -6
@@ -212,24 +212,18 @@ class CrazyFlies(ControlAffineSystemNew):
 
         if fault == 0:
             safe_z_l = 1
-            safe_z_u = 5
+            safe_z_u = 8
             safe_w_u = 5
             safe_w_l = -5
         else:
-            safe_z_l = 0.5
-            safe_z_u = 6
-            safe_w_u = 7
-            safe_w_l = -7
+            safe_z_l = 0.8
+            safe_z_u = 9
+            safe_w_u = 6
+            safe_w_l = -6
 
         safe_mask = torch.logical_and(x[:, CrazyFlies.Z] >= safe_z_l, x[:, CrazyFlies.Z] <= safe_z_u)
-        # safe_mask.logical_and_(x[:,CrazyFlies.PHI] <= safe_angle)
-        # safe_mask.logical_and_(x[:,CrazyFlies.PHI] >= -safe_angle)
-        # safe_mask.logical_and_(x[:,CrazyFlies.THETA] <= safe_angle)
-        # safe_mask.logical_and_(x[:,CrazyFlies.THETA] >= -safe_angle)
         safe_mask.logical_and_(x[:, CrazyFlies.W] >= safe_w_l)
         safe_mask.logical_and_(x[:, CrazyFlies.W] <= safe_w_u)
-
-        # x.norm(dim=-1) >= unsafe_radius
 
         return safe_mask
 
@@ -246,12 +240,12 @@ class CrazyFlies(ControlAffineSystemNew):
 
         if fault == 0:
             unsafe_z_l = 0.1
-            unsafe_z_u = 7.5
+            unsafe_z_u = 9.5
             unsafe_w_l = -7.5
             unsafe_w_u = 7.5
         else:
             unsafe_z_l = 0.05
-            unsafe_z_u = 8
+            unsafe_z_u = 10
             unsafe_w_l = -8.5
             unsafe_w_u = 8.5
 

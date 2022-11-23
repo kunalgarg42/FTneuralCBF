@@ -11,7 +11,7 @@ from dynamics.Crazyflie import CrazyFlies
 from trainer import config
 from trainer.constraints_crazy import constraints
 from trainer.datagen import Dataset_with_Grad
-from trainer.trainer_fixed import Trainer
+from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, alpha_param, NNController_new
 

@@ -10,7 +10,7 @@ from dynamics.fixed_wing import FixedWing
 from trainer import config
 from trainer.constraints_fw import constraints
 from trainer.datagen import Dataset_with_Grad
-from trainer.trainer_fixed import Trainer
+from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad import CBF, alpha_param, NNController_new
 from pytictoc import TicToc

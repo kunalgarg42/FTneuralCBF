@@ -307,11 +307,11 @@ class Trainer(object):
 
                 loss_h_safe = 10 * torch.sum(
                     nn.ReLU()(eps - h).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
-                                          1e-5 + num_safe) / (acc_h_safe.clone().detach() + 1e-5)
+                                      1e-5 + num_safe) / (acc_h_safe.clone().detach() + 1e-5)
 
                 loss_h_dang = 10 * torch.sum(
                     nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
-                                          1e-5 + num_dang) / (acc_h_dang.clone().detach() + 1e-5)
+                                      1e-5 + num_dang) / (acc_h_dang.clone().detach() + 1e-5)
 
                 loss_alpha = 0.0 * torch.sum(nn.ReLU()(-alpha + eps).reshape(1, batch_size) *
                                              safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
@@ -395,9 +395,8 @@ class Trainer(object):
         ul = torch.hstack((ul, -1 * vec_ones)).reshape(self.m_control + 1, bs)
 
         uin = um.reshape(self.m_control + 1, bs) * \
-              (sign_grad_h > 0).reshape(self.m_control + 1, bs) + \
-              ul.reshape(self.m_control + 1, bs) * \
-              (sign_grad_h <= 0).reshape(self.m_control + 1, bs)
+              (sign_grad_h > 0).reshape(self.m_control + 1, bs) + ul.reshape(self.m_control + 1, bs) * (
+                      sign_grad_h <= 0).reshape(self.m_control + 1, bs)
 
         if self.fault == 0:
             doth = doth + torch.matmul(LhG.reshape(bs, 1, self.m_control + 1), uin.reshape(bs, self.m_control + 1, 1))
