@@ -207,9 +207,9 @@ class FixedWing(ControlAffineSystemNew):
             safe_alpha_l = - np.pi / 80.0
             safe_V = 100.0
         else:
-            safe_alpha = np.pi / 6.0
-            safe_alpha_l = - np.pi / 60.0
-            safe_V = 90.0
+            safe_alpha = np.pi / 7.0
+            safe_alpha_l = - np.pi / 70.0
+            safe_V = 95.0
         # safe_radius = 3
 
         safe_mask = torch.logical_and(
@@ -236,9 +236,9 @@ class FixedWing(ControlAffineSystemNew):
             safe_alpha_l = - np.pi / 80.0
             safe_V = 100.0
         else:
-            safe_alpha = np.pi / 6.0
-            safe_alpha_l = - np.pi / 60.0
-            safe_V = 90.0
+            safe_alpha = np.pi / 7.0
+            safe_alpha_l = - np.pi / 70.0
+            safe_V = 95.0
         # safe_radius = 3
 
         safe_l[FixedWing.ALPHA] = safe_alpha_l
