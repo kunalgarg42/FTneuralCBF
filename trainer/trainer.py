@@ -378,7 +378,7 @@ class Trainer(object):
         else:
             for i in range(self.m_control + 1):
                 if i == self.fault_control_index:
-                    doth = doth.reshape(bs, 1) - torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1)
+                    doth = doth.reshape(bs, 1) - torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1) / 2
                 else:
                     doth = doth.reshape(bs, 1) + torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1)
 
