@@ -259,7 +259,7 @@ class Trainer(object):
         if self.gpu_id >= 0:
             um = um.cuda(self.gpu_id)
             ul = ul.cuda(self.gpu_id)
-        for _ in range(10):
+        for _ in range(20):
             for i in range(opt_iter):
                 # t.tic()
                 # print(i)
@@ -353,7 +353,7 @@ class Trainer(object):
         # LhG = LhG.detach().cpu()
         fx = self.dyn._f(state, self.params)
         gx = self.dyn._g(state, self.params)
-        vec_ones = 20 * torch.ones(bs, 1)
+        vec_ones = 100 * torch.ones(bs, 1)
         if self.gpu_id >= 0:
             fx = fx.cuda(self.gpu_id)
             gx = gx.cuda(self.gpu_id)
@@ -378,7 +378,7 @@ class Trainer(object):
         else:
             for i in range(self.m_control + 1):
                 if i == self.fault_control_index:
-                    doth = doth.reshape(bs, 1) - torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1) / 2
+                    doth = doth.reshape(bs, 1) - torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1) / 3
                 else:
                     doth = doth.reshape(bs, 1) + torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1)
 
