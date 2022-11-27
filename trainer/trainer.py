@@ -373,15 +373,17 @@ class Trainer(object):
               (sign_grad_h > 0).reshape(self.m_control + 1, bs) + ul.reshape(self.m_control + 1, bs) * (
                       sign_grad_h <= 0).reshape(self.m_control + 1, bs)
 
-        if self.fault == 0:
-            doth = doth + torch.matmul(torch.abs(LhG).reshape(bs, 1, self.m_control + 1),
-                                       uin.reshape(bs, self.m_control + 1, 1))
-        else:
-            for i in range(self.m_control + 1):
-                if i == self.fault_control_index:
-                    doth = doth.reshape(bs, 1) + torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1)
-                else:
-                    doth = doth.reshape(bs, 1) + torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1)
+        # if self.fault == 0:
+        doth = doth + torch.matmul(torch.abs(LhG).reshape(bs, 1, self.m_control + 1),
+                                   uin.reshape(bs, self.m_control + 1, 1))
+        if self.fault == 1:
+            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[self.fault_control_index, :].reshape(bs, 1)
+        # else:
+        #     for i in range(self.m_control + 1):
+        #         if i == self.fault_control_index:
+        #             doth = doth.reshape(bs, 1) + torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1)
+        #         else:
+        #             doth = doth.reshape(bs, 1) + torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1)
 
         return doth.reshape(1, bs)
 
