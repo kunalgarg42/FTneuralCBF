@@ -331,14 +331,14 @@ class Trainer(object):
                 loss_deriv_mid_np += loss_deriv_mid.detach().cpu().numpy()
                 loss_deriv_dang_np += loss_deriv_dang.detach().cpu().numpy()
 
-        acc_np /= opt_iter * 10
-        loss_np /= opt_iter * 10
-        loss_h_safe_np /= opt_iter * 10
-        loss_h_dang_np /= opt_iter * 10
-        loss_deriv_safe_np /= opt_iter * 10
-        loss_deriv_mid_np /= opt_iter * 10
-        loss_deriv_dang_np /= opt_iter * 10
-        loss_alpha_np /= opt_iter * 10
+        acc_np /= opt_iter * 20
+        loss_np /= opt_iter * 20
+        loss_h_safe_np /= opt_iter * 20
+        loss_h_dang_np /= opt_iter * 20
+        loss_deriv_safe_np /= opt_iter * 20
+        loss_deriv_mid_np /= opt_iter * 20
+        loss_deriv_dang_np /= opt_iter * 20
+        loss_alpha_np /= opt_iter * 20
 
         if self.lr_decay_stepsize >= 0:
             # learning rate decay
