@@ -239,7 +239,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_alpha_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np, loss_action_np
 
-    def train_cbf(self, batch_size=1000, opt_iter=20, eps=0.1, eps_deriv=0.03):
+    def train_cbf(self, batch_size=5000, opt_iter=20, eps=0.1, eps_deriv=0.03):
         loss_np = 0.0
         loss_h_safe_np = 0.0
         loss_h_dang_np = 0.0
