@@ -353,7 +353,7 @@ class Trainer(object):
         # LhG = LhG.detach().cpu()
         fx = self.dyn._f(state, self.params)
         gx = self.dyn._g(state, self.params)
-        vec_ones = 1 * torch.ones(bs, 1)
+        vec_ones = 20 * torch.ones(bs, 1)
         if self.gpu_id >= 0:
             fx = fx.cuda(self.gpu_id)
             gx = gx.cuda(self.gpu_id)
