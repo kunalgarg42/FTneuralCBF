@@ -28,7 +28,7 @@ class Trainer(object):
                  j_const=1,
                  dt=0.05,
                  action_loss_weight=0.1,
-                 gpu_id=0,
+                 gpu_id=-1,
                  lr_decay_stepsize=-1,
                  fault=0,
                  fault_control_index=-1):
@@ -239,7 +239,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_alpha_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np, loss_action_np
 
-    def train_cbf(self, batch_size=5000, opt_iter=20, eps=0.1, eps_deriv=0.03):
+    def train_cbf(self, batch_size=1000, opt_iter=20, eps=0.1, eps_deriv=0.03):
         loss_np = 0.0
         loss_h_safe_np = 0.0
         loss_h_dang_np = 0.0
@@ -259,7 +259,6 @@ class Trainer(object):
         if self.gpu_id >= 0:
             um = um.cuda(self.gpu_id)
             ul = ul.cuda(self.gpu_id)
-
         for _ in range(10):
             for i in range(opt_iter):
                 # t.tic()
@@ -272,6 +271,7 @@ class Trainer(object):
                 safe_mask, dang_mask, mid_mask = self.get_mask(state)
 
                 h, grad_h = self.cbf.V_with_jacobian(state)
+
                 dot_h_max = self.doth_max(h, state, grad_h, um, ul)
                 deriv_cond = dot_h_max  # + alpha.reshape(1, batch_size) * h.reshape(1, batch_size)
 
