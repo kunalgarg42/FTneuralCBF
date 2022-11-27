@@ -170,8 +170,8 @@ class CrazyFlies(ControlAffineSystemNew):
             safe_w_u = 5
             safe_w_l = -5
         else:
-            safe_z_l = 0.8
-            safe_z_u = 9
+            safe_z_l = 0.95
+            safe_z_u = 8.05
             safe_w_u = 6
             safe_w_l = -6
 
@@ -216,8 +216,8 @@ class CrazyFlies(ControlAffineSystemNew):
             safe_w_u = 5
             safe_w_l = -5
         else:
-            safe_z_l = 0.8
-            safe_z_u = 9
+            safe_z_l = 0.95
+            safe_z_u = 8.05
             safe_w_u = 6
             safe_w_l = -6
 
