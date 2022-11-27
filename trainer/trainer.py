@@ -299,10 +299,10 @@ class Trainer(object):
                 loss_deriv_safe = torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
                                           1e-5 + num_safe) / (acc_deriv_safe.detach() + 1e-5)
-                loss_deriv_dang = 0.01 * torch.sum(
+                loss_deriv_dang = torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
                                           1e-5 + num_dang) / (acc_deriv_dang.detach() + 1e-5)
-                loss_deriv_mid = 0.1 * torch.sum(
+                loss_deriv_mid = torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * mid_mask.reshape(1, batch_size)) / (
                                          1e-5 + num_mid) / (acc_deriv_mid.detach() + 1e-5)
 
