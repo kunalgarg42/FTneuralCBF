@@ -370,7 +370,7 @@ class Trainer(object):
         ul = torch.hstack((ul, -1 * vec_ones)).reshape(self.m_control + 1, bs)
 
         uin = um.reshape(self.m_control + 1, bs) * \
-              (sign_grad_h > 0).reshape(self.m_control + 1, bs) + ul.reshape(self.m_control + 1, bs) * (
+              (sign_grad_h > 0).reshape(self.m_control + 1, bs) - ul.reshape(self.m_control + 1, bs) * (
                       sign_grad_h <= 0).reshape(self.m_control + 1, bs)
 
         # if self.fault == 0:
