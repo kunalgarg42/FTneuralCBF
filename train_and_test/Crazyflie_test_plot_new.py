@@ -1,5 +1,7 @@
 import os
 import sys
+
+import numpy
 import torch
 import math
 import random
@@ -62,34 +64,35 @@ def main():
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index, j_const=2)
 
-    NN_controller = NNController_new(n_state=n_state, m_control=m_control)
+    # NN_controller = NNController_new(n_state=n_state, m_control=m_control)
     NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
-    NN_alpha = alpha_param(n_state=n_state)
-
+    # NN_alpha = alpha_param(n_state=n_state)
+    FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
     try:
-        NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
-        NN_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weights.pth'))
-        NN_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
+        # NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weightsCBF.pth'))
+        NN_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
+        FT_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth'))
+        # NN_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
     except:
-        NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
-        NN_cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
-        NN_alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
+        # NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
+        NN_cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
+        FT_cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF.pth'))
+        # NN_alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
 
     NN_cbf.eval()
-    NN_controller.eval()
-    NN_alpha.eval()
+    # NN_controller.eval()
+    # NN_alpha.eval()
 
-    FT_controller = NNController_new(n_state=n_state, m_control=m_control)
-    FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
-    FT_alpha = alpha_param(n_state=n_state)
+    # FT_controller = NNController_new(n_state=n_state, m_control=m_control)
 
-    FT_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
-    FT_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weights.pth'))
-    FT_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
+    # FT_alpha = alpha_param(n_state=n_state)
+
+    # FT_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
+    # FT_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
 
     FT_cbf.eval()
-    FT_controller.eval()
-    FT_alpha.eval()
+    # FT_controller.eval()
+    # FT_alpha.eval()
 
     state = x0
     goal = xg
@@ -101,8 +104,11 @@ def main():
     epsilon = 0.1
 
     um, ul = dynamics.control_limits()
+    um = um.reshape(1, m_control).repeat(1, 1)
+    ul = ul.reshape(1, m_control).repeat(1, 1)
 
-    ul = 0 * ul
+    um = um.type(torch.FloatTensor)
+    ul = ul.type(torch.FloatTensor)
 
     sm, sl = dynamics.state_limits()
     safe_m, safe_l = dynamics.safe_limits(sm, sl)
@@ -117,19 +123,25 @@ def main():
 
     rand_start = random.uniform(1.01, 100)
 
-    fault_start_epoch = 10000000 + math.floor(config.EVAL_STEPS / rand_start)
+    fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
     # u_nominal = 0.05 * torch.ones(1, m_control)
-    u_eq = dynamics.u_eq()
+    u_eq = dynamics.u_eq() * 1.2
     u_nominal = u_eq
+    # u_samples = numpy.linspace(ul, um, num=10000)
+    #
+    # u_samples = u_samples.reshape(10000, 4)
+    # alpha_samples = numpy.linspace(-10, 10, num=10000)
+    # alpha_samples = alpha_samples.reshape(10000, 1)
+    # u_samples = np.hstack((u_samples, alpha_samples))
+    # u_samples = torch.tensor(u_samples, dtype=torch.float32)
+
     for i in range(config.EVAL_STEPS):
         # print(i)
 
         for j in range(n_state):
             if state[0, j] < sl[j]:
                 state[0, j] = sl[j].clone()
-            if state[0, j] > sm[j]:
-                state[0, j] = sm[j].clone()
 
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
@@ -153,10 +165,30 @@ def main():
             # h_nom = - torch.sum((state - (safe_m + safe_l) / 2) ** 2 + ((safe_m - safe_l) / 2) ** 2)
             # h_nom = h_nom.reshape(1, 1)
             # grad_h_nom = - 2 * (state - (sm + sl) / 2).reshape(1, 1, n_state)
+            # LgH = torch.matmul(grad_h, gx).reshape(m_control, 1)
+            # LgH = torch.vstack((LgH, h.reshape(1, 1)))
+            # u = ul[0, 0].clone() * torch.ones(1, m_control)
+            # for j in range(m_control):
+            #     dotLghu = u_samples[:, j] * LgH[j]
+            #     try:
+            #         ind = int(torch.argmax(dotLghu))
+            #         u[0, j] = u_samples[ind, j]
+            #     except:
+            #         u[0, j] = ul[0, j].clone()
+            # try:
+            #     ind = int(ind[:, 0].min())
+            #     u = u_samples[ind, 0:m_control]
+            # except:
+            u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+
+            # print(ind)
+            # print(u)
+            # print(dotLghu[ind])
+            # print(assa)
 
             # u_nominal = util.neural_controller(u_nominal, fx, gx, h_nom, grad_h_nom, fault_start)
             # u_nominal = util.nominal_controller(state, goal, u_nominal, dynamics)
-            u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+
             # u = NN_controller(state, torch.tensor(u_nominal, dtype=torch.float32))
             u = u.reshape(1, m_control)
 
@@ -164,10 +196,10 @@ def main():
                 u[0, fault_control_index] = torch.rand(1) / 4
 
             for j in range(m_control):
-                if u[0, j] < ul[j]:
-                    u[0, j] = ul[j].clone()
-                if u[0, j] > um[j]:
-                    u[0, j] = um[j].clone()
+                if u[0, j] < ul[0, j]:
+                    u[0, j] = ul[0, j].clone()
+                if u[0, j] > um[0, j]:
+                    u[0, j] = um[0, j].clone()
 
             u = torch.tensor(u, dtype=torch.float32)
             gxu = torch.matmul(gx, u.reshape(m_control, 1))
@@ -213,10 +245,10 @@ def main():
 
                 dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
-        dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
+        # dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
         # print(u)
         # u_nominal = u.clone().reshape(1, m_control)
-
+        dot_h = util.doth_max_alpha(h, grad_h, fx, gx, um, ul)
         state_next = state + dx * dt
 
         is_safe = int(util.is_safe(state))
@@ -224,7 +256,7 @@ def main():
         safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
         unsafety_rate += is_unsafe / config.EVAL_STEPS
         h_correct += is_safe * int(h >= 0) / config.EVAL_STEPS + is_unsafe * int(h < 0) / config.EVAL_STEPS
-        dot_h_correct += torch.sign(dot_h.clone().detach().cpu() + NN_alpha(state).detach().cpu() * h.detach().cpu()) / config.EVAL_STEPS
+        dot_h_correct += torch.sign(dot_h) / config.EVAL_STEPS
 
         x_pl = np.vstack((x_pl, np.array(state.clone().detach()).reshape(1, n_state)))
         fault_activity = np.vstack((fault_activity, fault_start))

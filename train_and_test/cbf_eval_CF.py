@@ -26,7 +26,7 @@ N2 = 10000
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
-fault = 1 # nominal_params["fault"]
+fault = 1  # nominal_params["fault"]
 
 fault_control_index = 1
 
@@ -54,31 +54,31 @@ alpha = alpha_param(n_state=n_state)
 
 if which_data == 0:
     if fault == 0:
-        cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
+        cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
         nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
         alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
     else:
-        cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weights.pth'))
+        cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF.pth'))
         nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
         alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
 else:
     try:
         if fault == 0:
-            cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weights.pth'))
+            cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
             nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
             alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
         else:
-            cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weights.pth'))
+            cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth'))
             nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
             alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
     except:
         print("No good data available, evaluating on last data")
         if fault == 0:
-            cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weights.pth'))
+            cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
             nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
             alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
         else:
-            cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weights.pth'))
+            cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF.pth'))
             nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
             alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
 
@@ -128,17 +128,19 @@ for k in range(iterations):
     fx = dynamics._f(state, params=nominal_params)
     gx = dynamics._g(state, params=nominal_params)
 
-    alpha_p = alpha.forward(state)
-    alpha_p = alpha_p.reshape(N1 + N2, 1)
+    # alpha_p = alpha.forward(state)
+    # alpha_p = alpha_p.reshape(N1 + N2, 1)
 
     # dot_h = torch.matmul(grad_h.reshape(N1 + N2, 1, n_state),
     #                      dsdt.reshape(N1 + N2, n_state, 1))
 
-    dot_h = util.doth_max(grad_h, fx, gx, um, ul)
+    # dot_h = util.doth_max(grad_h, fx, gx, um, ul)
+    # dot_h = dot_h.reshape(N1 + N2, 1)
 
-    dot_h = dot_h.reshape(N1 + N2, 1)
+    # deriv_cond = dot_h + alpha_p * h
+    dot_h = util.doth_max_alpha(h, grad_h, fx, gx, um, ul)
 
-    deriv_cond = dot_h + alpha_p * h
+    deriv_cond = dot_h
 
     deriv_safe += torch.sum((deriv_cond >= 0).reshape(N1+N2, 1) * util.is_safe(state).reshape(N1+N2, 1)) / (N1 + N2)
 

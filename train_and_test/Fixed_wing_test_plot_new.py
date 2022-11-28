@@ -30,12 +30,12 @@ xg = torch.tensor([[120.0,
 x0 = torch.tensor([[150.0,
                     0.2,
                     0.1,
-                    0.4,
-                    0.5,
-                    0.2,
                     0.1,
-                    0.5,
-                    0.9]])
+                    0.1,
+                    0.1,
+                    0.1,
+                    0.1,
+                    0.1]])
 
 dt = 0.01
 n_state = 9
@@ -108,7 +108,7 @@ def main():
 
     fault_start_epoch = 100000 * math.floor(config.EVAL_STEPS / rand_start)  # + 100000000
     fault_start = 0
-    u_nominal = torch.zeros(1, m_control)
+    u_nominal = um.clone()
 
     for i in range(config.EVAL_STEPS):
         # print(i)
@@ -271,5 +271,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# scp -r kgarg@18.18.47.27:/home/kgarg/kunal_files/MIT_REALM/fault_tol_control/data/data /home/kunal/MIT_REALM/Research/fault_tol_control/data/

@@ -27,7 +27,7 @@ N1 = n_sample
 N2 = 50000
 
 nominal_params = config.FIXED_WING_PARAMS
-fault = 1  # nominal_params["fault"]
+fault = 0  # nominal_params["fault"]
 
 state = torch.tensor([[100.0,
                        0.0,

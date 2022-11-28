@@ -148,7 +148,7 @@ class CrazyFlies(ControlAffineSystemNew):
         upper_limit[CrazyFlies.P] = 2
 
         lower_limit = -1.0 * upper_limit
-        lower_limit[CrazyFlies.Z] = -1
+        lower_limit[CrazyFlies.Z] = 0
         # lower_limit = torch.tensor(lower_limit)
         # upper_limit = torch.tensor(upper_limit)
 
@@ -165,12 +165,12 @@ class CrazyFlies(ControlAffineSystemNew):
         fault = params["fault"]
 
         if fault == 0:
-            safe_z_l = 1
+            safe_z_l = 2
             safe_z_u = 8
             safe_w_u = 5
             safe_w_l = -5
         else:
-            safe_z_l = 0.95
+            safe_z_l = 1.5
             safe_z_u = 8.05
             safe_w_u = 6
             safe_w_l = -6
@@ -211,12 +211,12 @@ class CrazyFlies(ControlAffineSystemNew):
         fault = params["fault"]
 
         if fault == 0:
-            safe_z_l = 1
+            safe_z_l = 2
             safe_z_u = 8
             safe_w_u = 5
             safe_w_l = -5
         else:
-            safe_z_l = 0.95
+            safe_z_l = 1.5
             safe_z_u = 8.05
             safe_w_u = 6
             safe_w_l = -6
@@ -239,12 +239,12 @@ class CrazyFlies(ControlAffineSystemNew):
         unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
 
         if fault == 0:
-            unsafe_z_l = 0.1
+            unsafe_z_l = 1
             unsafe_z_u = 9.5
             unsafe_w_l = -7.5
             unsafe_w_u = 7.5
         else:
-            unsafe_z_l = 0.05
+            unsafe_z_l = 1.2
             unsafe_z_u = 10
             unsafe_w_l = -8.5
             unsafe_w_u = 8.5
