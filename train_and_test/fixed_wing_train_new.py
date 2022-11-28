@@ -213,14 +213,22 @@ def main(args):
                     break
         else:
             for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
+
                 if init_add == 1:
                     init_states0 = util.x_samples(safe_m, safe_l, n_sample) + 0 * torch.randn(n_sample, n_state)
                 else:
                     init_states0 = torch.tensor([]).reshape(0, n_state)
 
-                init_states1 = util.x_samples(sm, sl, config.POLICY_UPDATE_INTERVAL)
+                init_states = init_states0.clone()
 
-                init_states = torch.vstack((init_states0, init_states1))
+                for j in range(10):
+                    # print(j)
+                    lower_bound = sl.clone() + (sm.clone() - sl.clone()) * j / 10
+                    upper_bound = sl.clone() + (sm.clone() - sl.clone()) * (j + 1) / 10
+
+                    init_states1 = util.x_samples(upper_bound, lower_bound, int(config.POLICY_UPDATE_INTERVAL / 10))
+
+                    init_states = torch.vstack((init_states, init_states1))
 
                 num_states = init_states.shape[0]
 

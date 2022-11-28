@@ -161,7 +161,7 @@ class FixedWing(ControlAffineSystemNew):
         upper_limit = torch.ones(self.n_dims)
         upper_limit[FixedWing.V] = 200.0
         upper_limit[FixedWing.ALPHA] = np.pi / 3.0
-        upper_limit[FixedWing.BETA] = np.pi / 6.0
+        upper_limit[FixedWing.BETA] = np.pi / 3.0
         upper_limit[FixedWing.PHI] = np.pi / 3
         upper_limit[FixedWing.GAMMA] = np.pi / 3
         upper_limit[FixedWing.PSI] = np.pi / 3
@@ -203,12 +203,12 @@ class FixedWing(ControlAffineSystemNew):
         fault = params["fault"]
 
         if fault == 0:
-            safe_alpha = np.pi / 8.0
+            safe_alpha = np.pi / 6.0
             safe_alpha_l = - np.pi / 80.0
             safe_V = 100.0
         else:
-            safe_alpha = np.pi / 7.0
-            safe_alpha_l = - np.pi / 70.0
+            safe_alpha = np.pi / 5.8
+            safe_alpha_l = - np.pi / 40.0
             safe_V = 95.0
         # safe_radius = 3
 
@@ -232,12 +232,12 @@ class FixedWing(ControlAffineSystemNew):
         safe_l = sl * 0.9
 
         if fault == 0:
-            safe_alpha = np.pi / 8.0
+            safe_alpha = np.pi / 6.0
             safe_alpha_l = - np.pi / 80.0
             safe_V = 100.0
         else:
-            safe_alpha = np.pi / 7.0
-            safe_alpha_l = - np.pi / 70.0
+            safe_alpha = np.pi / 5.8
+            safe_alpha_l = - np.pi / 40.0
             safe_V = 95.0
         # safe_radius = 3
 
@@ -257,11 +257,11 @@ class FixedWing(ControlAffineSystemNew):
         fault = params["fault"]
 
         if fault == 0:
-            unsafe_alpha = np.pi / 5
+            unsafe_alpha = np.pi / 4
             unsafe_alpha_l = - np.pi / 10.0
             unsafe_V = 80.0
         else:
-            unsafe_alpha = np.pi / 5
+            unsafe_alpha = np.pi / 4
             unsafe_alpha_l = - np.pi / 10.0
             unsafe_V = 80.0
 

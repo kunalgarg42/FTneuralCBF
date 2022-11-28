@@ -377,7 +377,7 @@ class Trainer(object):
         doth = doth + torch.matmul(torch.abs(LhG).reshape(bs, 1, self.m_control + 1),
                                    uin.reshape(bs, self.m_control + 1, 1))
         if self.fault == 1:
-            doth = doth.reshape(bs, 1) - 2 * torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[self.fault_control_index, :].reshape(bs, 1)
+            doth = doth.reshape(bs, 1) - 1.5 * torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[self.fault_control_index, :].reshape(bs, 1)
         # else:
         #     for i in range(self.m_control + 1):
         #         if i == self.fault_control_index:
