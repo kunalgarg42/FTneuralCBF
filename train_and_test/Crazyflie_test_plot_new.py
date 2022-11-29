@@ -38,7 +38,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 fault_control_index = 1
 fault_duration = config.FAULT_DURATION
 
-fault_known = 1
+fault_known = 0
 
 
 def main():
@@ -92,7 +92,6 @@ def main():
     # FT_alpha.eval()
 
     state = x0
-    goal = xg
 
     safety_rate = 0.0
     unsafety_rate = 0.0
@@ -108,11 +107,11 @@ def main():
     ul = ul.type(torch.FloatTensor)
 
     sm, sl = dynamics.state_limits()
-    safe_m, safe_l = dynamics.safe_limits(sm, sl)
 
     x_pl = np.array(state).reshape(1, n_state)
     fault_activity = np.array([0])
-    detected_fault_activity = np.zeros((1 + config.EVAL_STEPS,))
+    detect_activity = np.array([0])
+
     u_pl = np.array([0] * m_control).reshape(1, m_control)
     h, _ = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
@@ -123,8 +122,9 @@ def main():
 
     fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
+    detect = 0
     # u_nominal = 0.05 * torch.ones(1, m_control)
-    u_eq = dynamics.u_eq()
+
     # u_samples = numpy.linspace(ul, um, num=10000)
     #
     # u_samples = u_samples.reshape(10000, 4)
@@ -132,6 +132,7 @@ def main():
     # alpha_samples = alpha_samples.reshape(10000, 1)
     # u_samples = np.hstack((u_samples, alpha_samples))
     # u_samples = torch.tensor(u_samples, dtype=torch.float32)
+    previous_state = state.clone()
 
     for i in tqdm.trange(config.EVAL_STEPS):
         # print(i)
@@ -195,7 +196,6 @@ def main():
             u = u.reshape(1, m_control)
 
             if fault_start == 1:
-                detected_fault_activity[i] = 1.0
                 u[0, fault_control_index] = torch.rand(1) / 4
 
             for j in range(m_control):
@@ -211,54 +211,66 @@ def main():
 
         else:
             h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
+            h_prev, _ = NN_cbf.V_with_jacobian(previous_state.reshape(1, n_state, 1))
+            # u = NN_controller(state, u_nominal)
             u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
 
             if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
-                fault_start = 1.0
                 u[0, fault_control_index] = torch.rand(1) / 4
+                fault_start = 1.0
             else:
                 fault_start = 0.0
 
             for j in range(m_control):
                 if u[0, j] < ul[0, j]:
-                    u[0, j] = ul[0, j].clone() * 2
+                    u[0, j] = ul[0, j].clone()
                 if u[0, j] > um[0, j]:
-                    u[0, j] = um[0, j].clone() / 2
+                    u[0, j] = um[0, j].clone()
 
             u = torch.tensor(u, dtype=torch.float32)
             gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
             dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
-            dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
-
-            if dot_h < epsilon:
+            # dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
+            dot_h = (h - h_prev) / dt + 10 * h
+            # If no fault previously detected and dot_h is too small, then detect a fault
+            if detect == 0 and dot_h < epsilon - 10 * dt:
+                detect = 1
                 h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
+                # u = FT_controller(state, u_nominal)
                 u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
-                u = torch.squeeze(u.detach().cpu())
+                u = torch.tensor(u, dtype=torch.float32)
+                # u = torch.squeeze(u.detach().cpu())
                 if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
-                    u[fault_control_index] = torch.rand(1) / 4
+                    u[0, fault_control_index] = torch.rand(1) / 4
 
                 for j in range(m_control):
-                    if u[j] < ul[0, j]:
-                        u[j] = ul[0, j].clone() * 2
-                    if u[j] > um[0, j]:
-                        u[j] = um[0, j].clone() / 2
+                    if u[0, j] <= ul[0, j]:
+                        u[0, j] = ul[0, j].clone()
+                    if u[0, j] >= um[0, j]:
+                        u[0, j] = um[0, j].clone()
 
                 u = torch.tensor(u, dtype=torch.float32)
                 gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
                 dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
+            # If we have previously detected a fault, switch to no fault if dot_h is
+            # increasing
+            elif detect == 1 and dot_h > epsilon:
+                detect = 0
 
-                detected_fault_activity[i] = 1.0
 
         # dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
         # print(u)
         # u_nominal = u.clone().reshape(1, m_control)
+        detect_activity = np.vstack((detect_activity, detect))
         dot_h = util.doth_max_alpha(h, grad_h, fx, gx, um, ul)
         if dot_h < 0:
             print(i)
         state_next = state + dx * dt
+
+        previous_state = state.clone()
 
         is_safe = int(util.is_safe(state))
         is_unsafe = int(util.is_unsafe(state))
@@ -357,22 +369,24 @@ def main():
         label="Fault",
     )
     z_ax.set_ylim(lims)
-    detected_mask = detected_fault_activity.nonzero()
-    z_ax.plot(
-        time_pl[detected_mask],
-        detected_fault_activity[detected_mask],
-        color=colors[3],
-        label="Fault detected",
-        linewidth=4.0,
-    )
-    z_ax.plot(
-        [time_pl[detected_mask].min(), time_pl[detected_mask].max()],
-        [1.0, 1.0],
-        "o",
-        color=colors[3],
-        markersize=15.0
-    )
-    z_ax.legend()
+    detected_mask = detect_activity.squeeze().nonzero()[0]
+    if detected_mask.size > 0:
+        # Plot the fault detection    
+        z_ax.plot(
+            time_pl[detected_mask],
+            detect_activity[detected_mask],
+            color=colors[3],
+            label="Fault detected",
+            linewidth=4.0,
+        )
+        z_ax.plot(
+            [time_pl[detected_mask].min(), time_pl[detected_mask].max()],
+            [1.0, 1.0],
+            "o",
+            color=colors[3],
+            markersize=15.0,
+        )
+        z_ax.legend()
     lims = u_ax.get_ylim()
     u_ax.fill_between(
         [t_fault_start, t_fault_end],

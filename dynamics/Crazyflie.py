@@ -563,7 +563,7 @@ class CrazyFlies(ControlAffineSystemNew):
 
         return u_eq
 
-    def u_nominal(self, x: torch.Tensor) -> torch.Tensor:
+    def u_nominal(self, x: torch.Tensor, op_point=None) -> torch.Tensor:
         """
         Compute the nominal control for the nominal parameters, using LQR unless
         overridden
@@ -575,8 +575,10 @@ class CrazyFlies(ControlAffineSystemNew):
         """
         # Compute nominal control from feedback + equilibrium control
         K = self.K.type_as(x)
+        if op_point is None:
+            op_point = self.goal
 
-        goal = self.goal.squeeze().type_as(x)
+        goal = op_point.squeeze().type_as(x)
         u_nominal = -(K @ (x - goal).T).T
 
         # Adjust for the equilibrium setpoint
