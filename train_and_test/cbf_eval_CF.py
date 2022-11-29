@@ -26,7 +26,7 @@ N2 = 10000
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
-fault = 1  # nominal_params["fault"]
+fault = 0  # nominal_params["fault"]
 
 fault_control_index = 1
 

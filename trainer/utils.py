@@ -223,6 +223,7 @@ class Utils(object):
             u_nominal (m_control,)
         """
         um, ul = self.dyn.control_limits()
+
         m_control = self.m_control
 
         size_Q = m_control + 1
@@ -239,24 +240,40 @@ class Utils(object):
 
         F[-1] = -1
 
-        Lg = torch.matmul(grad_h, gx)
-        Lf = torch.matmul(grad_h, fx)
+        Lg = torch.matmul(grad_h, gx).detach()
+        Lf = torch.matmul(grad_h, fx).detach()
 
         if fault_start == 1:
-            Lf = Lf - torch.abs(Lg[0, 0, self.fault_control_index]) * um[self.fault_control_index]
-            Lg[0, 0, self.fault_control_index] = 0
+            uin = um[self.fault_control_index] * (Lg[0, 0, self.fault_control_index] > 0) + \
+                  ul[self.fault_control_index] * (Lg[0, 0, self.fault_control_index] <= 0)
+            Lf = Lf - torch.abs(Lg[0, 0, self.fault_control_index]) * uin
+
+            Lg[0, 0, self.fault_control_index] = 0.0
 
         if h == 0:
             h = 1e-4
 
+        # noinspection PyTypeChecker
         A = torch.hstack((- Lg.reshape(1, m_control), -h))
-        A = torch.tensor(A.detach().cpu())
-        B = Lf.detach().cpu().numpy()
+        B = Lf.detach().cpu()
+
+        lb = torch.vstack((ul.reshape(self.m_control, 1), torch.tensor(-10).reshape(1, 1)))
+        ub = torch.vstack((um.reshape(self.m_control, 1), torch.tensor(10).reshape(1, 1)))
+        A_in = torch.tensor(
+            [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [-1, 0, 0, 0, 0],
+             [0, -1, 0, 0, 0], [0, 0, -1, 0, 0], [0, 0, 0, -1, 0], [0, 0, 0, 0, -1]])
+
+        A = torch.vstack((A.clone().detach(), A_in))
+
+        B_in = torch.vstack((ub, -lb))
+        B = torch.vstack((B, B_in.reshape(2 * self.m_control + 2, 1, 1)))
+
         B = np.array(B)
 
         # print(A)
         A = scipy.sparse.csc.csc_matrix(A)
         u = solve_qp(Q, F, A, B, solver="osqp")
+        # , lb = lb.reshape(self.m_control + 1, 1, 1), ub = ub.reshape(self.m_control + 1, 1, 1),
 
         if u is None:
             u_neural = u_nominal.reshape(m_control)
@@ -401,7 +418,9 @@ class Utils(object):
         doth = doth + torch.matmul(torch.abs(LhG).reshape(bs, 1, self.m_control + 1),
                                    uin.reshape(bs, self.m_control + 1, 1))
         if self.fault == 1:
-            doth = doth.reshape(bs, 1) - 1.5 * torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[self.fault_control_index,:].reshape(bs, 1)
+            doth = doth.reshape(bs, 1) - 1.5 * torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[
+                                                                                                            self.fault_control_index,
+                                                                                                            :].reshape(
+                bs, 1)
 
         return doth.reshape(1, bs)
-

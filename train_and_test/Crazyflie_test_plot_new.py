@@ -36,7 +36,7 @@ xg = torch.tensor([[0.0,
 
 x0 = torch.tensor([[2.0,
                     2.0,
-                    3.1,
+                    5.1,
                     0.0,
                     0.0,
                     0.0,
@@ -126,8 +126,7 @@ def main():
     fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
     # u_nominal = 0.05 * torch.ones(1, m_control)
-    u_eq = dynamics.u_eq() * 1.2
-    u_nominal = u_eq
+    u_eq = dynamics.u_eq()
     # u_samples = numpy.linspace(ul, um, num=10000)
     #
     # u_samples = u_samples.reshape(10000, 4)
@@ -138,10 +137,16 @@ def main():
 
     for i in range(config.EVAL_STEPS):
         # print(i)
+        if state[0, 2] > goal[0, 2]:
+            u_nominal = u_eq.clone() * (1 + torch.linalg.norm(state-goal) / 100)
+        else:
+            u_nominal = u_eq.clone() * (1 - torch.linalg.norm(state - goal) / 100)
 
         for j in range(n_state):
             if state[0, j] < sl[j]:
                 state[0, j] = sl[j].clone()
+            if state[0, j] > sm[j]:
+                state[0, j] = sm[j].clone()
 
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
@@ -150,7 +155,7 @@ def main():
             # 1 -> time-based switching, assumes knowledge of when fault occurs and stops
             # 0 -> Fault-detection based-switching, using the proposed scheme from the paper
 
-            if fault_start == 0 and fault_start_epoch <= i <= fault_start_epoch + fault_duration and util.is_safe(
+            if fault_start == 0 and fault_start_epoch <= i <= fault_start_epoch + fault_duration / 5 and util.is_safe(
                     state):
                 fault_start = 1
 
@@ -197,9 +202,9 @@ def main():
 
             for j in range(m_control):
                 if u[0, j] < ul[0, j]:
-                    u[0, j] = ul[0, j].clone()
+                    u[0, j] = ul[0, j].clone() * 2
                 if u[0, j] > um[0, j]:
-                    u[0, j] = um[0, j].clone()
+                    u[0, j] = um[0, j].clone() / 2
 
             u = torch.tensor(u, dtype=torch.float32)
             gxu = torch.matmul(gx, u.reshape(m_control, 1))
@@ -249,14 +254,16 @@ def main():
         # print(u)
         # u_nominal = u.clone().reshape(1, m_control)
         dot_h = util.doth_max_alpha(h, grad_h, fx, gx, um, ul)
+        if dot_h < 0:
+            print(i)
         state_next = state + dx * dt
 
         is_safe = int(util.is_safe(state))
         is_unsafe = int(util.is_unsafe(state))
-        safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
+        safety_rate = safety_rate * (1 - 1 / config.EVAL_STEPS) + is_safe / config.EVAL_STEPS
         unsafety_rate += is_unsafe / config.EVAL_STEPS
         h_correct += is_safe * int(h >= 0) / config.EVAL_STEPS + is_unsafe * int(h < 0) / config.EVAL_STEPS
-        dot_h_correct += torch.sign(dot_h) / config.EVAL_STEPS
+        dot_h_correct += torch.sign(dot_h.clone().detach()) / config.EVAL_STEPS
 
         x_pl = np.vstack((x_pl, np.array(state.clone().detach()).reshape(1, n_state)))
         fault_activity = np.vstack((fault_activity, fault_start))
@@ -268,6 +275,11 @@ def main():
     time_pl = np.arange(0., dt * config.EVAL_STEPS + dt, dt)
 
     z_pl = x_pl[:, 2]
+
+    p_pl = x_pl[:, 4]
+
+    ps_pl = x_pl[:, 3]
+
     print(safety_rate)
     print(unsafety_rate)
     print(h_correct)
@@ -299,9 +311,15 @@ def main():
     ax6 = plt.subplot(336)
     ax6.plot(time_pl, u4, '--y')
     ax6.title.set_text('u4')
-    ax7 = plt.subplot(339)
+    ax7 = plt.subplot(337)
     ax7.plot(time_pl, fault_activity, '--g')
     ax7.title.set_text('fault_activity')
+    ax8 = plt.subplot(338)
+    ax8.plot(time_pl, p_pl, '--g')
+    ax8.title.set_text('Angle theta')
+    ax9 = plt.subplot(339)
+    ax9.plot(time_pl, ps_pl, '--r')
+    ax9.title.set_text('Angle phi')
     # plt.suptitle('Categorical Plotting')
     plt.savefig('./plots/plot_closed_loop_data_CF.png')
 
