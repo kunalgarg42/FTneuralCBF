@@ -12,13 +12,11 @@ import torch
 from torch.autograd.functional import jacobian
 
 
-# from neural_clbf.systems.utils import (
-#     Scenario,
-#     ScenarioList,
-#     lqr,
-#     robust_continuous_lyap,
-#     continuous_lyap,
-# )
+from .utils import (
+    lqr,
+    robust_continuous_lyap,
+    continuous_lyap,
+)
 
 
 class ControlAffineSystemNew(ABC):
@@ -35,13 +33,13 @@ class ControlAffineSystemNew(ABC):
     """
 
     def __init__(
-            self,
-            x: torch.Tensor,
-            nominal_params,
-            dt: float = 0.01,
-            controller_dt: Optional[float] = None,
-            use_linearized_controller: bool = True,
-            scenarios: Optional = None,
+        self,
+        x: torch.Tensor,
+        nominal_params,
+        dt: float = 0.01,
+        controller_dt: Optional[float] = None,
+        use_linearized_controller: bool = True,
+        scenarios=None,
     ):
         """
         Initialize a system.
@@ -74,9 +72,91 @@ class ControlAffineSystemNew(ABC):
         if controller_dt is None:
             controller_dt = self.dt
         self.controller_dt = controller_dt
-        self.x = x
+        self.x = x.clone()
 
         # Compute the linearized controller
+        if use_linearized_controller:
+            self.compute_linearized_controller(scenarios)
+
+    @torch.enable_grad()
+    def compute_A_matrix(self, scenario) -> np.ndarray:
+        """Compute the linearized continuous-time state-state derivative transfer matrix
+        about the goal point"""
+        # Linearize the system about the x = 0, u = 0
+        x0 = self.goal_point
+        u0 = self.u_eq()
+        dynamics = lambda x: self.closed_loop_dynamics(x, u0, scenario).squeeze()
+        A = jacobian(dynamics, x0).squeeze().cpu().numpy()
+        A = np.reshape(A, (self.n_dims, self.n_dims))
+
+        return A
+
+    def compute_B_matrix(self, scenario) -> np.ndarray:
+        """Compute the linearized continuous-time state-state derivative transfer matrix
+        about the goal point"""
+        if scenario is None:
+            scenario = self.nominal_params
+
+        # Linearize the system about the x = 0, u = 0
+        B = self._g(self.goal_point, scenario).squeeze().cpu().numpy()
+        B = np.reshape(B, (self.n_dims, self.n_controls))
+
+        return B
+
+    def linearized_ct_dynamics_matrices(
+        self, scenario=None
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Compute the continuous time linear dynamics matrices, dx/dt = Ax + Bu"""
+        A = self.compute_A_matrix(scenario)
+        B = self.compute_B_matrix(scenario)
+
+        return A, B
+
+    def linearized_dt_dynamics_matrices(
+        self, scenario=None
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Compute the continuous time linear dynamics matrices, x_{t+1} = Ax_{t} + Bu
+        """
+        Act, Bct = self.linearized_ct_dynamics_matrices(scenario)
+        A = np.eye(self.n_dims) + self.controller_dt * Act
+        B = self.controller_dt * Bct
+
+        return A, B
+
+    def compute_linearized_controller(self, scenarios=None):
+        """
+        Computes the linearized controller K and lyapunov matrix P.
+        """
+        # We need to compute the LQR closed-loop linear dynamics for each scenario
+        Acl_list = []
+        # Default to the nominal scenario if none are provided
+        if scenarios is None:
+            scenarios = [self.nominal_params]
+
+        # For each scenario, get the LQR gain and closed-loop linearization
+        for s in scenarios:
+            # Compute the LQR gain matrix for the nominal parameters
+            Act, Bct = self.linearized_ct_dynamics_matrices(s)
+            A, B = self.linearized_dt_dynamics_matrices(s)
+
+            # Define cost matrices as identity
+            Q = np.eye(self.n_dims)
+            R = np.eye(self.n_controls)
+
+            # Get feedback matrix
+            K_np = lqr(A, B, Q, R)
+            self.K = torch.tensor(K_np)
+
+            Acl_list.append(Act - Bct @ K_np)
+
+        # If more than one scenario is provided...
+        # get the Lyapunov matrix by robustly solving Lyapunov inequalities
+        if len(scenarios) > 1:
+            self.P = torch.tensor(robust_continuous_lyap(Acl_list, Q))
+        else:
+            # Otherwise, just use the standard Lyapunov equation
+            self.P = torch.tensor(continuous_lyap(Acl_list[0], Q))
 
     @torch.enable_grad()
     @abstractmethod
@@ -110,7 +190,7 @@ class ControlAffineSystemNew(ABC):
         """
         pass
 
-    @abstractproperty
+    # @abstractproperty  # this was not implemented as a property in subclass
     def control_limits(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Return a tuple (upper, lower) describing the range of allowable control
@@ -124,7 +204,7 @@ class ControlAffineSystemNew(ABC):
         Return a tuple (upper, lower) describing the range of allowable changes to
         control for this system
         """
-        upper_limit, lower_limit = self.control_limits
+        upper_limit, lower_limit = self.control_limits()
 
         return (upper_limit, lower_limit)
 
@@ -232,10 +312,10 @@ class ControlAffineSystemNew(ABC):
         return x
 
     def sample_with_mask(
-            self,
-            num_samples: int,
-            mask_fn: Callable[[torch.Tensor], torch.Tensor],
-            max_tries: int = 5000,
+        self,
+        num_samples: int,
+        mask_fn: Callable[[torch.Tensor], torch.Tensor],
+        max_tries: int = 5000,
     ) -> torch.Tensor:
         """Sample num_samples so that mask_fn is True for all samples. Makes a
         best-effort attempt, but gives up after max_tries, so may return some points
@@ -282,7 +362,7 @@ class ControlAffineSystemNew(ABC):
         return self.sample_with_mask(num_samples, self.boundary_mask, max_tries)
 
     def control_affine_dynamics(
-            self, x: torch.Tensor, params
+        self, x: torch.Tensor, params
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Return a tuple (f, g) representing the system dynamics in control-affine form:
@@ -309,7 +389,7 @@ class ControlAffineSystemNew(ABC):
         return self._f(x, params), self._g(x, params)
 
     def closed_loop_dynamics(
-            self, x: torch.Tensor, u: torch.Tensor, params
+        self, x: torch.Tensor, u: torch.Tensor, params
     ) -> torch.Tensor:
         """
         Return the state derivatives at state x and control input u
@@ -335,11 +415,11 @@ class ControlAffineSystemNew(ABC):
         return xdot.view(x.shape)
 
     def zero_order_hold(
-            self,
-            x: torch.Tensor,
-            u: torch.Tensor,
-            controller_dt: float,
-            params,
+        self,
+        x: torch.Tensor,
+        u: torch.Tensor,
+        controller_dt: float,
+        params,
     ) -> torch.Tensor:
         """
         Simulate dynamics forward for controller_dt, simulating at self.dt, with control
@@ -393,16 +473,13 @@ class ControlAffineSystemNew(ABC):
         """
         pass
 
-    def u_nominal(
-            self, x: torch.Tensor, params
-    ) -> torch.Tensor:
+    def u_nominal(self, x: torch.Tensor) -> torch.Tensor:
         """
         Compute the nominal control for the nominal parameters, using LQR unless
         overridden
 
         args:
             x: bs x self.n_dims tensor of state
-            params: the model parameters used
         returns:
             u_nominal: bs x self.n_controls tensor of controls
         """
@@ -412,10 +489,10 @@ class ControlAffineSystemNew(ABC):
         u_nominal = -(K @ (x - goal).T).T
 
         # Adjust for the equilibrium setpoint
-        u = u_nominal + self.u_eq.type_as(x)
+        u = u_nominal + self.u_eq().type_as(x)
 
         # Clamp given the control limits
-        upper_u_lim, lower_u_lim = self.control_limits
+        upper_u_lim, lower_u_lim = self.control_limits()
         for dim_idx in range(self.n_controls):
             u[:, dim_idx] = torch.clamp(
                 u[:, dim_idx],
