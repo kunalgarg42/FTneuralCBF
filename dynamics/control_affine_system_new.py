@@ -65,7 +65,7 @@ class ControlAffineSystemNew(ABC):
         self.nominal_params = nominal_params
 
         # Make sure the timestep is valid
-        assert dt > 0.0
+        # assert dt > 0.0
         self.dt = dt
 
         if controller_dt is None:

@@ -4,7 +4,14 @@ from typing import Tuple, List, Optional
 import torch
 import numpy as np
 
+from torch.autograd.functional import jacobian
+
 from .control_affine_system_new import ControlAffineSystemNew
+
+from .utils import (
+    lqr,
+    continuous_lyap,
+)
 
 
 class CrazyFlies(ControlAffineSystemNew):
@@ -66,10 +73,12 @@ class CrazyFlies(ControlAffineSystemNew):
             self,
             x: torch.Tensor,
             nominal_params,
-            dt: float = 0.01,
-            controller_dt: Optional[float] = None,
+            goal: torch.Tensor,
+            dt: float = 0.001,
     ):
         self.x = x
+        self.goal = goal
+        self.controller_dt = dt
         self.params = nominal_params
         """
         Initialize the quadrotor.
@@ -82,7 +91,7 @@ class CrazyFlies(ControlAffineSystemNew):
         raises:
             ValueError if nominal_params are not valid for this system
         """
-        super().__init__(x, nominal_params, dt, controller_dt)
+        super().__init__(x, nominal_params, goal, dt)
 
     def validate_params(self, params) -> bool:
         """Check if a given set of parameters is valid
@@ -125,6 +134,138 @@ class CrazyFlies(ControlAffineSystemNew):
     @property
     def n_controls(self) -> int:
         return CrazyFlies.N_CONTROLS
+
+    def compute_A_matrix(self, scenario) -> np.ndarray:
+        """Compute the linearized continuous-time state-state derivative transfer matrix
+        about the goal point"""
+        # Linearize the system about the x = 0, u = 0
+        if scenario is None:
+            scenario = self.nominal_params
+
+        x0 = self.goal_point
+        u0 = self.u_eq()
+        dynamics = lambda x: self.closed_loop_dynamics(x, u0, scenario).squeeze()
+        A = jacobian(dynamics, x0).squeeze().cpu().numpy()
+        A = np.reshape(A, (self.n_dims, self.n_dims))
+
+        return A
+
+    def compute_B_matrix(self, scenario) -> np.ndarray:
+        """Compute the linearized continuous-time state-state derivative transfer matrix
+        about the goal point"""
+        if scenario is None:
+            scenario = self.nominal_params
+
+        # Linearize the system about the x = 0, u = 0
+        B = self._g(self.goal_point, scenario).squeeze().cpu().numpy()
+        B = np.reshape(B, (self.n_dims, self.n_controls))
+
+        return B
+
+    def linearized_ct_dynamics_matrices(
+        self, scenario=None
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Compute the continuous time linear dynamics matrices, dx/dt = Ax + Bu"""
+        A = self.compute_A_matrix(scenario)
+        B = self.compute_B_matrix(scenario)
+
+        return A, B
+
+    def linearized_dt_dynamics_matrices(
+        self, scenario=None
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Compute the continuous time linear dynamics matrices, x_{t+1} = Ax_{t} + Bu
+        """
+        Act, Bct = self.linearized_ct_dynamics_matrices(scenario)
+        A = np.eye(self.n_dims) + self.controller_dt * Act
+        B = self.controller_dt * Bct
+
+        return A, B
+
+    def compute_linearized_controller(self, scenarios=None):
+        """
+        Computes the linearized controller K and lyapunov matrix P.
+        """
+        # We need to compute the LQR closed-loop linear dynamics for each scenario
+        Acl_list = []
+        # Default to the nominal scenario if none are provided
+        if scenarios is None:
+            scenarios = [self.nominal_params]
+
+        # For each scenario, get the LQR gain and closed-loop linearization
+        for s in scenarios:
+            # Compute the LQR gain matrix for the nominal parameters
+            Act, Bct = self.linearized_ct_dynamics_matrices(s)
+            A, B = self.linearized_dt_dynamics_matrices(s)
+
+            # Define cost matrices as identity
+            Q = np.eye(self.n_dims)
+            R = np.eye(self.n_controls)
+
+            # Get feedback matrix
+            K_np = lqr(A, B, Q, R)
+            self.K = torch.tensor(K_np)
+
+            Acl_list.append(Act - Bct @ K_np)
+
+        # If more than one scenario is provided...
+        # get the Lyapunov matrix by robustly solving Lyapunov inequalities
+
+        self.P = torch.tensor(continuous_lyap(Acl_list[0], Q))
+
+    def control_affine_dynamics(
+        self, x: torch.Tensor, params
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Return a tuple (f, g) representing the system dynamics in control-affine form:
+
+            dx/dt = f(x) + g(x) u
+
+        args:
+            x: bs x self.n_dims tensor of state
+            params: a dictionary giving the parameter values for the system. If None,
+                    default to the nominal parameters used at initialization
+        returns:
+            f: bs x self.n_dims x 1 tensor representing the control-independent dynamics
+            g: bs x self.n_dims x self.n_controls tensor representing the control-
+               dependent dynamics
+        """
+        # Sanity check on input
+        assert x.ndim == 2
+        assert x.shape[1] == self.n_dims
+
+        # If no params required, use nominal params
+        if params is None:
+            params = self.nominal_params
+
+        return self._f(x, params), self._g(x, params)
+
+    def closed_loop_dynamics(
+        self, x: torch.Tensor, u: torch.Tensor, params
+    ) -> torch.Tensor:
+        """
+        Return the state derivatives at state x and control input u
+
+            dx/dt = f(x) + g(x) u
+
+        args:
+            x: bs x self.n_dims tensor of state
+            u: bs x self.n_controls tensor of controls
+            params: a dictionary giving the parameter values for the system. If None,
+                    default to the nominal parameters used at initialization
+        returns:
+            xdot: bs x self.n_dims tensor of time derivatives of x
+        """
+        # Get the control-affine dynamics
+        # print(x.ndim)
+        f, g = self.control_affine_dynamics(x, params=params)
+        # print(f)
+
+        # print(g)
+        # Compute state derivatives using control-affine form
+        xdot = f + torch.bmm(g, u.unsqueeze(-1))
+        return xdot.view(x.shape)
 
     # @property
     def state_limits(self) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -421,3 +562,33 @@ class CrazyFlies(ControlAffineSystemNew):
         u_eq[0, CrazyFlies.F_4] = self.nominal_params["m"] * 9.81 / 4
 
         return u_eq
+
+    def u_nominal(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Compute the nominal control for the nominal parameters, using LQR unless
+        overridden
+
+        args:
+            x: bs x self.n_dims tensor of state
+        returns:
+            u_nominal: bs x self.n_controls tensor of controls
+        """
+        # Compute nominal control from feedback + equilibrium control
+        K = self.K.type_as(x)
+
+        goal = self.goal.squeeze().type_as(x)
+        u_nominal = -(K @ (x - goal).T).T
+
+        # Adjust for the equilibrium setpoint
+        u = u_nominal + self.u_eq().type_as(x)
+
+        # Clamp given the control limits
+        upper_u_lim, lower_u_lim = self.control_limits()
+        for dim_idx in range(self.n_controls):
+            u[:, dim_idx] = torch.clamp(
+                u[:, dim_idx],
+                min=lower_u_lim[dim_idx].item(),
+                max=upper_u_lim[dim_idx].item(),
+            )
+
+        return u

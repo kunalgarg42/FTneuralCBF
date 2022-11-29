@@ -20,19 +20,18 @@ from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, alpha_param, NNController_new
 
-
-xg = torch.tensor([[0.0,
-                    0.0,
-                    3.5,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0]])
+xg = torch.tensor([0.0,
+                   0.0,
+                   3.5,
+                   0.0,
+                   0.0,
+                   0.0,
+                   0.0,
+                   0.0,
+                   0.0,
+                   0.0,
+                   0.0,
+                   0.0])
 
 x0 = torch.tensor([[2.0,
                     2.0,
@@ -60,7 +59,7 @@ fault_known = 1
 
 
 def main():
-    dynamics = CrazyFlies(x=x0, nominal_params=nominal_params, dt=dt, controller_dt=dt)
+    dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index, j_const=2)
 
@@ -70,13 +69,13 @@ def main():
     FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
     try:
         # NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weightsCBF.pth'))
-        NN_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
-        FT_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth'))
+        NN_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth', map_location='cpu'))
+        FT_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth', map_location='cpu'))
         # NN_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
     except:
         # NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
-        NN_cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
-        FT_cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF.pth'))
+        NN_cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth', map_location='cpu'))
+        FT_cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF.pth', map_location='cpu'))
         # NN_alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
 
     NN_cbf.eval()
@@ -123,7 +122,7 @@ def main():
 
     rand_start = random.uniform(1.01, 100)
 
-    fault_start_epoch = 1000 * math.floor(config.EVAL_STEPS / rand_start)
+    fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
     # u_nominal = 0.05 * torch.ones(1, m_control)
     u_eq = dynamics.u_eq()
@@ -137,10 +136,11 @@ def main():
 
     for i in range(config.EVAL_STEPS):
         # print(i)
-        if state[0, 2] > goal[0, 2]:
-            u_nominal = u_eq.clone() * (1 + torch.linalg.norm(state[0, 2]-goal[0, 2]) / 1000)
-        else:
-            u_nominal = u_eq.clone() * (1 - torch.linalg.norm(state[0, 2] - goal[0, 2]) / 1000)
+        # if state[0, 2] > goal[0, 2]:
+        #     u_nominal = u_eq.clone() * (1 + torch.linalg.norm(state[0, 2]-goal[0, 2]) / 1000)
+        # else:
+        #     u_nominal = u_eq.clone() * (1 - torch.linalg.norm(state[0, 2] - goal[0, 2]) / 1000)
+        u_nominal = dynamics.u_nominal(state)
 
         for j in range(n_state):
             if state[0, j] < sl[j]:
@@ -185,11 +185,6 @@ def main():
             #     u = u_samples[ind, 0:m_control]
             # except:
             u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
-
-            # print(ind)
-            # print(u)
-            # print(dotLghu[ind])
-            # print(assa)
 
             # u_nominal = util.neural_controller(u_nominal, fx, gx, h_nom, grad_h_nom, fault_start)
             # u_nominal = util.nominal_controller(state, goal, u_nominal, dynamics)
@@ -326,4 +321,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
