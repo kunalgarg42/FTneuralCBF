@@ -65,6 +65,7 @@ class Trainer(object):
             self.cbf_lr_scheduler = torch.optim.lr_scheduler.StepLR(
                 self.cbf_optimizer, step_size=lr_decay_stepsize, gamma=0.5)
 
+    # noinspection PyProtectedMember,PyUnboundLocalVariable
     def train_cbf_and_controller(self, iter_NN=0, eps=0.1, eps_deriv=0.03, train_CF=0):
         batch_size = 4000 + int(iter_NN / 4) * 2000
         opt_iter = int(self.dataset.n_pts / batch_size)
@@ -377,7 +378,10 @@ class Trainer(object):
         doth = doth + torch.matmul(torch.abs(LhG).reshape(bs, 1, self.m_control + 1),
                                    uin.reshape(bs, self.m_control + 1, 1))
         if self.fault == 1:
-            doth = doth.reshape(bs, 1) - 1.5 * torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[self.fault_control_index, :].reshape(bs, 1)
+            doth = doth.reshape(bs, 1) - 1.5 * torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[
+                                                                                                            self.fault_control_index,
+                                                                                                            :].reshape(
+                bs, 1)
         # else:
         #     for i in range(self.m_control + 1):
         #         if i == self.fault_control_index:
