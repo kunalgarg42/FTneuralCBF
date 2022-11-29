@@ -55,7 +55,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 fault_control_index = 1
 fault_duration = config.FAULT_DURATION
 
-fault_known = 1
+fault_known = 0
 
 
 def main():
@@ -94,7 +94,6 @@ def main():
     # FT_alpha.eval()
 
     state = x0
-    goal = xg
 
     safety_rate = 0.0
     unsafety_rate = 0.0
@@ -110,10 +109,11 @@ def main():
     ul = ul.type(torch.FloatTensor)
 
     sm, sl = dynamics.state_limits()
-    safe_m, safe_l = dynamics.safe_limits(sm, sl)
 
     x_pl = np.array(state).reshape(1, n_state)
     fault_activity = np.array([0])
+    detect_activity = np.array([0])
+
     u_pl = np.array([0] * m_control).reshape(1, m_control)
     h, _ = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
@@ -124,8 +124,9 @@ def main():
 
     fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
+    detect = 0
     # u_nominal = 0.05 * torch.ones(1, m_control)
-    u_eq = dynamics.u_eq()
+
     # u_samples = numpy.linspace(ul, um, num=10000)
     #
     # u_samples = u_samples.reshape(10000, 4)
@@ -133,6 +134,7 @@ def main():
     # alpha_samples = alpha_samples.reshape(10000, 1)
     # u_samples = np.hstack((u_samples, alpha_samples))
     # u_samples = torch.tensor(u_samples, dtype=torch.float32)
+    previous_state = state.clone()
 
     for i in range(config.EVAL_STEPS):
         # print(i)
@@ -208,50 +210,62 @@ def main():
 
         else:
             h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
-            u = NN_controller(state, u_nominal)
-            u = util.neural_controller(u, fx, gx, h, grad_h, fault_start)
+            h_prev, _ = NN_cbf.V_with_jacobian(previous_state.reshape(1, n_state, 1))
+            # u = NN_controller(state, u_nominal)
+            u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
 
             if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
-                u[fault_control_index] = torch.rand(1) / 4
+                u[0, fault_control_index] = torch.rand(1) / 4
 
             for j in range(m_control):
-                if u[0, j] < ul[j]:
-                    u[j] = ul[j].clone()
-                if u[0, j] > um[j]:
-                    u[j] = um[j].clone()
+                if u[0, j] < ul[0, j]:
+                    u[0, j] = ul[0, j].clone()
+                if u[0, j] > um[0, j]:
+                    u[0, j] = um[0, j].clone()
 
             u = torch.tensor(u, dtype=torch.float32)
             gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
             dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
-            dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
-            if dot_h < epsilon:
+            # dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
+            dot_h = (h - h_prev) / dt + 10 * h
+            if dot_h < epsilon - 10 * dt:
+                detect = 1
                 h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
-                u = FT_controller(state, u_nominal)
-                u = util.neural_controller(u, fx, gx, h, grad_h, fault_start)
-                u = torch.squeeze(u.detach().cpu())
+                # u = FT_controller(state, u_nominal)
+                u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+                u = torch.tensor(u, dtype=torch.float32)
+                # u = torch.squeeze(u.detach().cpu())
                 if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
-                    u[fault_control_index] = torch.rand(1) / 4
+                    u[0, fault_control_index] = torch.rand(1) / 4
 
                 for j in range(m_control):
-                    if u[0, j] <= ul[j]:
-                        u[j] = ul[j].clone()
-                    if u[0, j] >= um[j]:
-                        u[j] = um[j].clone()
+                    if u[0, j] <= ul[0, j]:
+                        u[0, j] = ul[0, j].clone()
+                    if u[0, j] >= um[0, j]:
+                        u[0, j] = um[0, j].clone()
 
                 u = torch.tensor(u, dtype=torch.float32)
                 gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
                 dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
+            else:
+                if detect == 1 and dot_h > epsilon:
+                    detect = 0
+                else:
+                    detect = 1
 
         # dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
         # print(u)
         # u_nominal = u.clone().reshape(1, m_control)
+        detect_activity = np.vstack((detect_activity, detect))
         dot_h = util.doth_max_alpha(h, grad_h, fx, gx, um, ul)
         if dot_h < 0:
             print(i)
         state_next = state + dx * dt
+
+        previous_state = state.clone()
 
         is_safe = int(util.is_safe(state))
         is_unsafe = int(util.is_unsafe(state))
@@ -308,7 +322,11 @@ def main():
     ax6.title.set_text('u4')
     ax7 = plt.subplot(337)
     ax7.plot(time_pl, fault_activity, '--g')
-    ax7.title.set_text('fault_activity')
+    ax7.title.set_text('fault and detection activity')
+    # ax7 = plt.subplot(337)
+    ax7.plot(time_pl, detect_activity, '--r')
+    # ax72.title.set_text('d')
+
     ax8 = plt.subplot(338)
     ax8.plot(time_pl, p_pl, '--g')
     ax8.title.set_text('Angle theta')

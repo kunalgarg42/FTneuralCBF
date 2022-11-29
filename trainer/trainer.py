@@ -182,6 +182,7 @@ class Trainer(object):
 
                 loss = loss_h_safe + loss_h_dang + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action
 
+
                 self.controller_optimizer.zero_grad()
                 self.cbf_optimizer.zero_grad()
                 self.alpha_optimizer.zero_grad()
