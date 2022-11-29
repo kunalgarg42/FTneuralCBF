@@ -14,7 +14,6 @@ from torch.autograd.functional import jacobian
 
 from .utils import (
     lqr,
-    robust_continuous_lyap,
     continuous_lyap,
 )
 
@@ -150,13 +149,8 @@ class ControlAffineSystemNew(ABC):
 
             Acl_list.append(Act - Bct @ K_np)
 
-        # If more than one scenario is provided...
-        # get the Lyapunov matrix by robustly solving Lyapunov inequalities
-        if len(scenarios) > 1:
-            self.P = torch.tensor(robust_continuous_lyap(Acl_list, Q))
-        else:
-            # Otherwise, just use the standard Lyapunov equation
-            self.P = torch.tensor(continuous_lyap(Acl_list[0], Q))
+        # Solve the standard Lyapunov equation
+        self.P = torch.tensor(continuous_lyap(Acl_list[0], Q))
 
     @torch.enable_grad()
     @abstractmethod
