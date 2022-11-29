@@ -123,7 +123,7 @@ def main():
 
     rand_start = random.uniform(1.01, 100)
 
-    fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start)
+    fault_start_epoch = 1000 * math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
     # u_nominal = 0.05 * torch.ones(1, m_control)
     u_eq = dynamics.u_eq()
@@ -138,9 +138,9 @@ def main():
     for i in range(config.EVAL_STEPS):
         # print(i)
         if state[0, 2] > goal[0, 2]:
-            u_nominal = u_eq.clone() * (1 + torch.linalg.norm(state-goal) / 100)
+            u_nominal = u_eq.clone() * (1 + torch.linalg.norm(state[0, 2]-goal[0, 2]) / 1000)
         else:
-            u_nominal = u_eq.clone() * (1 - torch.linalg.norm(state - goal) / 100)
+            u_nominal = u_eq.clone() * (1 - torch.linalg.norm(state[0, 2] - goal[0, 2]) / 1000)
 
         for j in range(n_state):
             if state[0, j] < sl[j]:
