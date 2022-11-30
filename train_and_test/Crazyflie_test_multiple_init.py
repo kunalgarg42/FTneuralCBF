@@ -95,7 +95,7 @@ def main():
     h_correct_pl = np.array([0])
     dot_h_pl = np.array([0])
     iteration = 1
-    for iteration in tqdm.trange(4):
+    for iteration in tqdm.trange(100):
 
         fault_start = 0
         previous_state = state.clone()
@@ -270,6 +270,7 @@ def main():
     z_ax.set_xlabel("Iteration")
     z_ax.set_xlim(time_pl[1], time_pl[-1])
     z_ax.tick_params(axis="y", labelcolor=colors[0])
+    z_ax.legend()
 
     # Plot the control action on another axis
     u_ax = axs[1]
