@@ -193,12 +193,12 @@ def main(args):
             # init_states = torch.vstack((init_states0, init_states1))
             init_states = init_states0.clone()
 
-            for j in range(10):
+            for j in range(20):
                 # print(j)
-                lower_bound = sl.clone() + (sm.clone() - sl.clone()) * j / 10
-                upper_bound = sl.clone() + (sm.clone() - sl.clone()) * (j + 1) / 10
+                lower_bound = sl.clone() + (sm.clone() - sl.clone()) * j / 20
+                upper_bound = sl.clone() + (sm.clone() - sl.clone()) * (j + 1) / 20
 
-                init_states1 = util.x_samples(upper_bound, lower_bound, int(config.POLICY_UPDATE_INTERVAL / 10))
+                init_states1 = util.x_samples(upper_bound, lower_bound, int(config.POLICY_UPDATE_INTERVAL / 20))
 
                 init_states = torch.vstack((init_states, init_states1))
 
