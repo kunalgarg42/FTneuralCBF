@@ -25,9 +25,9 @@ from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, alpha_param, NNController_new
 
-xg = torch.tensor([0.0, 0.0, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+xg = torch.tensor([0.0, 0.0, 3.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
-x0 = torch.tensor([[2.0, 2.0, 3.5, 0.0, 0.0, 0.0, 0.0, 0.0, -3.0, 0.0, 0.0, 0.0]])
+x0 = torch.tensor([[2.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 dt = 0.001
 n_state = 12
 m_control = 4
@@ -203,11 +203,11 @@ def main():
 
             dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
-            dot_h = (h - h_prev) / dt + 10 * h
+            dot_h = (h - h_prev) / dt + 0.1 * h
             dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach().numpy()))
 
             # If no fault previously detected and dot_h is too small, then detect a fault
-            if detect == 0 and dot_h < epsilon - 10 * dt and h < 1:
+            if detect == 0 and dot_h < epsilon - 10 * dt:
                 detect = 1
                 h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
@@ -231,7 +231,7 @@ def main():
                 dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
             # If we have previously detected a fault, switch to no fault if dot_h is
             # increasing
-            elif (detect == 1 and dot_h > epsilon / 10) or h > 1:
+            elif (detect == 1 and dot_h > epsilon / 10):
                 # else:
                 detect = 0
 
