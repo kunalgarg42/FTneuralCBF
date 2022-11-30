@@ -76,7 +76,7 @@ state_new = state.clone()
 bs = zlen + 1
 
 for j in range(0, zlen):
-    state_new = util.x_samples(sm, sl, 1)
+    # state_new = util.x_samples(sm, sl, 1)
     state_new[0, 2] = z[j].copy()
 
     # state_new[0, 8] = w[j]

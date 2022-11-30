@@ -253,7 +253,8 @@ def main():
         h_correct_pl = np.vstack((h_correct_pl, h_correct))
 
     time_pl = np.arange(0.1, epsilon, -1 / 1000)
-    time_pl = time_pl[0:len(safety_rate_pl)]
+    plot_len = len(safety_rate_pl)
+    # time_pl = time_pl[0:]
     colors = sns.color_palette()
 
     fig = plt.figure(figsize=(12, 14))
@@ -262,8 +263,8 @@ def main():
 
     # Plot the altitude and CBF value on one axis
     z_ax = axs[0]
-    z_ax.plot(time_pl, safety_rate_pl, linewidth=4.0, label="safety rate", color=colors[0])
-    z_ax.plot(time_pl, un_safety_rate_pl, linewidth=4.0, label="un safety rate", color=colors[1])
+    z_ax.plot(time_pl[0:plot_len], safety_rate_pl[0:plot_len], linewidth=4.0, label="safety rate", color=colors[0])
+    z_ax.plot(time_pl[0:plot_len], un_safety_rate_pl[0:plot_len], linewidth=4.0, label="un safety rate", color=colors[1])
 
     z_ax.set_ylabel("Safety and unsafety rate", color=colors[0])
     z_ax.set_xlabel("Iteration")
@@ -272,8 +273,8 @@ def main():
 
     # Plot the control action on another axis
     u_ax = axs[1]
-    u_ax.plot(time_pl, dot_h_pl, linewidth=2.0, label="$\dot h > 0$")
-    u_ax.plot(time_pl, h_correct_pl, linewidth=2.0, label="$h$")
+    u_ax.plot(time_pl[0:plot_len], dot_h_pl[0:plot_len], linewidth=2.0, label="$\dot h > 0$")
+    u_ax.plot(time_pl[0:plot_len], h_correct_pl[0:plot_len], linewidth=2.0, label="$h$")
 
     u_ax.set_xlabel("Iteration")
     u_ax.set_ylabel("$h$ and $\dot h > 0$")
