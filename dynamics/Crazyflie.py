@@ -313,7 +313,7 @@ class CrazyFlies(ControlAffineSystemNew):
             # safe_angle = np.pi / 5.0
         else:
             safe_z_l = 1.5
-            safe_z_u = 9
+            safe_z_u = 8.5
             safe_w_u = 6
             safe_w_l = -6
             # safe_angle = np.pi / 4.8
@@ -365,7 +365,7 @@ class CrazyFlies(ControlAffineSystemNew):
             # safe_angle = np.pi / 5.0
         else:
             safe_z_l = 1.5
-            safe_z_u = 9
+            safe_z_u = 8.5
             safe_w_u = 6
             safe_w_l = -6
             # safe_angle = np.pi / 4.8
@@ -385,22 +385,22 @@ class CrazyFlies(ControlAffineSystemNew):
         args:
             x: a tensor of points in the state space
         """
-        params = self.params
-        fault = params["fault"]
+        # params = self.params
+        # fault = params["fault"]
 
         # unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
 
-        if fault == 0:
-            unsafe_z_l = 1
-            unsafe_z_u = 9.5
-            unsafe_w_l = -7.5
-            unsafe_w_u = 7.5
+        # if fault == 0:
+        unsafe_z_l = 1
+        unsafe_z_u = 9.5
+        unsafe_w_l = -7.5
+        unsafe_w_u = 7.5
             # unsafe_angle = np.pi / 4.7
-        else:
-            unsafe_z_l = 1.2
-            unsafe_z_u = 9.2
-            unsafe_w_l = -7
-            unsafe_w_u = 7
+        # else:
+        #     unsafe_z_l = 1.2
+        #     unsafe_z_u = 9.2
+        #     unsafe_w_l = -7
+        #     unsafe_w_u = 7
             # unsafe_angle = np.pi / 4.7
 
         unsafe_mask = torch.logical_or(x[:, CrazyFlies.Z] <= unsafe_z_l, x[:, CrazyFlies.Z] >= unsafe_z_u)

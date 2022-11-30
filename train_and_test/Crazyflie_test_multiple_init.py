@@ -204,7 +204,7 @@ def main():
                     detect = 1
                     h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
                     u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
-
+                    u  = u.reshape(1, m_control)
                     u = torch.tensor(u, dtype=torch.float32)
 
                     if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
