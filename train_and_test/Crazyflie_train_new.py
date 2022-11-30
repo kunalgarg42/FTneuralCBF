@@ -204,7 +204,7 @@ def main(args):
 
             unsafe_states = dynamics.sample_unsafe(int(1.5 * n_sample))
 
-            unsafe_states = unsafe_states.reshape(1.5 * n_sample, n_state)
+            unsafe_states = unsafe_states.reshape(int(1.5 * n_sample), n_state)
 
             init_states = torch.vstack((init_states, unsafe_states))
             # unsafe_states = util.x_samples(sm, safe_m, n_sample)
