@@ -252,7 +252,7 @@ def main():
         dot_h_pl = np.vstack((dot_h_pl, dot_h_correct))
         h_correct_pl = np.vstack((h_correct_pl, h_correct))
 
-    time_pl = np.arange(0.1, epsilon, -1 / 1000)
+    time_pl = np.arange(0.1 + epsilon, epsilon, -1 / 1000)
     plot_len = safety_rate_pl.shape[0]
     # time_pl = time_pl[0:]
     colors = sns.color_palette()

@@ -201,14 +201,18 @@ def main(args):
                 init_states1 = util.x_samples(upper_bound, lower_bound, int(config.POLICY_UPDATE_INTERVAL / 20))
 
                 init_states = torch.vstack((init_states, init_states1))
-            unsafe_states = util.x_samples(safe_l, sl, n_sample)
+
+            unsafe_states = dynamics.sample_unsafe(n_sample)
+
+            unsafe_states = unsafe_states.reshape(2 * n_sample, n_state)
+
             init_states = torch.vstack((init_states, unsafe_states))
             # unsafe_states = util.x_samples(sm, safe_m, n_sample)
             # init_states = torch.vstack((init_states, unsafe_states))
 
             num_states = init_states.shape[0]
 
-            init_states = init_states + 0.3 * i * torch.randn(num_states, n_state) / 100
+            init_states = init_states + 0.1 * i * torch.randn(num_states, n_state) / 100
 
             dataset.add_data(init_states, torch.tensor([]).reshape(0, m_control),
                              torch.tensor([]).reshape(0, m_control))
