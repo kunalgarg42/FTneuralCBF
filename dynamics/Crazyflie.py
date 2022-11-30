@@ -313,7 +313,7 @@ class CrazyFlies(ControlAffineSystemNew):
             # safe_angle = np.pi / 5.0
         else:
             safe_z_l = 1.5
-            safe_z_u = 8.05
+            safe_z_u = 9
             safe_w_u = 6
             safe_w_l = -6
             # safe_angle = np.pi / 4.8
@@ -365,7 +365,7 @@ class CrazyFlies(ControlAffineSystemNew):
             # safe_angle = np.pi / 5.0
         else:
             safe_z_l = 1.5
-            safe_z_u = 8.05
+            safe_z_u = 9
             safe_w_u = 6
             safe_w_l = -6
             # safe_angle = np.pi / 4.8
@@ -398,7 +398,7 @@ class CrazyFlies(ControlAffineSystemNew):
             # unsafe_angle = np.pi / 4.7
         else:
             unsafe_z_l = 1.2
-            unsafe_z_u = 9
+            unsafe_z_u = 9.2
             unsafe_w_l = -7
             unsafe_w_u = 7
             # unsafe_angle = np.pi / 4.7
