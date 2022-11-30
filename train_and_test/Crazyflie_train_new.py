@@ -203,8 +203,8 @@ def main(args):
                 init_states = torch.vstack((init_states, init_states1))
             unsafe_states = util.x_samples(safe_l, sl, n_sample)
             init_states = torch.vstack((init_states, unsafe_states))
-            unsafe_states = util.x_samples(sm, safe_m, n_sample)
-            init_states = torch.vstack((init_states, unsafe_states))
+            # unsafe_states = util.x_samples(sm, safe_m, n_sample)
+            # init_states = torch.vstack((init_states, unsafe_states))
 
             num_states = init_states.shape[0]
 

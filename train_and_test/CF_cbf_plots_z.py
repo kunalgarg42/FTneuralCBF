@@ -134,8 +134,8 @@ z_ax.fill_between(
         [1.5, 9],
         [-1.0, -1.0],
         [1.0, 1.0],
-        color="black",
-        alpha=0.5,
+        color="grey",
+        alpha=0.2,
         label="Post-Fault $X_{safe}$",
     )
 

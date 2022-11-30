@@ -95,7 +95,7 @@ def main():
     h_correct_pl = np.array([0])
     dot_h_pl = np.array([0])
     iteration = 1
-    for iteration in tqdm.trange(10):
+    for iteration in tqdm.trange(4):
 
         fault_start = 0
         previous_state = state.clone()
@@ -253,7 +253,7 @@ def main():
         h_correct_pl = np.vstack((h_correct_pl, h_correct))
 
     time_pl = np.arange(0.1, epsilon, -1 / 1000)
-    plot_len = len(safety_rate_pl)
+    plot_len = safety_rate_pl.shape[0]
     # time_pl = time_pl[0:]
     colors = sns.color_palette()
 
