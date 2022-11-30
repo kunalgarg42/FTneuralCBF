@@ -264,7 +264,7 @@ def main():
     # Plot the altitude and CBF value on one axis
     z_ax = axs[0]
     z_ax.plot(time_pl[0:plot_len], safety_rate_pl[0:plot_len], linewidth=4.0, label="safety rate", color=colors[0])
-    z_ax.plot(time_pl[0:plot_len], un_safety_rate_pl[0:plot_len], linewidth=4.0, label="un safety rate", color=colors[1])
+    z_ax.plot(time_pl[0:plot_len], unsafety_rate_pl[0:plot_len], linewidth=4.0, label="un safety rate", color=colors[1])
 
     z_ax.set_ylabel("Safety and unsafety rate", color=colors[0])
     z_ax.set_xlabel("Iteration")

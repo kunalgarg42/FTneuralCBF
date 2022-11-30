@@ -123,17 +123,17 @@ z_ax.tick_params(axis="y", labelcolor=colors[0])
 
 z_ax.fill_between(
         [2, 8],
-        [-1.0, -1.0],
-        [1.0, 1.0],
+        [-2.0, -2.0],
+        [2.0, 2.0],
         color="grey",
         alpha=0.5,
         label="Pre-Fault $X_{safe}$",
     )
 
 z_ax.fill_between(
-        [1.5, 9],
-        [-1.0, -1.0],
-        [1.0, 1.0],
+        [1.5, 8.5],
+        [-2.0, -2.0],
+        [2.0, 2.0],
         color="grey",
         alpha=0.2,
         label="Post-Fault $X_{safe}$",
@@ -141,36 +141,19 @@ z_ax.fill_between(
 
 z_ax.fill_between(
         [0, 1],
-        [-1.0, -1.0],
-        [1.0, 1.0],
+        [-2.0, -2.0],
+        [2.0, 2.0],
         color="blue",
         alpha=0.5,
-        label="Pre-Fault $X_{unsafe}$",
+        label="$X_{unsafe}$",
     )
 
 z_ax.fill_between(
         [9.5, 11],
-        [-1.0, -1.0],
-        [1.0, 1.0],
+        [-2.0, -2.0],
+        [2.0, 2.0],
         color="blue",
         alpha=0.5,
-    )
-
-z_ax.fill_between(
-        [0, 1.2],
-        [-1.0, -1.0],
-        [1.0, 1.0],
-        color="blue",
-        alpha=0.3,
-        label="Post-Fault $X_{unsafe}$",
-    )
-
-z_ax.fill_between(
-        [9.2, 11],
-        [-1.0, -1.0],
-        [1.0, 1.0],
-        color="blue",
-        alpha=0.3,
     )
 
 z_ax.plot(
@@ -179,7 +162,7 @@ z_ax.plot(
         color="k",
         linestyle="--",
         linewidth=4.0,
-        label="Unsafe boundary",
+        label="h = 0",
     )
 
 z_ax.legend()
