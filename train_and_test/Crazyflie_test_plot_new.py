@@ -11,7 +11,7 @@ import tqdm
 
 import seaborn as sns
 
-sns.set_theme(context="paper", font_scale=2.0, style="ticks")
+sns.set_theme(context="paper", font_scale=3.0, style="ticks")
 
 sys.path.insert(1, os.path.abspath(".."))
 sys.path.insert(1, os.path.abspath("."))
@@ -114,9 +114,11 @@ def main():
 
     u_pl = np.array([0] * m_control).reshape(1, m_control)
     h, _ = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
+    dot_h = 10 * h
 
     # print(h)
     h_pl = np.array(h.detach()).reshape(1, 1)
+    dot_h_pl = np.array(dot_h.detach()).reshape(1, 1)
 
     rand_start = random.uniform(1.01, 100)
 
@@ -260,11 +262,11 @@ def main():
             elif detect == 1 and dot_h > epsilon:
                 detect = 0
 
-
         # dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
         # print(u)
         # u_nominal = u.clone().reshape(1, m_control)
         detect_activity = np.vstack((detect_activity, detect))
+        dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach()))
         dot_h = util.doth_max_alpha(h, grad_h, fx, gx, um, ul)
         if dot_h < 0:
             print(i)
@@ -311,9 +313,8 @@ def main():
 
     colors = sns.color_palette()
 
-    fig = plt.figure(figsize=(12, 14))
-    fig.tight_layout(pad=1.15)
-    axs = fig.subplots(2, 1)
+    fig = plt.figure(figsize=(30, 8))
+    axs = fig.subplots(1, 3)
 
     # Plot the altitude and CBF value on one axis
     z_ax = axs[0]
@@ -355,6 +356,26 @@ def main():
     u_ax.set_xlim(time_pl[0], time_pl[-1])
     u_ax.legend()
 
+    # Plot the fault detection on a third axis
+    w_ax = axs[2]
+    w_ax.plot(time_pl, dot_h_pl, linewidth=4.0)
+    w_ax.plot(
+        time_pl,
+        0 * time_pl + epsilon - 10 * dt,
+        "--",
+        color="grey",
+        label="Fault detection threshold",
+    )
+    w_ax.plot(
+        time_pl,
+        0 * time_pl + epsilon,
+        ":",
+        color="grey",
+        label="Fault cleared threshold",
+    )
+    w_ax.set_xlabel("Time (s)")
+    w_ax.set_ylabel("Fault indicator $\omega$")
+
     # Add the fault indicators
     (t_fault_start, t_fault_end) = time_pl[
         np.diff(fault_activity.squeeze()).nonzero()[0]
@@ -369,24 +390,35 @@ def main():
         label="Fault",
     )
     z_ax.set_ylim(lims)
+    lims = w_ax.get_ylim()
+    w_ax.fill_between(
+        [t_fault_start, t_fault_end],
+        [-10.0, -10.0],
+        [10.0, 10.0],
+        color="grey",
+        alpha=0.5,
+        label="Fault",
+    )
+    w_ax.set_ylim(lims)
     detected_mask = detect_activity.squeeze().nonzero()[0]
     if detected_mask.size > 0:
-        # Plot the fault detection    
-        z_ax.plot(
+        # Plot the fault detection
+        w_ax.plot(
             time_pl[detected_mask],
             detect_activity[detected_mask],
             color=colors[3],
             label="Fault detected",
             linewidth=4.0,
         )
-        z_ax.plot(
+        w_ax.plot(
             [time_pl[detected_mask].min(), time_pl[detected_mask].max()],
-            [1.0, 1.0],
+            [0.0, 0.0],
             "o",
             color=colors[3],
             markersize=15.0,
         )
-        z_ax.legend()
+    w_ax.legend()
+
     lims = u_ax.get_ylim()
     u_ax.fill_between(
         [t_fault_start, t_fault_end],
@@ -397,6 +429,7 @@ def main():
         label="Fault",
     )
     u_ax.set_ylim(lims)
+    fig.tight_layout(pad=1.15)
     # h_ax.plot([t_fault_start, t_fault_start], lims, "k:", linewidth="5.0")
     # h_ax.plot([t_fault_end, t_fault_end], lims, "k:", linewidth="5.0")
 
