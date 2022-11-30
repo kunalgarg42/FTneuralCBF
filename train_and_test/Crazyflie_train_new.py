@@ -204,7 +204,7 @@ def main(args):
 
             num_states = init_states.shape[0]
 
-            init_states = init_states + 2 * torch.randn(num_states, n_state)
+            # init_states = init_states + 2 * torch.randn(num_states, n_state)
 
             dataset.add_data(init_states, torch.tensor([]).reshape(0, m_control),
                              torch.tensor([]).reshape(0, m_control))

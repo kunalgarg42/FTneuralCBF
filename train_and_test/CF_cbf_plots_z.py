@@ -24,8 +24,8 @@ dt = 0.01
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
-state = torch.tensor([[5.0,
-                       5.0,
+state = torch.tensor([[2.0,
+                       2.0,
                        3.1,
                        0.0,
                        0.0,
@@ -117,7 +117,7 @@ z_ax.fill_between(
     )
 
 z_ax.fill_between(
-        [1.5, 8.05],
+        [1.5, 9],
         [-1.0, -1.0],
         [1.0, 1.0],
         color="black",
@@ -152,11 +152,20 @@ z_ax.fill_between(
     )
 
 z_ax.fill_between(
-        [9, 11],
+        [9.2, 11],
         [-1.0, -1.0],
         [1.0, 1.0],
         color="blue",
         alpha=0.3,
+    )
+
+z_ax.plot(
+        z,
+        0 * z,
+        color="k",
+        linestyle="--",
+        linewidth=4.0,
+        label="Unsafe boundary",
     )
 
 z_ax.legend()

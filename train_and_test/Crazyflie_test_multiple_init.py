@@ -60,19 +60,19 @@ def main():
     try:
         # NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weightsCBF.pth'))
         NN_cbf.load_state_dict(
-            torch.load("./good_data/data/CF_cbf_NN_weightsCBF.pth", map_location="cpu")
+            torch.load("./good_data/data/CF_cbf_NN_weightsCBF.pth")
         )
         FT_cbf.load_state_dict(
-            torch.load("./good_data/data/CF_cbf_FT_weightsCBF.pth", map_location="cpu")
+            torch.load("./good_data/data/CF_cbf_FT_weightsCBF.pth")
         )
         # NN_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
     except:
         # NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
         NN_cbf.load_state_dict(
-            torch.load("./data/CF_cbf_NN_weightsCBF.pth", map_location="cpu")
+            torch.load("./data/CF_cbf_NN_weightsCBF.pth")
         )
         FT_cbf.load_state_dict(
-            torch.load("./data/CF_cbf_FT_weightsCBF.pth", map_location="cpu")
+            torch.load("./data/CF_cbf_FT_weightsCBF.pth")
         )
         # NN_alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
 
@@ -95,7 +95,7 @@ def main():
     h_correct_pl = np.array([0])
     dot_h_pl = np.array([0])
     iteration = 1
-    for iteration in tqdm.trange(100):
+    for iteration in tqdm.trange(10):
 
         fault_start = 0
         previous_state = state.clone()
@@ -176,6 +176,8 @@ def main():
                 h_prev, _ = NN_cbf.V_with_jacobian(previous_state.reshape(1, n_state, 1))
                 # u = NN_controller(state, u_nominal)
                 u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+
+                u = u.reshape(1, m_control)
 
                 if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
                     u[0, fault_control_index] = torch.rand(1) / 4

@@ -257,8 +257,8 @@ class Utils(object):
         A = torch.hstack((- Lg.reshape(1, m_control), -h))
         B = Lf.detach().cpu()
 
-        lb = torch.vstack((ul.reshape(self.m_control, 1), torch.tensor(-10).reshape(1, 1)))
-        ub = torch.vstack((um.reshape(self.m_control, 1), torch.tensor(10).reshape(1, 1)))
+        lb = torch.vstack((ul.reshape(self.m_control, 1), torch.tensor(-100).reshape(1, 1)))
+        ub = torch.vstack((um.reshape(self.m_control, 1), torch.tensor(100).reshape(1, 1)))
         A_in = torch.tensor(
             [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [-1, 0, 0, 0, 0],
              [0, -1, 0, 0, 0], [0, 0, -1, 0, 0], [0, 0, 0, -1, 0], [0, 0, 0, 0, -1]])
