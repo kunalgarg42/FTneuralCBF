@@ -15,6 +15,7 @@ from trainer.NNfuncgrad_CF import CBF
 from dynamics.Crazyflie import CrazyFlies
 import seaborn as sns
 from trainer import config
+from trainer.utils import Utils
 
 n_state = 12
 m_control = 4
@@ -38,15 +39,26 @@ state = torch.tensor([[2.0,
                        0.0]])
 
 dynamics = CrazyFlies(x=state, nominal_params=nominal_params, dt=dt, goal=state)
+util = Utils(
+        n_state=n_state,
+        m_control=m_control,
+        dyn=dynamics,
+        params=nominal_params,
+        fault=fault,
+        fault_control_index=fault_control_index,
+        j_const=2,
+    )
 
 # if fault == 0:
 NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=fault, fault_control_index=fault_control_index)
-NN_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth', map_location='cpu'))
+NN_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
 NN_cbf.eval()
 # else:
 FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=fault, fault_control_index=fault_control_index)
-FT_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth', map_location='cpu'))
+FT_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth'))
 FT_cbf.eval()
+
+sm, sl = dynamics.state_limits()
 
 # h contour in 2D: z and w
 zl = -1
@@ -64,7 +76,9 @@ state_new = state.clone()
 bs = zlen + 1
 
 for j in range(0, zlen):
+    state_new = util.x_samples(sm, sl, 1)
     state_new[0, 2] = z[j].copy()
+
     # state_new[0, 8] = w[j]
     state = torch.vstack((state, state_new))
 
