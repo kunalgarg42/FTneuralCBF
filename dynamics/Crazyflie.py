@@ -398,9 +398,9 @@ class CrazyFlies(ControlAffineSystemNew):
             # unsafe_angle = np.pi / 4.7
         else:
             unsafe_z_l = 1.2
-            unsafe_z_u = 10
-            unsafe_w_l = -8.5
-            unsafe_w_u = 8.5
+            unsafe_z_u = 9
+            unsafe_w_l = -7
+            unsafe_w_u = 7
             # unsafe_angle = np.pi / 4.7
 
         unsafe_mask = torch.logical_or(x[:, CrazyFlies.Z] <= unsafe_z_l, x[:, CrazyFlies.Z] >= unsafe_z_u)

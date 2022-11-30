@@ -41,20 +41,20 @@ state = torch.tensor([[2.0,
                        0.0,
                        0.0]])
 
-dynamics = CrazyFlies(x=state, nominal_params=nominal_params, dt=dt, controller_dt=dt)
+dynamics = CrazyFlies(x=state, nominal_params=nominal_params, dt=dt, goal=state)
 
 if fault == 0:
     NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=fault, fault_control_index=fault_control_index)
-    NN_cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
+    NN_cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth', map_location='cpu'))
     NN_cbf.eval()
 else:
     FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=fault, fault_control_index=fault_control_index)
-    FT_cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF.pth'))
+    FT_cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF.pth', map_location='cpu'))
     FT_cbf.eval()
 
 # h contour in 2D: z and w
 zl = -1
-zu = 10
+zu = 11
 # wl = -np.pi / 2
 # wu = np.pi / 2
 # w_ind = 4
@@ -71,16 +71,17 @@ w = np.linspace(wl, wu, w_mesh)
 zlen = z.size
 wlen = w.size
 h_store = np.zeros((zlen + 1, wlen))
-state_new = state
+state_new = state.clone()
 
 for j in range(0, zlen):
-    state_new[0, 2] = z[j]
+    state_new[0, 2] = z[j].copy()
+    # state_new[0, 8] = w[j]
     state = torch.vstack((state, state_new))
 bs = zlen + 1
 
 state_all = state.clone()
 for i in range(0, wlen):
-    state_all[:, w_ind] = torch.ones(bs) * w[i]
+    state_all[:, w_ind] = torch.ones(bs) * w[i].copy()
     if fault == 0:
         # print(state_all)
         h, _ = NN_cbf.V_with_jacobian(state.reshape(bs, n_state, 1))
