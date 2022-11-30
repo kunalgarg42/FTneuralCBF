@@ -27,7 +27,7 @@ from trainer.NNfuncgrad_CF import CBF, alpha_param, NNController_new
 
 xg = torch.tensor([0.0, 0.0, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
-x0 = torch.tensor([[2.0, 2.0, 3.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+x0 = torch.tensor([[2.0, 2.0, 3.5, 0.0, 0.0, 0.0, 0.0, 0.0, -3.0, 0.0, 0.0, 0.0]])
 dt = 0.001
 n_state = 12
 m_control = 4
@@ -60,19 +60,29 @@ def main():
     try:
         # NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weightsCBF.pth'))
         NN_cbf.load_state_dict(
-            torch.load("./good_data/data/CF_cbf_NN_weightsCBF.pth", map_location=torch.device("cpu"))
+            torch.load(
+                "./good_data/data/CF_cbf_NN_weightsCBF.pth",
+                map_location=torch.device("cpu"),
+            )
         )
         FT_cbf.load_state_dict(
-            torch.load("./good_data/data/CF_cbf_FT_weightsCBF.pth", map_location=torch.device("cpu"))
+            torch.load(
+                "./good_data/data/CF_cbf_FT_weightsCBF.pth",
+                map_location=torch.device("cpu"),
+            )
         )
         # NN_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
     except:
         # NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
         NN_cbf.load_state_dict(
-            torch.load("./data/CF_cbf_NN_weightsCBF.pth", map_location=torch.device("cpu"))
+            torch.load(
+                "./data/CF_cbf_NN_weightsCBF.pth", map_location=torch.device("cpu")
+            )
         )
         FT_cbf.load_state_dict(
-            torch.load("./data/CF_cbf_FT_weightsCBF.pth", map_location=torch.device("cpu"))
+            torch.load(
+                "./data/CF_cbf_FT_weightsCBF.pth", map_location=torch.device("cpu")
+            )
         )
         # NN_alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
 
@@ -106,7 +116,7 @@ def main():
 
     h_pl = np.array(h.detach()).reshape(1, 1)
 
-    rand_start = 33  # random.uniform(1.01, 100)
+    rand_start = 50  # 33  # random.uniform(1.01, 100)
 
     fault_start_epoch = 10 * math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
@@ -134,9 +144,9 @@ def main():
             # 0 -> Fault-detection based-switching, using the proposed scheme from the paper
 
             if (
-                    fault_start == 0
-                    and fault_start_epoch <= i <= fault_start_epoch + fault_duration / 5
-                    and util.is_safe(state)
+                fault_start == 0
+                and fault_start_epoch <= i <= fault_start_epoch + fault_duration / 5
+                and util.is_safe(state)
             ):
                 fault_start = 1
 
@@ -175,7 +185,9 @@ def main():
             u = u.reshape(1, m_control)
 
             if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
-                u[0, fault_control_index] = ul[0, 0].clone()  # 0.05 + 0.02 * torch.randn(1)
+                u[0, fault_control_index] = ul[
+                    0, 0
+                ].clone()  # 0.05 + 0.02 * torch.randn(1)
                 fault_start = 1.0
             else:
                 fault_start = 0.0
@@ -195,7 +207,7 @@ def main():
             dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach().numpy()))
 
             # If no fault previously detected and dot_h is too small, then detect a fault
-            if detect == 0 and dot_h < epsilon - 10 * dt and h < 0.7:
+            if detect == 0 and dot_h < epsilon - 10 * dt and h < 1:
                 detect = 1
                 h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
@@ -219,7 +231,7 @@ def main():
                 dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
             # If we have previously detected a fault, switch to no fault if dot_h is
             # increasing
-            elif (detect == 1 and dot_h > epsilon / 10) or h > 0.7:
+            elif (detect == 1 and dot_h > epsilon / 10) or h > 1:
                 # else:
                 detect = 0
 
@@ -238,8 +250,8 @@ def main():
 
         unsafety_rate += is_unsafe / config.EVAL_STEPS
         h_correct += (
-                is_safe * int(h >= 0) / config.EVAL_STEPS
-                + is_unsafe * int(h < 0) / config.EVAL_STEPS
+            is_safe * int(h >= 0) / config.EVAL_STEPS
+            + is_unsafe * int(h < 0) / config.EVAL_STEPS
         )
         dot_h_correct += torch.sign(dot_h.clone().detach()) / config.EVAL_STEPS
 
@@ -270,7 +282,7 @@ def main():
 
     colors = sns.color_palette()
 
-    fig = plt.figure(figsize=(30, 8))
+    fig = plt.figure(figsize=(31, 9))
     axs = fig.subplots(1, 3)
 
     # Plot the altitude and CBF value on one axis
@@ -279,23 +291,24 @@ def main():
 
     # z_ax.plot(time_pl, dot_h_pl, linewidth=2.0, label="z (m)", color=colors[2])
 
+    unsafe_z = 1.0
     z_ax.plot(
         time_pl,
-        0 * time_pl + 2,
+        0 * time_pl + unsafe_z,
         color="k",
         linestyle="--",
         linewidth=4.0,
-        label="Unsafe boundary",
     )
+    z_ax.text(time_pl.max() * 0.05, unsafe_z + 0.1, "Unsafe boundary")
     z_ax.plot([], [], color=colors[1], linestyle="-", linewidth=4.0, label="CBF h(x)")
     z_ax.set_ylabel("Height (m)", color=colors[0])
     z_ax.set_xlabel("Time (s)")
     z_ax.set_xlim(time_pl[0], time_pl[-1])
     z_ax.tick_params(axis="y", labelcolor=colors[0])
-    z_ax.legend()
+    z_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.17), ncol=2, frameon=False)
 
     h_ax = z_ax.twinx()
-    h_ax.plot(time_pl, h_pl, linestyle="-", linewidth=1.0, color=colors[1])
+    h_ax.plot(time_pl, h_pl, linestyle="-", linewidth=4.0, color=colors[1])
     h_ax.plot(
         time_pl,
         0 * time_pl,
@@ -316,18 +329,26 @@ def main():
     u_ax.set_xlabel("Time (s)")
     u_ax.set_ylabel("Control effort")
     u_ax.set_xlim(time_pl[0], time_pl[-1])
-    u_ax.legend()
+    u_ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.17),
+        ncol=4,
+        frameon=False,
+        columnspacing=0.7,
+        handlelength=0.7,
+        handletextpad=0.3,
+    )
 
     # Plot the fault detection on a third axis
     w_ax = axs[2]
     dot_h_pl[0] = dot_h_pl[1]  # remove dummy value from start
-    w_ax.plot(time_pl, dot_h_pl, linewidth=4.0, label="Fault indicator $\omega$")
+    w_ax.plot(time_pl, dot_h_pl, linewidth=4.0, label="$\omega$")
     w_ax.plot(
         time_pl,
         0 * time_pl + epsilon - 10 * dt,
         "--",
         color="grey",
-        label="Fault detection threshold",
+        # label="detection threshold",
     )
     # w_ax.plot(
     #     time_pl,
@@ -386,7 +407,15 @@ def main():
     #         color=colors[3],
     #         markersize=15.0,
     #     )
-    w_ax.legend()
+    w_ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.17),
+        ncol=3,
+        frameon=False,
+        # columnspacing=0.7,
+        # handlelength=0.7,
+        # handletextpad=0.3,
+    )
     # fig.legend(
     #     [fault_handle],
     #     ["Fault"],
@@ -404,6 +433,23 @@ def main():
         color="grey",
         alpha=0.5,
         label="Fault",
+    )
+    mean_u = (u_pl.max() + u_pl.min()) / 2.0
+    u_ax.text(
+        t_fault_start,
+        mean_u,
+        "Fault occurs",
+        rotation="vertical",
+        horizontalalignment="right",
+        verticalalignment="center",
+    )
+    u_ax.text(
+        t_fault_end,
+        mean_u,
+        "Fault clears",
+        rotation="vertical",
+        horizontalalignment="right",
+        verticalalignment="center",
     )
     u_ax.set_ylim(lims)
 
