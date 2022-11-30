@@ -184,7 +184,7 @@ def main(args):
     else:
         for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
             if init_add == 1:
-                init_states0 = util.x_bndr(safe_m, safe_l, n_sample)
+                init_states0 = util.x_bndr(safe_m, safe_l, 2 * n_sample)
             else:
                 init_states0 = torch.tensor([]).reshape(0, n_state)
 
@@ -193,18 +193,26 @@ def main(args):
             # init_states = torch.vstack((init_states0, init_states1))
             init_states = init_states0.clone()
 
-            for j in range(10):
+            for j in range(5):
                 # print(j)
-                lower_bound = sl.clone() + (sm.clone() - sl.clone()) * j / 10
-                upper_bound = sl.clone() + (sm.clone() - sl.clone()) * (j + 1) / 10
+                lower_bound = sl.clone() + (sm.clone() - sl.clone()) * j / 5
+                upper_bound = sl.clone() + (sm.clone() - sl.clone()) * (j + 1) / 5
 
-                init_states1 = util.x_samples(upper_bound, lower_bound, int(config.POLICY_UPDATE_INTERVAL / 10))
+                init_states1 = util.x_samples(upper_bound, lower_bound, int(config.POLICY_UPDATE_INTERVAL / 5))
 
                 init_states = torch.vstack((init_states, init_states1))
 
+            unsafe_states = dynamics.sample_unsafe(int(1.5 * n_sample))
+
+            unsafe_states = unsafe_states.reshape(int(1.5 * n_sample), n_state)
+
+            init_states = torch.vstack((init_states, unsafe_states))
+            # unsafe_states = util.x_samples(sm, safe_m, n_sample)
+            # init_states = torch.vstack((init_states, unsafe_states))
+
             num_states = init_states.shape[0]
 
-            init_states = init_states + 2 * torch.randn(num_states, n_state)
+            init_states = init_states + 0.1 * i * torch.randn(num_states, n_state) / 100
 
             dataset.add_data(init_states, torch.tensor([]).reshape(0, m_control),
                              torch.tensor([]).reshape(0, m_control))

@@ -1,6 +1,6 @@
 import os
 import sys
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -12,7 +12,7 @@ from dynamics.Crazyflie import CrazyFlies
 from trainer.utils import Utils
 from trainer import config
 
-plt.style.use('seaborn-white')
+# plt.style.use('seaborn-white')
 
 which_data = int(input("Good data (1) or Last data (0): "))
 
@@ -43,7 +43,7 @@ state0 = torch.tensor([[2.0,
                         np.pi / 40.0,
                         np.pi / 40.0]])
 
-dynamics = CrazyFlies(x=state0, nominal_params=nominal_params)
+dynamics = CrazyFlies(x=state0, nominal_params=nominal_params, goal=state0)
 util = Utils(n_state=12, m_control=4, j_const=2, dyn=dynamics, params=nominal_params, fault=fault,
              fault_control_index=fault_control_index)
 
@@ -116,7 +116,7 @@ for k in range(iterations):
     state = state_bndr + 1 * torch.randn(N1, n_state)
 
     for j in range(N2):
-        state_temp = (su.clone() + sl.clone()) / 2 + 1 * torch.randn(1, n_state)
+        state_temp = (su.clone() + sl.clone()) / 2 + 5 * torch.randn(1, n_state)
         state = torch.vstack((state, state_temp))
 
     state = state.reshape(N1 + N2, n_state)

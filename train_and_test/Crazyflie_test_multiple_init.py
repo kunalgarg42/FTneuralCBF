@@ -60,19 +60,19 @@ def main():
     try:
         # NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weightsCBF.pth'))
         NN_cbf.load_state_dict(
-            torch.load("./good_data/data/CF_cbf_NN_weightsCBF.pth", map_location="cpu")
+            torch.load("./good_data/data/CF_cbf_NN_weightsCBF.pth")
         )
         FT_cbf.load_state_dict(
-            torch.load("./good_data/data/CF_cbf_FT_weightsCBF.pth", map_location="cpu")
+            torch.load("./good_data/data/CF_cbf_FT_weightsCBF.pth")
         )
         # NN_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
     except:
         # NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
         NN_cbf.load_state_dict(
-            torch.load("./data/CF_cbf_NN_weightsCBF.pth", map_location="cpu")
+            torch.load("./data/CF_cbf_NN_weightsCBF.pth")
         )
         FT_cbf.load_state_dict(
-            torch.load("./data/CF_cbf_FT_weightsCBF.pth", map_location="cpu")
+            torch.load("./data/CF_cbf_FT_weightsCBF.pth")
         )
         # NN_alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
 
@@ -177,6 +177,8 @@ def main():
                 # u = NN_controller(state, u_nominal)
                 u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
 
+                u = u.reshape(1, m_control)
+
                 if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
                     u[0, fault_control_index] = torch.rand(1) / 4
                     fault_start = 1.0
@@ -202,7 +204,7 @@ def main():
                     detect = 1
                     h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
                     u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
-
+                    u  = u.reshape(1, m_control)
                     u = torch.tensor(u, dtype=torch.float32)
 
                     if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
@@ -250,8 +252,9 @@ def main():
         dot_h_pl = np.vstack((dot_h_pl, dot_h_correct))
         h_correct_pl = np.vstack((h_correct_pl, h_correct))
 
-    time_pl = np.arange(0.1, epsilon, -1 / 1000)
-    time_pl = time_pl[0:len(safety_rate_pl)]
+    time_pl = np.arange(0.1 + epsilon, epsilon, -1 / 1000)
+    plot_len = safety_rate_pl.shape[0]
+    # time_pl = time_pl[0:]
     colors = sns.color_palette()
 
     fig = plt.figure(figsize=(12, 14))
@@ -260,18 +263,19 @@ def main():
 
     # Plot the altitude and CBF value on one axis
     z_ax = axs[0]
-    z_ax.plot(time_pl, safety_rate_pl, linewidth=4.0, label="safety rate", color=colors[0])
-    z_ax.plot(time_pl, un_safety_rate_pl, linewidth=4.0, label="un safety rate", color=colors[1])
+    z_ax.plot(time_pl[0:plot_len], safety_rate_pl[0:plot_len], linewidth=4.0, label="safety rate", color=colors[0])
+    z_ax.plot(time_pl[0:plot_len], unsafety_rate_pl[0:plot_len], linewidth=4.0, label="un safety rate", color=colors[1])
 
     z_ax.set_ylabel("Safety and unsafety rate", color=colors[0])
     z_ax.set_xlabel("Iteration")
     z_ax.set_xlim(time_pl[1], time_pl[-1])
     z_ax.tick_params(axis="y", labelcolor=colors[0])
+    z_ax.legend()
 
     # Plot the control action on another axis
     u_ax = axs[1]
-    u_ax.plot(time_pl, dot_h_pl, linewidth=2.0, label="$\dot h > 0$")
-    u_ax.plot(time_pl, h_correct_pl, linewidth=2.0, label="$h$")
+    u_ax.plot(time_pl[0:plot_len], dot_h_pl[0:plot_len], linewidth=2.0, label="$\dot h > 0$")
+    u_ax.plot(time_pl[0:plot_len], h_correct_pl[0:plot_len], linewidth=2.0, label="$h$")
 
     u_ax.set_xlabel("Iteration")
     u_ax.set_ylabel("$h$ and $\dot h > 0$")
