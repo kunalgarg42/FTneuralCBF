@@ -122,9 +122,12 @@ def main():
 
     rand_start = random.uniform(1.01, 100)
 
-    fault_start_epoch = math.floor(config.EVAL_STEPS / rand_start)
+    fault_start_epoch = 5 * math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
     detect = 0
+
+    dot_h_pl = np.array([0])
+
     # u_nominal = 0.05 * torch.ones(1, m_control)
 
     # u_samples = numpy.linspace(ul, um, num=10000)
@@ -210,6 +213,7 @@ def main():
             gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
             dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
+            detect = fault_start
 
         else:
             h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
@@ -235,15 +239,17 @@ def main():
             dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
             # dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
-            dot_h = (h - h_prev) / dt + 10 * h
+            dot_h = (h - h_prev) / dt + 1 * h
+            dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach().numpy()))
+
             # If no fault previously detected and dot_h is too small, then detect a fault
-            if detect == 0 and dot_h < epsilon - 10 * dt:
+            if dot_h < epsilon - 100 * dt:
                 detect = 1
                 h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
-                # u = FT_controller(state, u_nominal)
                 u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+
                 u = torch.tensor(u, dtype=torch.float32)
-                # u = torch.squeeze(u.detach().cpu())
+
                 if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
                     u[0, fault_control_index] = torch.rand(1) / 4
 
@@ -253,13 +259,13 @@ def main():
                     if u[0, j] >= um[0, j]:
                         u[0, j] = um[0, j].clone()
 
-                u = torch.tensor(u, dtype=torch.float32)
                 gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
                 dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
             # If we have previously detected a fault, switch to no fault if dot_h is
             # increasing
-            elif detect == 1 and dot_h > epsilon:
+            # elif dot_h > 0 * epsilon / 10:
+            else:
                 detect = 0
 
         # dot_h = torch.matmul(dx, grad_h.reshape(n_state, 1))
@@ -276,9 +282,8 @@ def main():
 
         is_safe = int(util.is_safe(state))
         is_unsafe = int(util.is_unsafe(state))
-        safety_rate = (
-            safety_rate * (1 - 1 / config.EVAL_STEPS) + is_safe / config.EVAL_STEPS
-        )
+        safety_rate += is_safe / config.EVAL_STEPS
+
         unsafety_rate += is_unsafe / config.EVAL_STEPS
         h_correct += (
             is_safe * int(h >= 0) / config.EVAL_STEPS
@@ -319,6 +324,9 @@ def main():
     # Plot the altitude and CBF value on one axis
     z_ax = axs[0]
     z_ax.plot(time_pl, z_pl, linewidth=4.0, label="z (m)", color=colors[0])
+
+    # z_ax.plot(time_pl, dot_h_pl, linewidth=2.0, label="z (m)", color=colors[2])
+
     z_ax.plot(
         time_pl,
         0 * time_pl,
@@ -467,7 +475,7 @@ def main():
     # ax9.title.set_text('Angle phi')
     # plt.suptitle('Categorical Plotting')
 
-    plt.savefig("./plots/plot_closed_loop_data_CF.png")
+    plt.savefig("./plots/plot_CF.png")
 
 
 if __name__ == "__main__":
