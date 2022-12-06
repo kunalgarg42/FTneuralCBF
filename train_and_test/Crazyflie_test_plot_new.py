@@ -61,13 +61,13 @@ def main():
         # NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weightsCBF.pth'))
         NN_cbf.load_state_dict(
             torch.load(
-                "./good_data/data/CF_cbf_NN_weightsCBF.pth",
+                "./good_data_2/data/CF_cbf_NN_weightsCBF.pth",
                 map_location=torch.device("cpu"),
             )
         )
         FT_cbf.load_state_dict(
             torch.load(
-                "./good_data/data/CF_cbf_FT_weightsCBF.pth",
+                "./good_data_2/data/CF_cbf_FT_weightsCBF.pth",
                 map_location=torch.device("cpu"),
             )
         )

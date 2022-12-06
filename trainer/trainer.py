@@ -45,10 +45,10 @@ class Trainer(object):
 
         self.cbf_optimizer = torch.optim.Adam(
             self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
-        # self.controller_optimizer = FxTS_Momentum(
+        # # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=1e-5, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
-        #     self.cbf.parameters(), lr=1e-5, momentum=0.2)
+        #     self.cbf.parameters(), lr=5e-5, momentum=0.2)
         # self.alpha_optimizer = FxTS_Momentum(
         #     self.alpha.parameters(), lr=1e-5, momentum=0.2)
 

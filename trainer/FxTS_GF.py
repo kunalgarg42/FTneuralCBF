@@ -14,7 +14,7 @@ class FxTS_Momentum(Optimizer):
         alphas (tuple of two floats): FxTS alpha parameters (a1,a2). Default: (20,1.98)
     """
 
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.9), alphas=(2.5, 1.95), momentum=0.3):
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.9), alphas=(10, 1.2), momentum=0.3):
         if lr < 0.0:
             raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
         if betas[0] < 0.0:

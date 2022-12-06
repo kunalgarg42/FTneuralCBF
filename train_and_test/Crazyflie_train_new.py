@@ -7,6 +7,7 @@ import argparse
 sys.path.insert(1, os.path.abspath('..'))
 sys.path.insert(1, os.path.abspath('.'))
 
+from pytictoc import TicToc
 from dynamics.Crazyflie import CrazyFlies
 from trainer import config
 from trainer.constraints_crazy import constraints
@@ -53,7 +54,7 @@ print(fault)
 init_add = 1  # int(input("init data add? (0 -> no, 1 -> yes): "))
 print(init_add)
 
-init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
+init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 print(init_param)
 
 train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
@@ -64,6 +65,8 @@ n_sample = 10000
 fault = nominal_params["fault"]
 
 fault_control_index = 1
+
+t = TicToc()
 
 
 def main(args):
@@ -111,7 +114,7 @@ def main(args):
     dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u)
     trainer = Trainer(cbf, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
-                      fault=fault, gpu_id=0,
+                      fault=fault, gpu_id=-1,
                       fault_control_index=fault_control_index)
     loss_np = 1.0
     safety_rate = 0.0
@@ -183,6 +186,7 @@ def main(args):
                 break
     else:
         for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
+            t.tic()
             if init_add == 1:
                 init_states0 = util.x_bndr(safe_m, safe_l, 2 * n_sample)
             else:
@@ -193,20 +197,23 @@ def main(args):
             # init_states = torch.vstack((init_states0, init_states1))
             init_states = init_states0.clone()
 
-            for j in range(5):
-                # print(j)
-                lower_bound = sl.clone() + (sm.clone() - sl.clone()) * j / 5
-                upper_bound = sl.clone() + (sm.clone() - sl.clone()) * (j + 1) / 5
+            # for j in range(5):
+            #     # print(j)
+            #     lower_bound = sl.clone() + (sm.clone() - sl.clone()) * j / 5
+            #     upper_bound = sl.clone() + (sm.clone() - sl.clone()) * (j + 1) / 5
 
-                init_states1 = util.x_samples(upper_bound, lower_bound, int(config.POLICY_UPDATE_INTERVAL / 5))
+            #     init_states1 = util.x_samples(upper_bound, lower_bound, int(config.POLICY_UPDATE_INTERVAL / 5))
 
-                init_states = torch.vstack((init_states, init_states1))
+            #     init_states = torch.vstack((init_states, init_states1))
+            
+            safe_states = dynamics.sample_safe(n_sample)
+            safe_states = safe_states.reshape(n_sample, n_state)
 
-            unsafe_states = dynamics.sample_unsafe(int(1.5 * n_sample))
+            unsafe_states = dynamics.sample_unsafe(n_sample)
 
-            unsafe_states = unsafe_states.reshape(int(1.5 * n_sample), n_state)
+            unsafe_states = unsafe_states.reshape(n_sample, n_state)
 
-            init_states = torch.vstack((init_states, unsafe_states))
+            init_states = torch.vstack((safe_states, unsafe_states))
             # unsafe_states = util.x_samples(sm, safe_m, n_sample)
             # init_states = torch.vstack((init_states, unsafe_states))
 
@@ -227,24 +234,25 @@ def main(args):
                 i_train = i
 
             loss_np, acc_np, loss_h_safe, loss_h_dang, loss_deriv_safe, loss_deriv_dang, loss_deriv_mid = trainer.train_cbf()
+            time_iter = t.tocvalue()
             print(
                 'step, {}, loss, {:.3f}, safety rate, {:.3f}, goal reached, {:.3f}, acc, {}, '
                 'loss_h_safe, {:.3f}, loss_h_dang, {:.3f}, loss_deriv_safe, {:.3f}, '
-                'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}, '.format(
+                'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}, time, {:.3f} '.format(
                     i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang,
-                    loss_deriv_safe, loss_deriv_dang, loss_deriv_mid))
+                    loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, time_iter))
             if fault == 0:
-                torch.save(cbf.state_dict(), './data/CF_cbf_NN_weightsCBF.pth')
+                torch.save(cbf.state_dict(), './data/CF_cbf_NN_weightsCBF_FxTS.pth')
                 # torch.save(alpha.state_dict(), './data/CF_alpha_NN_weightsCBF.pth')
             else:
-                torch.save(cbf.state_dict(), './data/CF_cbf_FT_weightsCBF.pth')
+                torch.save(cbf.state_dict(), './data/CF_cbf_FT_weightsCBF_FxTS.pth')
                 # torch.save(alpha.state_dict(), './data/CF_alpha_FT_weightsCBF.pth')
             if loss_np < 0.01:
                 if fault == 0:
-                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_NN_weightsCBF.pth')
+                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_NN_weightsCBF_FxTS.pth')
                     # torch.save(alpha.state_dict(), './good_data/data/CF_alpha_NN_weightsCBF.pth')
                 else:
-                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weightsCBF.pth')
+                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weightsCBF_FxTS.pth')
                     # torch.save(alpha.state_dict(), './good_data/data/CF_alpha_FT_weightsCBF.pth')
             if loss_np < 0.001 and i > 100:
                 break
