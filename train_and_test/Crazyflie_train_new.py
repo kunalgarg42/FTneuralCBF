@@ -188,7 +188,7 @@ def main(args):
         for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
             t.tic()
             if init_add == 1:
-                init_states0 = util.x_bndr(safe_m, safe_l, 2 * n_sample)
+                init_states0 = util.x_bndr(safe_m, safe_l, n_sample)
             else:
                 init_states0 = torch.tensor([]).reshape(0, n_state)
 
@@ -219,7 +219,7 @@ def main(args):
 
             num_states = init_states.shape[0]
 
-            init_states = init_states + 0.1 * i * torch.randn(num_states, n_state) / 100
+            init_states = init_states + i * torch.randn(num_states, n_state) / 100
 
             dataset.add_data(init_states, torch.tensor([]).reshape(0, m_control),
                              torch.tensor([]).reshape(0, m_control))
@@ -242,17 +242,17 @@ def main(args):
                     i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang,
                     loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, time_iter))
             if fault == 0:
-                torch.save(cbf.state_dict(), './data/CF_cbf_NN_weightsCBF_FxTS.pth')
+                torch.save(cbf.state_dict(), './data/CF_cbf_NN_weightsCBF.pth')
                 # torch.save(alpha.state_dict(), './data/CF_alpha_NN_weightsCBF.pth')
             else:
-                torch.save(cbf.state_dict(), './data/CF_cbf_FT_weightsCBF_FxTS.pth')
+                torch.save(cbf.state_dict(), './data/CF_cbf_FT_weightsCBF.pth')
                 # torch.save(alpha.state_dict(), './data/CF_alpha_FT_weightsCBF.pth')
             if loss_np < 0.01:
                 if fault == 0:
-                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_NN_weightsCBF_FxTS.pth')
+                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_NN_weightsCBF.pth')
                     # torch.save(alpha.state_dict(), './good_data/data/CF_alpha_NN_weightsCBF.pth')
                 else:
-                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weightsCBF_FxTS.pth')
+                    torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weightsCBF.pth')
                     # torch.save(alpha.state_dict(), './good_data/data/CF_alpha_FT_weightsCBF.pth')
             if loss_np < 0.001 and i > 100:
                 break

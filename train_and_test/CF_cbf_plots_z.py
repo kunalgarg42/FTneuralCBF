@@ -51,7 +51,7 @@ util = Utils(
 
 # if fault == 0:
 NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=fault, fault_control_index=fault_control_index)
-NN_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
+NN_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_FxTS.pth'))
 NN_cbf.eval()
 # else:
 FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=fault, fault_control_index=fault_control_index)
