@@ -49,42 +49,42 @@ util = Utils(n_state=12, m_control=4, j_const=2, dyn=dynamics, params=nominal_pa
 
 su, sl = dynamics.state_limits()
 cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=fault, fault_control_index=0)
-nn_controller = NNController_new(n_state=n_state, m_control=m_control)
-alpha = alpha_param(n_state=n_state)
+# nn_controller = NNController_new(n_state=n_state, m_control=m_control)
+# alpha = alpha_param(n_state=n_state)
 
 if which_data == 0:
     if fault == 0:
         cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
-        nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
-        alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
+        # nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
+        # alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
     else:
         cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF.pth'))
-        nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
-        alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
+        # nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
+        # alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
 else:
     try:
         if fault == 0:
             cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
-            nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
-            alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
+            # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
+            # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
         else:
             cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth'))
-            nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
-            alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
+            # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
+            # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
     except:
         print("No good data available, evaluating on last data")
         if fault == 0:
             cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
-            nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
-            alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
+            # nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
+            # alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
         else:
             cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF.pth'))
-            nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
-            alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
+            # nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
+            # alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
 
 cbf.eval()
-nn_controller.eval()
-alpha.eval()
+# nn_controller.eval()
+# alpha.eval()
 
 
 safe_m, safe_l = dynamics.safe_limits(su, sl)
