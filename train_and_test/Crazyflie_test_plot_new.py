@@ -25,7 +25,7 @@ from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, alpha_param, NNController_new
 
-xg = torch.tensor([0.0, 0.0, 3.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+xg = torch.tensor([0.0, 0.0, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 x0 = torch.tensor([[2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 dt = 0.001
@@ -38,7 +38,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 fault_control_index = 1
 fault_duration = config.FAULT_DURATION
 
-fault_known = 1
+fault_known = 0
 
 
 def main():
