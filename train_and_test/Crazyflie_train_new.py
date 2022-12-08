@@ -185,6 +185,7 @@ def main(args):
             if loss_np < 0.001 and i > 100:
                 break
     else:
+        loss_current = 100.0
         for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
             t.tic()
             if init_add == 1:
@@ -247,7 +248,8 @@ def main(args):
             else:
                 torch.save(cbf.state_dict(), './data/CF_cbf_FT_weightsCBF.pth')
                 # torch.save(alpha.state_dict(), './data/CF_alpha_FT_weightsCBF.pth')
-            if loss_np < 0.01:
+            if loss_np < 0.01 and loss_np < loss_current:
+                loss_current = loss_np.copy()
                 if fault == 0:
                     torch.save(cbf.state_dict(), './good_data/data/CF_cbf_NN_weightsCBF.pth')
                     # torch.save(alpha.state_dict(), './good_data/data/CF_alpha_NN_weightsCBF.pth')

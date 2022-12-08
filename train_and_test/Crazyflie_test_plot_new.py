@@ -27,7 +27,7 @@ from trainer.NNfuncgrad_CF import CBF, alpha_param, NNController_new
 
 xg = torch.tensor([0.0, 0.0, 3.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
-x0 = torch.tensor([[2.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+x0 = torch.tensor([[2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 dt = 0.001
 n_state = 12
 m_control = 4
@@ -38,7 +38,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 fault_control_index = 1
 fault_duration = config.FAULT_DURATION
 
-fault_known = 0
+fault_known = 1
 
 
 def main():
@@ -61,13 +61,13 @@ def main():
         # NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weightsCBF.pth'))
         NN_cbf.load_state_dict(
             torch.load(
-                "./good_data_2/data/CF_cbf_NN_weightsCBF.pth",
+                "./good_data/data/CF_cbf_NN_weightsCBF.pth",
                 map_location=torch.device("cpu"),
             )
         )
         FT_cbf.load_state_dict(
             torch.load(
-                "./good_data_2/data/CF_cbf_FT_weightsCBF.pth",
+                "./good_data/data/CF_cbf_FT_weightsCBF.pth",
                 map_location=torch.device("cpu"),
             )
         )
@@ -116,7 +116,7 @@ def main():
 
     h_pl = np.array(h.detach()).reshape(1, 1)
 
-    rand_start = 50  # 33  # random.uniform(1.01, 100)
+    rand_start = random.uniform(1.01, 100)
 
     fault_start_epoch = 10 * math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
@@ -204,7 +204,7 @@ def main():
             dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
             dot_h = (h - h_prev) / dt + 0.1 * h
-            dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach().numpy()))
+            
 
             # If no fault previously detected and dot_h is too small, then detect a fault
             if detect == 0 and dot_h < epsilon - 10 * dt:
@@ -236,8 +236,15 @@ def main():
                 detect = 0
 
         detect_activity = np.vstack((detect_activity, detect))
-
+        
+        if fault_known == 0:
+            dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach().numpy()))
+        
         dot_h = util.doth_max_alpha(h, grad_h, fx, gx, um, ul)
+
+        if fault_known == 1:
+            dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach().numpy()))
+
         if dot_h < 0:
             print(i)
         state_next = state + dx * dt
@@ -454,7 +461,10 @@ def main():
     u_ax.set_ylim(lims)
 
     fig.tight_layout(pad=1.15)
-    plt.savefig("./plots/plot_CF.png")
+    if fault_known == 1:
+        plt.savefig("./plots/plot_CF_known_F.png")
+    else:
+        plt.savefig("./plots/plot_CF.png")
 
 
 if __name__ == "__main__":
