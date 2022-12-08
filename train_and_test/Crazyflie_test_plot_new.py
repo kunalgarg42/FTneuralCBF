@@ -116,7 +116,7 @@ def main():
 
     h_pl = np.array(h.detach()).reshape(1, 1)
 
-    rand_start = random.uniform(1.01, 100)
+    rand_start = random.uniform(1.01, 50)
 
     fault_start_epoch = 10 * math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
@@ -185,9 +185,7 @@ def main():
             u = u.reshape(1, m_control)
 
             if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
-                u[0, fault_control_index] = ul[
-                    0, 0
-                ].clone()  # 0.05 + 0.02 * torch.randn(1)
+                u[0, fault_control_index] = ul[0, 0].clone() #  0 * (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone()
                 fault_start = 1.0
             else:
                 fault_start = 0.0
@@ -203,7 +201,7 @@ def main():
 
             dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
-            dot_h = (h - h_prev) / dt + 0.1 * h
+            dot_h = (h - h_prev) / dt + 0.01 * h
             
 
             # If no fault previously detected and dot_h is too small, then detect a fault
@@ -218,7 +216,7 @@ def main():
                 u = torch.tensor(u, dtype=torch.float32)
 
                 if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
-                    u[0, fault_control_index] = ul[0, 0].clone()  # torch.rand(1) / 4
+                    u[0, fault_control_index] = ul[0, 0].clone() #  0 * (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone() #  torch.rand(1) / 4
 
                 for j in range(m_control):
                     if u[0, j] <= ul[0, j]:
@@ -270,6 +268,9 @@ def main():
         state = state_next.clone()
         # print('h, {}, dot_h, {}'.format(h.detach().cpu().numpy()[0][0], dot_h.detach().cpu().numpy()[0][0]))
     time_pl = np.arange(0.0, dt * config.EVAL_STEPS + dt, dt)
+    
+    fault_activity[-2] = 1.0
+    fault_activity[-1] = 0.0
 
     z_pl = x_pl[:, 2]
 
