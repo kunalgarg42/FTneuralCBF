@@ -189,7 +189,7 @@ def main(args):
         for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
             t.tic()
             if init_add == 1:
-                init_states0 = util.x_bndr(safe_m, safe_l, n_sample)
+                init_states0 = util.x_bndr(safe_m, safe_l, 2 * n_sample) + torch.randn(2 * n_sample, n_state) * 2
             else:
                 init_states0 = torch.tensor([]).reshape(0, n_state)
 
@@ -208,6 +208,7 @@ def main(args):
             #     init_states = torch.vstack((init_states, init_states1))
             
             safe_states = dynamics.sample_safe(n_sample)
+
             safe_states = safe_states.reshape(n_sample, n_state)
 
             unsafe_states = dynamics.sample_unsafe(n_sample)
@@ -220,7 +221,7 @@ def main(args):
 
             num_states = init_states.shape[0]
 
-            init_states = init_states + i * torch.randn(num_states, n_state) / 100
+            init_states = init_states + torch.randn(num_states, n_state) / 100 * i
 
             dataset.add_data(init_states, torch.tensor([]).reshape(0, m_control),
                              torch.tensor([]).reshape(0, m_control))
@@ -228,6 +229,8 @@ def main(args):
             is_safe = int(torch.sum(util.is_safe(init_states))) / num_states
 
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
+            
+            print(safety_rate)
 
             if loss_np < 0.01 or i_train >= i - 1:
                 i_train = int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1
