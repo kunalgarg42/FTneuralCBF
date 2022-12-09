@@ -379,10 +379,15 @@ class Trainer(object):
         doth = doth + torch.matmul(torch.abs(LhG).reshape(bs, 1, self.m_control + 1),
                                    uin.reshape(bs, self.m_control + 1, 1))
         if self.fault == 1:
+            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[
+                                                                                                            self.fault_control_index,
+                                                                                                            :].reshape(
+                bs, 1)
+
             ran_tensor = torch.randn(bs, 1).to(state.get_device())
             ran_tensor = (ran_tensor > 0).int()
 
-            doth = doth.reshape(bs, 1) - 2 * torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[
+            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[
                                                                                                             self.fault_control_index,
                                                                                                             :].reshape(
                 bs, 1) * ran_tensor.reshape(bs, 1)
