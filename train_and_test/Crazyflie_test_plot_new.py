@@ -38,7 +38,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 fault_control_index = 1
 fault_duration = config.FAULT_DURATION
 
-fault_known = 0
+fault_known = 1
 
 
 def main():
@@ -163,13 +163,13 @@ def main():
             u = u.reshape(1, m_control)
 
             if fault_start == 1:
-                u[0, fault_control_index] = torch.rand(1) / 4
+                u[0, fault_control_index] = ul[0, 0].clone() * 2 # torch.rand(1) / 4
 
-            for j in range(m_control):
-                if u[0, j] < ul[0, j]:
-                    u[0, j] = ul[0, j].clone() * 2
-                if u[0, j] > um[0, j]:
-                    u[0, j] = um[0, j].clone() / 2
+            # for j in range(m_control):
+            #     if u[0, j] < ul[0, j]:
+            #         u[0, j] = ul[0, j].clone() * 2
+            #     if u[0, j] > um[0, j]:
+            #         u[0, j] = um[0, j].clone() / 2
 
             u = torch.tensor(u, dtype=torch.float32)
             gxu = torch.matmul(gx, u.reshape(m_control, 1))

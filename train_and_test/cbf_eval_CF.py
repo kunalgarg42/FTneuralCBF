@@ -26,7 +26,7 @@ N2 = 10000
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
-fault = 0  # nominal_params["fault"]
+fault = 1  # nominal_params["fault"]
 
 fault_control_index = 1
 
@@ -110,7 +110,7 @@ iterations = 10
 for k in range(iterations):
     # print(k)
     state_bndr = util.x_samples(su, sl, n_sample)
-
+    # state_bndr = dynamics.sample_state_space(n_sample)
     state_bndr = state_bndr.reshape(N1, n_state)
 
     state = state_bndr + 1 * torch.randn(N1, n_state)
