@@ -90,12 +90,14 @@ def main():
 
     FT_cbf.eval()
 
-    state = x0
+    state = x0.clone().reshape(1, n_state)
+    state = state.repeat(4, 1)
+    state_next = state.clone()
 
-    safety_rate = 0.0
-    unsafety_rate = 0.0
-    h_correct = 0.0
-    dot_h_correct = 0.0
+    safety_rate = np.array([0.0] * 4).reshape(4,)
+    unsafety_rate = np.array([0.0] * 4).reshape(4,)
+    h_correct = np.array([0.0] * 4).reshape(4,)
+    dot_h_correct = np.array([0.0] * 4).reshape(4,)
     epsilon = 0.1
 
     um, ul = dynamics.control_limits()
@@ -107,186 +109,202 @@ def main():
 
     sm, sl = dynamics.state_limits()
 
-    x_pl = np.array(state).reshape(1, n_state)
+    x_pl = torch.zeros(4, n_state, config.EVAL_STEPS)
+
     fault_activity = np.array([0])
-    detect_activity = np.array([0])
+    detect_activity = np.array([0]*4*config.EVAL_STEPS).reshape(4, config.EVAL_STEPS)
 
-    u_pl = np.array([0] * m_control).reshape(1, m_control)
-    h, _ = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
+    u_pl = torch.zeros(4, m_control, config.EVAL_STEPS)
+    h, _ = NN_cbf.V_with_jacobian(state.reshape(4, n_state, 1))
 
-    h_pl = np.array(h.detach()).reshape(1, 1)
+    h_pl = torch.zeros(4, config.EVAL_STEPS)
 
     rand_start = random.uniform(1.01, 50)
 
     fault_start_epoch = 10 * math.floor(config.EVAL_STEPS / rand_start)
+    
     fault_start = 0
-    detect = 0
+    
+    detect = np.array([0]*4).reshape(4,)
 
-    dot_h_pl = np.array([0])
+    dot_h_pl = np.array([0]*4*config.EVAL_STEPS).reshape(4, config.EVAL_STEPS)
 
     previous_state = state.clone()
 
     for i in tqdm.trange(config.EVAL_STEPS):
+        u_temp = torch.zeros(4, m_control)
+        h_temp = torch.zeros(4, 1)
+        for k in range(4):
+            u_nominal = dynamics.u_nominal(state[k, :].reshape(1, n_state))
 
-        u_nominal = dynamics.u_nominal(state)
+            for j in range(n_state):
+                if state[k, j] < sl[j]:
+                    state[k, j] = sl[j].clone()
+                if state[k, j] > sm[j]:
+                    state[k, j] = sm[j].clone()
 
-        for j in range(n_state):
-            if state[0, j] < sl[j]:
-                state[0, j] = sl[j].clone()
-            if state[0, j] > sm[j]:
-                state[0, j] = sm[j].clone()
+            fx = dynamics._f(state[k, :].reshape(1, n_state), params=nominal_params)
+            gx = dynamics._g(state[k, :].reshape(1, n_state), params=nominal_params)
 
-        fx = dynamics._f(state, params=nominal_params)
-        gx = dynamics._g(state, params=nominal_params)
+            if fault_known == 1:
+                # 1 -> time-based switching, assumes knowledge of when fault occurs and stops
+                # 0 -> Fault-detection based-switching, using the proposed scheme from the paper
 
-        if fault_known == 1:
-            # 1 -> time-based switching, assumes knowledge of when fault occurs and stops
-            # 0 -> Fault-detection based-switching, using the proposed scheme from the paper
+                if (
+                    fault_start == 0
+                    and fault_start_epoch <= i <= fault_start_epoch + fault_duration / 5
+                    # and util.is_safe(state[k, :].reshape(1, n_state))
+                ):
+                    fault_start = 1
 
-            if (
-                fault_start == 0
-                and fault_start_epoch <= i <= fault_start_epoch + fault_duration / 5
-                and util.is_safe(state)
-            ):
-                fault_start = 1
+                if fault_start == 1 and i > fault_start_epoch + fault_duration:
+                    fault_start = 0
 
-            if fault_start == 1 and i > fault_start_epoch + fault_duration:
-                fault_start = 0
+                if fault_start == 0:
+                    h, grad_h = NN_cbf.V_with_jacobian(state[k, :].reshape(1, n_state, 1))
+                else:
+                    h, grad_h = FT_cbf.V_with_jacobian(state[k, :].reshape(1, n_state, 1))
 
-            if fault_start == 0:
+                u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+                
+                u = u.reshape(1, m_control)
+
+                if fault_start == 1:
+                    if k == 0:
+                        u[0, fault_control_index] = ul[0, 0].clone() * 2 # torch.rand(1) / 4
+                    elif k == 1:
+                        u[0, fault_control_index] = um[0, 0].clone()
+                    elif k == 2:
+                        u[0, fault_control_index] = (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone()
+                    else:
+                        u[0, fault_control_index] = torch.rand(1) / 4
+                    
+                # for j in range(m_control):
+                #     if u[0, j] < ul[0, j]:
+                #         u[0, j] = ul[0, j].clone() * 2
+                #     if u[0, j] > um[0, j]:
+                #         u[0, j] = um[0, j].clone() / 2
+
+                u = torch.tensor(u, dtype=torch.float32)
+                gxu = torch.matmul(gx, u.reshape(m_control, 1))
+
+                dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
+                detect[k] = fault_start
+
+            else:
                 h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
-            else:
-                h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
-
-            u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
-
-            u = u.reshape(1, m_control)
-
-            if fault_start == 1:
-                u[0, fault_control_index] = ul[0, 0].clone() * 2 # torch.rand(1) / 4
-
-            # for j in range(m_control):
-            #     if u[0, j] < ul[0, j]:
-            #         u[0, j] = ul[0, j].clone() * 2
-            #     if u[0, j] > um[0, j]:
-            #         u[0, j] = um[0, j].clone() / 2
-
-            u = torch.tensor(u, dtype=torch.float32)
-            gxu = torch.matmul(gx, u.reshape(m_control, 1))
-
-            dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
-            detect = fault_start
-
-        else:
-            h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
-            h_prev, _ = NN_cbf.V_with_jacobian(previous_state.reshape(1, n_state, 1))
-            u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
-
-            u = u.reshape(1, m_control)
-
-            if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
-                u[0, fault_control_index] = ul[0, 0].clone() #  0 * (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone()
-                fault_start = 1.0
-            else:
-                fault_start = 0.0
-
-            for j in range(m_control):
-                if u[0, j] < ul[0, j]:
-                    u[0, j] = ul[0, j].clone()
-                if u[0, j] > um[0, j]:
-                    u[0, j] = um[0, j].clone()
-
-            u = u.clone().type(torch.float32)
-            gxu = torch.matmul(gx, u.reshape(m_control, 1))
-
-            dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
-
-            dot_h = (h - h_prev) / dt + 0.01 * h
-            
-
-            # If no fault previously detected and dot_h is too small, then detect a fault
-            if detect == 0 and dot_h < epsilon - 10 * dt:
-                detect = 1
-                h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
-
+                h_prev, _ = NN_cbf.V_with_jacobian(previous_state.reshape(1, n_state, 1))
                 u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
 
                 u = u.reshape(1, m_control)
 
-                u = torch.tensor(u, dtype=torch.float32)
-
                 if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
-                    u[0, fault_control_index] = ul[0, 0].clone() #  0 * (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone() #  torch.rand(1) / 4
+                    u[0, fault_control_index] = ul[0, 0].clone() #  0 * (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone()
+                    fault_start = 1.0
+                else:
+                    fault_start = 0.0
 
                 for j in range(m_control):
-                    if u[0, j] <= ul[0, j]:
+                    if u[0, j] < ul[0, j]:
                         u[0, j] = ul[0, j].clone()
-                    if u[0, j] >= um[0, j]:
+                    if u[0, j] > um[0, j]:
                         u[0, j] = um[0, j].clone()
 
+                u = u.clone().type(torch.float32)
                 gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
                 dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
-            # If we have previously detected a fault, switch to no fault if dot_h is
-            # increasing
-            elif (detect == 1 and dot_h > epsilon / 10):
-                # else:
-                detect = 0
 
-        detect_activity = np.vstack((detect_activity, detect))
+                dot_h = (h - h_prev) / dt + 0.01 * h
+                
+
+                # If no fault previously detected and dot_h is too small, then detect a fault
+                if detect == 0 and dot_h < epsilon - 10 * dt:
+                    detect = 1
+                    h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
+
+                    u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+
+                    u = u.reshape(1, m_control)
+
+                    u = torch.tensor(u, dtype=torch.float32)
+
+                    if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
+                        u[0, fault_control_index] = ul[0, 0].clone() #  0 * (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone() #  torch.rand(1) / 4
+
+                    for j in range(m_control):
+                        if u[0, j] <= ul[0, j]:
+                            u[0, j] = ul[0, j].clone()
+                        if u[0, j] >= um[0, j]:
+                            u[0, j] = um[0, j].clone()
+
+                    gxu = torch.matmul(gx, u.reshape(m_control, 1))
+
+                    dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
+                # If we have previously detected a fault, switch to no fault if dot_h is
+                # increasing
+                elif (detect == 1 and dot_h > epsilon / 10):
+                    # else:
+                    detect = 0
+
+            detect_activity[k, i] = detect[k].copy()
+            
+            if fault_known == 0:
+                dot_h_pl[k, i] = dot_h.clone().detach().numpy()
+            
+            dot_h = util.doth_max_alpha(h, grad_h, fx, gx, um, ul)
+
+            if fault_known == 1:
+                dot_h_pl[k, i] = dot_h.clone().detach().numpy()
+
+            if dot_h < 0:
+                print(i)
+            state_next[k, :] = state[k, :] + dx * dt
+
+            is_safe = int(util.is_safe(state[k, :].reshape(1, n_state)))
+            is_unsafe = int(util.is_unsafe(state[k, :].reshape(1, n_state)))
+            safety_rate[k] += is_safe / config.EVAL_STEPS
+
+            unsafety_rate[k] += is_unsafe / config.EVAL_STEPS
+            h_correct[k] += (
+                is_safe * int(h >= 0) / config.EVAL_STEPS
+                + is_unsafe * int(h < 0) / config.EVAL_STEPS
+            )
+            dot_h_correct[k] += torch.sign(dot_h.clone().detach()) / config.EVAL_STEPS
+            u_temp[k, :] = u.clone().detach()
+            h_temp[k] = h.clone().detach()
+
+        u_pl[:, :, i] = u_temp.reshape(4, m_control)
         
-        if fault_known == 0:
-            dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach().numpy()))
-        
-        dot_h = util.doth_max_alpha(h, grad_h, fx, gx, um, ul)
+        h_pl[:, i] = h_temp.reshape(4,)
 
-        if fault_known == 1:
-            dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach().numpy()))
+        x_pl[:, :, i] = state.detach().cpu().reshape(4, n_state)
 
-        if dot_h < 0:
-            print(i)
-        state_next = state + dx * dt
-
+        fault_activity = np.vstack((fault_activity, fault_start))
+            
         previous_state = state.clone()
 
-        is_safe = int(util.is_safe(state))
-        is_unsafe = int(util.is_unsafe(state))
-        safety_rate += is_safe / config.EVAL_STEPS
-
-        unsafety_rate += is_unsafe / config.EVAL_STEPS
-        h_correct += (
-            is_safe * int(h >= 0) / config.EVAL_STEPS
-            + is_unsafe * int(h < 0) / config.EVAL_STEPS
-        )
-        dot_h_correct += torch.sign(dot_h.clone().detach()) / config.EVAL_STEPS
-
-        x_pl = np.vstack((x_pl, np.array(state.clone().detach()).reshape(1, n_state)))
-        fault_activity = np.vstack((fault_activity, fault_start))
-        u_pl = np.vstack((u_pl, np.array(u.clone().detach()).reshape(1, m_control)))
-        h_pl = np.vstack((h_pl, np.array(h.clone().detach()).reshape(1, 1)))
-
         state = state_next.clone()
+
         # print('h, {}, dot_h, {}'.format(h.detach().cpu().numpy()[0][0], dot_h.detach().cpu().numpy()[0][0]))
-    time_pl = np.arange(0.0, dt * config.EVAL_STEPS + dt, dt)
-    
-    fault_activity[-2] = 1.0
-    fault_activity[-1] = 0.0
+    u_pl = np.array(u_pl)
+    h_pl = np.array(h_pl)
+    # x_pl = np.array(x_pl)
 
-    z_pl = x_pl[:, 2]
+    time_pl = np.arange(dt, dt * config.EVAL_STEPS + dt, dt)
 
-    p_pl = x_pl[:, 4]
-
-    ps_pl = x_pl[:, 3]
+    z_pl = np.array(x_pl[:, 2, :]).reshape(config.EVAL_STEPS, 4)
 
     print(safety_rate)
     print(unsafety_rate)
     print(h_correct)
     print(dot_h_correct)
 
-    u1 = u_pl[:, 0]
-    u2 = u_pl[:, 1]
-    u3 = u_pl[:, 2]
-    u4 = u_pl[:, 3]
+    u1 = u_pl[:, 0, :]
+    u2 = u_pl[:, 1, :]
+    u3 = u_pl[:, 2, :]
+    u4 = u_pl[:, 3, :]
+    linestyles = ["-", "--", "dashdot", ":"]
 
     colors = sns.color_palette()
 
@@ -295,8 +313,11 @@ def main():
 
     # Plot the altitude and CBF value on one axis
     z_ax = axs[0]
-    z_ax.plot(time_pl, z_pl, linewidth=4.0, label="z (m)", color=colors[0])
-
+    for k in range(4):
+        if k == 0:
+            z_ax.plot(time_pl, z_pl[:, k], linewidth=4.0, label="z (m)", color=colors[0], linestyle=linestyles[k])
+        else:
+            z_ax.plot(time_pl, z_pl[:, k], linewidth=4.0, color=colors[0], linestyle=linestyles[k])
     # z_ax.plot(time_pl, dot_h_pl, linewidth=2.0, label="z (m)", color=colors[2])
 
     unsafe_z = 1.0
@@ -316,7 +337,10 @@ def main():
     z_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.17), ncol=2, frameon=False)
 
     h_ax = z_ax.twinx()
-    h_ax.plot(time_pl, h_pl, linestyle="-", linewidth=4.0, color=colors[1])
+
+    for k in range(4):
+        h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=4.0, color=colors[1])
+    
     h_ax.plot(
         time_pl,
         0 * time_pl,
@@ -330,10 +354,17 @@ def main():
 
     # Plot the control action on another axis
     u_ax = axs[1]
-    u_ax.plot(time_pl, u2, linewidth=2.0, label="$u_2$ (faulty)")
-    u_ax.plot(time_pl, u1, linewidth=2.0, label="$u_1$")
-    u_ax.plot(time_pl, u3, linewidth=2.0, label="$u_3$")
-    u_ax.plot(time_pl, u4, linewidth=2.0, label="$u_4$")
+    for k in range(4):
+        if k == 0:
+            u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_2$ (faulty)", linestyle=linestyles[k])
+            u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_1$", linestyle=linestyles[k])
+            u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_3$", linestyle=linestyles[k])
+            u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_4$", linestyle=linestyles[k])
+        else:
+            u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
+            u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
+            u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
+            u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
     u_ax.set_xlabel("Time (s)")
     u_ax.set_ylabel("Control effort")
     u_ax.set_xlim(time_pl[0], time_pl[-1])
@@ -350,7 +381,11 @@ def main():
     # Plot the fault detection on a third axis
     w_ax = axs[2]
     dot_h_pl[0] = dot_h_pl[1]  # remove dummy value from start
-    w_ax.plot(time_pl, dot_h_pl, linewidth=4.0, label="$\omega$")
+    for k in range(4):
+        if k == 0:
+            w_ax.plot(time_pl, dot_h_pl[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$\omega$", linestyle=linestyles[k], color = colors[2])
+        else:
+            w_ax.plot(time_pl, dot_h_pl[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k], color = colors[2])
     w_ax.plot(
         time_pl,
         0 * time_pl + epsilon - 10 * dt,
@@ -358,17 +393,13 @@ def main():
         color="grey",
         # label="detection threshold",
     )
-    # w_ax.plot(
-    #     time_pl,
-    #     0 * time_pl + epsilon,
-    #     ":",
-    #     color="grey",
-    #     label="Fault cleared threshold",
-    # )
+
     w_ax.set_xlabel("Time (s)")
-    # w_ax.set_ylabel("Fault indicator $\omega$")
+    
 
     # Add the fault indicators
+    fault_activity[-2] = 1.0
+    fault_activity[-1] = 0.0
     (t_fault_start, t_fault_end) = time_pl[
         np.diff(fault_activity.squeeze()).nonzero()[0]
     ]
@@ -391,30 +422,25 @@ def main():
         alpha=0.5,
     )
     w_ax.set_ylim(lims)
-    w_ax.plot(
-        time_pl,
-        detect_activity,
-        color=colors[3],
-        label="Fault detected",
-        linewidth=4.0,
-    )
-    # detected_mask = detect_activity.squeeze().nonzero()[0]
-    # if detected_mask.size > 0:
-    #     # Plot the fault detection
-    #     w_ax.plot(
-    #         time_pl[detected_mask],
-    #         0 * detect_activity[detected_mask],
-    #         color=colors[3],
-    #         label="Fault detected",
-    #         linewidth=4.0,
-    #     )
-    #     w_ax.plot(
-    #         [time_pl[detected_mask].min(), time_pl[detected_mask].max()],
-    #         [0.0, 0.0],
-    #         "o",
-    #         color=colors[3],
-    #         markersize=15.0,
-    #     )
+    for k in range(4):
+        if k == 0:
+            w_ax.plot(
+                time_pl,
+                detect_activity[k, :].reshape(config.EVAL_STEPS, 1),
+                color=colors[3],
+                label="Fault detected",
+                linewidth=4.0,
+                linestyle = linestyles[k],
+            )
+        else:
+            w_ax.plot(
+                time_pl,
+                detect_activity[k, :].reshape(config.EVAL_STEPS, 1),
+                color=colors[3],
+                linewidth=4.0,
+                linestyle = linestyles[k]
+            )
+    
     w_ax.legend(
         loc="upper center",
         bbox_to_anchor=(0.5, 1.17),
@@ -424,14 +450,7 @@ def main():
         # handlelength=0.7,
         # handletextpad=0.3,
     )
-    # fig.legend(
-    #     [fault_handle],
-    #     ["Fault"],
-    #     loc="upper center",
-    #     bbox_to_anchor=(0.5, 1.05),
-    #     borderaxespad=0.1,
-    #     frameon=False,
-    # )
+
 
     lims = u_ax.get_ylim()
     u_ax.fill_between(
@@ -443,6 +462,7 @@ def main():
         label="Fault",
     )
     mean_u = (u_pl.max() + u_pl.min()) / 2.0
+    
     u_ax.text(
         t_fault_start,
         mean_u,
@@ -463,9 +483,9 @@ def main():
 
     fig.tight_layout(pad=1.15)
     if fault_known == 1:
-        plt.savefig("./plots/plot_CF_known_F.png")
+        plt.savefig("./plots/plot_CF_known_F_all.png")
     else:
-        plt.savefig("./plots/plot_CF.png")
+        plt.savefig("./plots/plot_CF_all.png")
 
 
 if __name__ == "__main__":
