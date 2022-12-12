@@ -32,3 +32,5 @@ sept*
 *.py[cod]
 
 git_run.sh
+
+.git_run
