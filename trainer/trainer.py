@@ -384,13 +384,13 @@ class Trainer(object):
                                                                                                             :].reshape(
                 bs, 1)
 
-            ran_tensor = torch.randn(bs, 1).to(state.get_device())
-            ran_tensor = (ran_tensor > 0).int()
+            # ran_tensor = torch.randn(bs, 1).to(state.get_device())
+            # ran_tensor = (ran_tensor > 0).int()
 
-            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[
+            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * um[
                                                                                                             self.fault_control_index,
                                                                                                             :].reshape(
-                bs, 1) * ran_tensor.reshape(bs, 1)
+                bs, 1)
         # else:
         #     for i in range(self.m_control + 1):
         #         if i == self.fault_control_index:
