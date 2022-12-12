@@ -44,7 +44,7 @@ class Trainer(object):
         self.fault_control_index = fault_control_index
 
         self.cbf_optimizer = torch.optim.Adam(
-            self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
+            self.cbf.parameters(), lr=5e-4, weight_decay=1e-5)
         # # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=1e-5, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
@@ -261,7 +261,9 @@ class Trainer(object):
         if self.gpu_id >= 0:
             um = um.cuda(self.gpu_id)
             ul = ul.cuda(self.gpu_id)
-        for _ in range(20):
+        
+        opt_count = 20
+        for _ in range(opt_count):
             for i in range(opt_iter):
                 # t.tic()
                 # print(i)
@@ -333,14 +335,14 @@ class Trainer(object):
                 loss_deriv_mid_np += loss_deriv_mid.detach().cpu().numpy()
                 loss_deriv_dang_np += loss_deriv_dang.detach().cpu().numpy()
 
-        acc_np /= opt_iter * 20
-        loss_np /= opt_iter * 20
-        loss_h_safe_np /= opt_iter * 20
-        loss_h_dang_np /= opt_iter * 20
-        loss_deriv_safe_np /= opt_iter * 20
-        loss_deriv_mid_np /= opt_iter * 20
-        loss_deriv_dang_np /= opt_iter * 20
-        loss_alpha_np /= opt_iter * 20
+        acc_np /= opt_iter * opt_count
+        loss_np /= opt_iter * opt_count
+        loss_h_safe_np /= opt_iter * opt_count
+        loss_h_dang_np /= opt_iter * opt_count
+        loss_deriv_safe_np /= opt_iter * opt_count
+        loss_deriv_mid_np /= opt_iter * opt_count
+        loss_deriv_dang_np /= opt_iter * opt_count
+        loss_alpha_np /= opt_iter * opt_count
 
         if self.lr_decay_stepsize >= 0:
             # learning rate decay
