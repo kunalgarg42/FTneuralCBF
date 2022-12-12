@@ -295,15 +295,15 @@ class CrazyFlies(ControlAffineSystemNew):
 
         return (upper_limit, lower_limit)
 
-    def safe_limits(self, sm, sl) -> Tuple[torch.Tensor, torch.Tensor]:
+    def safe_limits(self, sm, sl, fault=None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Return a tuple (upper, lower) describing the expected range of states for this
         system
         """
         # define upper and lower limits based around the nominal equilibrium input
-
-        params = self.params
-        fault = params["fault"]
+        if fault is None:
+            params = self.params
+            fault = params["fault"]
 
         if fault == 0:
             safe_z_l = 2
@@ -346,7 +346,7 @@ class CrazyFlies(ControlAffineSystemNew):
 
         return (upper_limit, lower_limit)
 
-    def safe_mask(self, x):
+    def safe_mask(self, x, fault=None):
         """Return the mask of x indicating safe regions for the task
 
         We don't want to crash to the floor, so we need a safe height to avoid the floor
@@ -354,8 +354,9 @@ class CrazyFlies(ControlAffineSystemNew):
         args:
             x: a tensor of points in the state space
         """
-        params = self.params
-        fault = params["fault"]
+        if fault is None:
+            params = self.params
+            fault = params["fault"]
 
         if fault == 0:
             safe_z_l = 2

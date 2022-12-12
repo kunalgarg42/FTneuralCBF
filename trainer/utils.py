@@ -40,7 +40,7 @@ class Utils(object):
     def is_safe(self, state):
 
         # alpha = torch.abs(state[:,1])
-        return self.dyn.safe_mask(state)
+        return self.dyn.safe_mask(state, self.fault)
 
     def is_unsafe(self, state):
 

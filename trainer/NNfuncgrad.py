@@ -74,7 +74,7 @@ class CBF(nn.Module):
         bs = x_norm.shape[0]
         x_norm = x_norm.reshape(bs, self.n_state)
         su, sl = self.dynamics.state_limits()
-        safe_m, safe_l = self.dynamics.safe_limits(su, sl)
+        safe_m, safe_l = self.dynamics.safe_limits(su, sl, self.fault)
 
         device_id = x.get_device()
         if device_id >= 0:

@@ -71,6 +71,7 @@ t = TicToc()
 
 def main(args):
     fault = args.fault
+    nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)
@@ -88,7 +89,7 @@ def main(args):
                 # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
                 # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
             else:
-                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
+                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth'))
                 # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
                 # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
             cbf.eval()
@@ -121,7 +122,7 @@ def main(args):
     goal_reached = 0.0
 
     sm, sl = dynamics.state_limits()
-    safe_m, safe_l = dynamics.safe_limits(sm, sl)
+    safe_m, safe_l = dynamics.safe_limits(sm, sl, fault)
     i_train = 0
     if train_u == 1:
         for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):

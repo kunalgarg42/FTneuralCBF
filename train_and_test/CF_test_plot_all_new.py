@@ -294,8 +294,6 @@ def main():
     time_pl = np.arange(dt, dt * config.EVAL_STEPS + dt, dt)
 
     z_pl = np.array(torch.transpose(x_pl[:, 2, :], 0, 1))
-    
-    print(z_pl.shape)
 
     # print(x_pl[:, :, -1])
 
@@ -313,10 +311,10 @@ def main():
     colors = sns.color_palette()
 
     fig = plt.figure(figsize=(31, 9))
-    axs = fig.subplots(1, 3)
+    axs = fig.subplots(2, 3)
 
     # Plot the altitude and CBF value on one axis
-    z_ax = axs[0]
+    z_ax = axs[0, 0]
     for k in range(4):
         if k == 0:
             z_ax.plot(time_pl, z_pl[:, k], linewidth=4.0, label="z (m)", color=colors[0], linestyle=linestyles[k])
@@ -336,7 +334,7 @@ def main():
     z_ax.plot([], [], color=colors[1], linestyle="-", linewidth=4.0, label="CBF h(x)")
     z_ax.set_ylabel("Height (m)", color=colors[0])
     z_ax.set_xlabel("Time (s)")
-    z_ax.set_xlim(time_pl[0], time_pl[-1])
+    z_ax.set_xlim(time_pl[0], time_pl[-1] + 0.1)
     z_ax.tick_params(axis="y", labelcolor=colors[0])
     z_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.17), ncol=2, frameon=False)
 
@@ -357,39 +355,77 @@ def main():
     h_ax.tick_params(axis="y", labelcolor=colors[1])
 
     # Plot the control action on another axis
-    u_ax = axs[1]
+    mean_u = (u_pl.max() + u_pl.min()) / 2.0
+
+    # Add the fault indicators
+    fault_activity[-2] = 1.0
+    fault_activity[-1] = 0.0
+    (t_fault_start, t_fault_end) = time_pl[
+        np.diff(fault_activity.squeeze()).nonzero()[0]
+    ]
+
     for k in range(4):
-        if k == 0:
-            u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_2$ (faulty)", linestyle=linestyles[k])
-            u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_1$", linestyle=linestyles[k])
-            u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_3$", linestyle=linestyles[k])
-            u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_4$", linestyle=linestyles[k])
-        else:
-            u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
-            u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
-            u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
-            u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
-    u_ax.set_xlabel("Time (s)")
-    u_ax.set_ylabel("Control effort")
-    u_ax.set_xlim(time_pl[0], time_pl[-1])
-    u_ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, 1.17),
-        ncol=4,
-        frameon=False,
-        columnspacing=0.7,
-        handlelength=0.7,
-        handletextpad=0.3,
-    )
+        u_ax = axs[0 + np.mod(k, 2), 1 + 1 * (k > 1)]
+        # if k == 0:
+        u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_2$ (faulty)", linestyle=linestyles[k])
+        u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_1$", linestyle=linestyles[k])
+        u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_3$", linestyle=linestyles[k])
+        u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_4$", linestyle=linestyles[k])
+        # else:
+        #     u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
+        #     u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
+        #     u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
+        #     u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
+        u_ax.set_xlabel("Time (s)")
+        u_ax.set_ylabel("Control effort")
+        u_ax.set_xlim(time_pl[0], time_pl[-1] + 0.1)
+        u_ax.legend(
+            loc="upper center",
+            bbox_to_anchor=(0.5, 1.17),
+            ncol=4,
+            frameon=False,
+            columnspacing=0.7,
+            handlelength=0.7,
+            handletextpad=0.3,
+        )
+        lims = u_ax.get_ylim()
+        u_ax.fill_between(
+            [t_fault_start, t_fault_end],
+            [-1.0, -1.0],
+            [1.0, 1.0],
+            color="grey",
+            alpha=0.5,
+            label="Fault",
+        )
+        
+        u_ax.text(
+            t_fault_start,
+            mean_u,
+            "Fault occurs",
+            rotation="vertical",
+            horizontalalignment="right",
+            verticalalignment="center",
+        )
+        u_ax.text(
+            t_fault_end,
+            mean_u,
+            "Fault clears",
+            rotation="vertical",
+            horizontalalignment="right",
+            verticalalignment="center",
+        )
+        u_ax.set_ylim(lims)
 
     # Plot the fault detection on a third axis
-    w_ax = axs[2]
+    # w_ax = axs[2]
     dot_h_pl[0] = dot_h_pl[1]  # remove dummy value from start
+    w_ax = axs[1, 0]
     for k in range(4):
         if k == 0:
             w_ax.plot(time_pl, dot_h_pl[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$\omega$", linestyle=linestyles[k], color = colors[2])
         else:
             w_ax.plot(time_pl, dot_h_pl[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k], color = colors[2])
+    
     w_ax.plot(
         time_pl,
         0 * time_pl + epsilon - 10 * dt,
@@ -400,13 +436,6 @@ def main():
 
     w_ax.set_xlabel("Time (s)")
     
-
-    # Add the fault indicators
-    fault_activity[-2] = 1.0
-    fault_activity[-1] = 0.0
-    (t_fault_start, t_fault_end) = time_pl[
-        np.diff(fault_activity.squeeze()).nonzero()[0]
-    ]
     lims = z_ax.get_ylim()
     fault_handle = z_ax.fill_between(
         [t_fault_start, t_fault_end],
@@ -454,36 +483,6 @@ def main():
         # handlelength=0.7,
         # handletextpad=0.3,
     )
-
-
-    lims = u_ax.get_ylim()
-    u_ax.fill_between(
-        [t_fault_start, t_fault_end],
-        [-1.0, -1.0],
-        [1.0, 1.0],
-        color="grey",
-        alpha=0.5,
-        label="Fault",
-    )
-    mean_u = (u_pl.max() + u_pl.min()) / 2.0
-    
-    u_ax.text(
-        t_fault_start,
-        mean_u,
-        "Fault occurs",
-        rotation="vertical",
-        horizontalalignment="right",
-        verticalalignment="center",
-    )
-    u_ax.text(
-        t_fault_end,
-        mean_u,
-        "Fault clears",
-        rotation="vertical",
-        horizontalalignment="right",
-        verticalalignment="center",
-    )
-    u_ax.set_ylim(lims)
 
     fig.tight_layout(pad=1.15)
     if fault_known == 1:
