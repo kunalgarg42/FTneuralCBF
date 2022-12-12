@@ -189,7 +189,7 @@ def main(args):
         for i in range(int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL)):
             t.tic()
             if init_add == 1:
-                init_states0 = util.x_bndr(safe_m, safe_l, 2 * n_sample) + torch.randn(2 * n_sample, n_state) * 2
+                init_states0 = util.x_bndr(safe_m, safe_l, 2 * n_sample) + torch.randn(2 * n_sample, n_state) * 4
             else:
                 init_states0 = torch.tensor([]).reshape(0, n_state)
 
