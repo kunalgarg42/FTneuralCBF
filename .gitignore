@@ -36,3 +36,5 @@ git_run.sh
 *.sh
 
 .git_run
+
+.gitignore
