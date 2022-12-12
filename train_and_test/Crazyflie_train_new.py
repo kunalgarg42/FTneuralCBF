@@ -249,7 +249,7 @@ def main(args):
             else:
                 torch.save(cbf.state_dict(), './data/CF_cbf_FT_weightsCBF.pth')
                 # torch.save(alpha.state_dict(), './data/CF_alpha_FT_weightsCBF.pth')
-            if loss_np < 0.01 and loss_np < loss_current:
+            if loss_np < 0.01 and loss_np < loss_current and i > 50:
                 loss_current = loss_np.copy()
                 if fault == 0:
                     torch.save(cbf.state_dict(), './good_data/data/CF_cbf_NN_weightsCBF.pth')
