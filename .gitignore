@@ -30,3 +30,6 @@ sept*
 
 *.pt
 *.py[cod]
+
+*.sh
+
