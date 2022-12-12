@@ -88,7 +88,7 @@ def main(args):
                 # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
                 # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
             else:
-                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth'))
+                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
                 # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
                 # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
             cbf.eval()
