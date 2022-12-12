@@ -44,7 +44,7 @@ class Trainer(object):
         self.fault_control_index = fault_control_index
 
         self.cbf_optimizer = torch.optim.Adam(
-            self.cbf.parameters(), lr=5e-4, weight_decay=1e-5)
+            self.cbf.parameters(), lr=5e-5, weight_decay=1e-5)
         # # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=1e-5, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
