@@ -230,8 +230,6 @@ def main(args):
 
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
             
-            print(safety_rate)
-
             if loss_np < 0.01 or i_train >= i - 1:
                 i_train = int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1
             else:
