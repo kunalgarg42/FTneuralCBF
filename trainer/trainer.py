@@ -44,7 +44,7 @@ class Trainer(object):
         self.fault_control_index = fault_control_index
 
         self.cbf_optimizer = torch.optim.Adam(
-            self.cbf.parameters(), lr=5e-5, weight_decay=1e-5)
+            self.cbf.parameters(), lr=1e-5, weight_decay=1e-5)
         # # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=1e-5, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
@@ -381,17 +381,13 @@ class Trainer(object):
         doth = doth + torch.matmul(torch.abs(LhG).reshape(bs, 1, self.m_control + 1),
                                    uin.reshape(bs, self.m_control + 1, 1))
         if self.fault == 1:
-            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[
-                                                                                                            self.fault_control_index,
-                                                                                                            :].reshape(
+            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[self.fault_control_index,:].reshape(
                 bs, 1)
 
             # ran_tensor = torch.randn(bs, 1).to(state.get_device())
             # ran_tensor = (ran_tensor > 0).int()
 
-            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * um[
-                                                                                                            self.fault_control_index,
-                                                                                                            :].reshape(
+            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * um[self.fault_control_index,:].reshape(
                 bs, 1)
         # else:
         #     for i in range(self.m_control + 1):
