@@ -214,6 +214,79 @@ class Utils(object):
 
         return u_nominal
 
+    def fault_controller(self, u_nominal, fx, gx, h, grad_h):
+        """
+        args:
+            state (n_state,)
+            goal (n_state,)
+        returns:
+            u_nominal (m_control,)
+        """
+        um, ul = self.dyn.control_limits()
+        
+        bs = u_nominal.shape[0]
+        
+        u_neural = u_nominal.clone()
+
+        m_control = self.m_control
+
+        size_Q = m_control + 1
+
+        Q = csc_matrix(identity(size_Q))
+
+        Q = Q / 100
+
+        for i in range(bs):
+
+            F = torch.hstack((torch.tensor(u_nominal[i, :]).reshape(m_control), torch.tensor(1.0))).reshape(size_Q, 1)
+
+            F = - np.array(F)
+        # F[0] = F[0] / um[0]
+
+            F = F / 100
+
+            F[-1] = -1
+
+            Lg = torch.matmul(grad_h[i, :, :], gx[i, :, :]).detach()
+            Lf = torch.matmul(grad_h[i, :, :], fx[i, :, :]).detach()
+
+            if h[i] == 0:
+                h[i] = 1e-4
+
+        # noinspection PyTypeChecker
+            A = torch.hstack((- Lg.reshape(1, m_control), -h[i].reshape(1, 1)))
+            B = Lf.detach().cpu()
+
+            lb = torch.vstack((ul.reshape(self.m_control, 1), torch.tensor(-100).reshape(1, 1)))
+            ub = torch.vstack((um.reshape(self.m_control, 1), torch.tensor(100).reshape(1, 1)))
+            A_in = torch.tensor(
+                [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [-1, 0, 0, 0, 0],
+                [0, -1, 0, 0, 0], [0, 0, -1, 0, 0], [0, 0, 0, -1, 0], [0, 0, 0, 0, -1]])
+
+            A = torch.vstack((A.clone().detach(), A_in))
+
+            B_in = torch.vstack((ub, -lb))
+            B = torch.vstack((B, B_in.reshape(2 * self.m_control + 2, 1)))
+
+            B = np.array(B)
+
+            # print(A)
+            A = scipy.sparse.csc.csc_matrix(A)
+            u = solve_qp(Q, F, A, B, solver="osqp")
+        # , lb = lb.reshape(self.m_control + 1, 1, 1), ub = ub.reshape(self.m_control + 1, 1, 1),
+
+            if u is None:
+                u_neural[i, :] = u_nominal[i, :].reshape(m_control)
+            else:
+                for j in range(m_control):
+                    if u[j] < ul[j]:
+                        u[j] = ul[j].clone()
+                    if u[j] > um[j]:
+                        u[j] = um[j].clone()
+                u_neural[i, :] = torch.tensor([u[0:self.m_control]]).reshape(1, m_control)
+
+        return u_neural
+    
     def neural_controller(self, u_nominal, fx, gx, h, grad_h, fault_start):
         """
         args:
