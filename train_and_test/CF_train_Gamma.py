@@ -60,7 +60,7 @@ print(init_param)
 train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
 print(train_u)
 
-n_sample = 4
+n_sample = 100
 
 fault = nominal_params["fault"]
 
@@ -128,10 +128,10 @@ def main(args):
         state = state0.clone()
 
         u_nominal = dynamics.u_nominal(state)
-        
+        gamma = gamma.to(torch.device('cpu'))
         gamma_fault = gamma(state, u_nominal)
 
-        for k in range(1000):
+        for k in range(10):
             t.tic()
             
             u_nominal = dynamics.u_nominal(state)

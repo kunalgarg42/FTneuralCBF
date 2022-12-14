@@ -366,16 +366,20 @@ class Trainer(object):
                 # t.tic()
                 # print(i)
                 state, u, _ = self.dataset.sample_data_all(batch_size, i)
-                gamma_data = self.gamma_gen(state, u)
+                
                 if self.gpu_id >= 0:
                     state = state.cuda(self.gpu_id)
                     u = u.cuda(self.gpu_id)
-                    gamma_data = gamma_data.cuda(self.gpu_id)
+                    # gamma_data = gamma_data.cuda(self.gpu_id)
                     self.gamma.to(torch.device(self.gpu_id))
+
+                gamma_data = self.gamma_gen(state, u)
+                
+                num_gamma = gamma_data.shape[0]
                 
                 gamma_error = torch.linalg.norm(gamma_data - gamma_actual, dim=1)
 
-                loss = torch.sum(nn.ReLU()(eps_deriv - gamma_error).reshape(1, batch_size)) / batch_size
+                loss = torch.sum(nn.ReLU()(-eps_deriv + gamma_error).reshape(1, num_gamma)) / num_gamma
 
                 self.gamma_optimizer.zero_grad()
                 # self.alpha_optimizer.zero_grad()
@@ -485,19 +489,22 @@ class Trainer(object):
         returns:
             gamma (m_control,)
         """
-        gamma_data = torch.zeros(state.shape[0], self.m_control)
 
+        bs = int(state.shape[0] / self.num_traj)
+        
+        gamma_data = torch.zeros(self.num_traj, self.m_control)
+        gamma_temp = torch.zeros(1, self.m_control)
         if state.get_device() >= 0:
             state = state.cuda(self.gpu_id)
             u = u.cuda(self.gpu_id)
             gamma_data = gamma_data.cuda(self.gpu_id)
+            gamma_temp = gamma_temp.cuda(self.gpu_id)
             self.gamma.to(torch.device(self.gpu_id))
 
-        bs = int(state.shape[0] / self.num_traj)
-       
         for i in range(self.num_traj):
-            gamma_data[int(bs * i), :] = torch.zeros(1, self.m_control)
             for j in range(bs - 1):
-                gamma_data[j + 1 + bs * i, :] = gamma_data[j + bs * i, :] + self.gamma(state[j, :].reshape(1, self.n_state), u[j, :].reshape(1, self.m_control)) * self.dt
+                gamma_temp = gamma_temp + self.gamma(state[j + bs * i, :].reshape(1, self.n_state), u[j + bs * i, :].reshape(1, self.m_control)) * self.dt
+            gamma_data[i, :] = gamma_temp.clone()
+            gamma_temp = 0 * gamma_temp.clone()
 
         return gamma_data
