@@ -1,14 +1,6 @@
 import torch
-import math
-import scipy
 from torch import nn
-from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-from qpsolvers import solve_qp
-from osqp import OSQP
-from scipy.sparse import identity
-from scipy.sparse import vstack, csr_matrix, csc_matrix
-from trainer.FxTS_GF import FxTS_Momentum
 from pytictoc import TicToc
 
 torch.autograd.set_detect_anomaly(True)
@@ -25,6 +17,8 @@ class Trainer(object):
                  params,
                  n_state,
                  m_control,
+                 gamma=None,
+                 num_traj=1,
                  j_const=1,
                  dt=0.05,
                  action_loss_weight=0.1,
@@ -39,12 +33,16 @@ class Trainer(object):
         self.j_const = j_const
         self.dyn = dyn
         self.cbf = cbf
+        self.gamma = gamma
         self.dataset = dataset
         self.fault = fault
         self.fault_control_index = fault_control_index
-
+        self.num_traj = num_traj
         self.cbf_optimizer = torch.optim.Adam(
             self.cbf.parameters(), lr=1e-5, weight_decay=1e-5)
+        if gamma is not None:
+            self.gamma_optimizer = torch.optim.Adam(
+                self.gamma.parameters(), lr=1e-5, weight_decay=1e-5)
         # # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=1e-5, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
@@ -351,6 +349,48 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
+    def train_gamma(self, gamma_actual, batch_size=5000, opt_iter=20, eps=0.1, eps_deriv=0.03):
+        loss_np = 0.0
+        if batch_size > self.dataset.n_pts:
+            batch_size = self.dataset.n_pts
+        # print("training only CBF")
+        # t.tic()
+        if self.gpu_id >= 0:
+            gamma_actual = gamma_actual.cuda(self.gpu_id)
+
+        opt_count = 1
+        for _ in range(opt_count):
+            for i in range(opt_iter):
+                # t.tic()
+                # print(i)
+                state, u, _ = self.dataset.sample_data_all(batch_size, i)
+                gamma_data = self.gamma_gen(state, u)
+                if self.gpu_id >= 0:
+                    state = state.cuda(self.gpu_id)
+                    u = u.cuda(self.gpu_id)
+                    gamma_data = gamma_data.cuda(self.gpu_id)
+                    self.gamma.to(torch.device(self.gpu_id))
+                
+                gamma_error = torch.linalg.norm(gamma_data - gamma_actual, dim=1)
+
+                loss = torch.sum(nn.ReLU()(eps_deriv - gamma_error).reshape(1, batch_size)) / batch_size
+
+                self.gamma_optimizer.zero_grad()
+                # self.alpha_optimizer.zero_grad()
+
+                loss.backward()
+
+                self.gamma_optimizer.step()
+                # self.alpha_optimizer.step()
+
+                # log statics
+                loss_np += loss.detach().cpu().numpy()
+                
+        loss_np /= opt_iter * opt_count
+
+        return loss_np
+
+
     def doth_max(self, h, state, grad_h, um, ul):
         bs = grad_h.shape[0]
 
@@ -434,3 +474,28 @@ class Trainer(object):
         dsdt = fx + torch.matmul(gx, u)
 
         return dsdt
+
+    def gamma_gen(self, state, u):
+        """
+        args:
+            state (n_state,)
+            u (m_control,)
+        returns:
+            gamma (m_control,)
+        """
+        gamma_data = torch.zeros(state.shape[0], self.m_control)
+
+        if state.get_device() >= 0:
+            state = state.cuda(self.gpu_id)
+            u = u.cuda(self.gpu_id)
+            gamma_data = gamma_data.cuda(self.gpu_id)
+            self.gamma.to(torch.device(self.gpu_id))
+
+        bs = int(state.shape[0] / self.num_traj)
+       
+        for i in range(self.num_traj):
+            gamma_data[int(bs * i), :] = torch.zeros(1, self.m_control)
+            for j in range(bs - 1):
+                gamma_data[j + 1 + bs * i, :] = gamma_data[j + bs * i, :] + self.gamma(state[j, :].reshape(1, self.n_state), u[j, :].reshape(1, self.m_control)) * self.dt
+
+        return gamma_data

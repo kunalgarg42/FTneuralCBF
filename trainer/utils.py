@@ -214,7 +214,7 @@ class Utils(object):
 
         return u_nominal
 
-    def fault_controller(self, u_nominal, fx, gx, h, grad_h):
+    def fault_controller(self, u_nominal, fx, gx, h, grad_h, gamma_actual):
         """
         args:
             state (n_state,)
@@ -257,8 +257,8 @@ class Utils(object):
             A = torch.hstack((- Lg.reshape(1, m_control), -h[i].reshape(1, 1)))
             B = Lf.detach().cpu()
 
-            lb = torch.vstack((ul.reshape(self.m_control, 1), torch.tensor(-100).reshape(1, 1)))
-            ub = torch.vstack((um.reshape(self.m_control, 1), torch.tensor(100).reshape(1, 1)))
+            lb = torch.vstack((ul.reshape(self.m_control, 1), torch.tensor(-100000000).reshape(1, 1)))
+            ub = torch.vstack((um.reshape(self.m_control, 1), torch.tensor(100000000).reshape(1, 1)))
             A_in = torch.tensor(
                 [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [-1, 0, 0, 0, 0],
                 [0, -1, 0, 0, 0], [0, 0, -1, 0, 0], [0, 0, 0, -1, 0], [0, 0, 0, 0, -1]])
@@ -272,7 +272,10 @@ class Utils(object):
 
             # print(A)
             A = scipy.sparse.csc.csc_matrix(A)
-            u = solve_qp(Q, F, A, B, solver="osqp")
+            try:
+                u = solve_qp(Q, F, A, B, solver="osqp")
+            except:
+                u = None
         # , lb = lb.reshape(self.m_control + 1, 1, 1), ub = ub.reshape(self.m_control + 1, 1, 1),
 
             if u is None:
@@ -285,7 +288,9 @@ class Utils(object):
                         u[j] = um[j].clone()
                 u_neural[i, :] = torch.tensor([u[0:self.m_control]]).reshape(1, m_control)
 
-        return u_neural
+            u_neural[i, :] = u_neural[i, :] * gamma_actual
+            
+        return u_neural.reshape(bs, m_control)
     
     def neural_controller(self, u_nominal, fx, gx, h, grad_h, fault_start):
         """

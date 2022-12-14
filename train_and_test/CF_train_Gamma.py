@@ -60,7 +60,7 @@ print(init_param)
 train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
 print(train_u)
 
-n_sample = 100
+n_sample = 4
 
 fault = nominal_params["fault"]
 
@@ -105,26 +105,32 @@ def main(args):
     cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u)
-    trainer = Trainer(cbf, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u, buffer_size=n_sample*1000)
+    trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
-                      fault=fault, gpu_id=0,
+                      fault=fault, gpu_id=0, num_traj=n_sample,
                       fault_control_index=fault_control_index)
     loss_np = 1.0
     safety_rate = 0.0
-    goal_reached = 0.0
 
     sm, sl = dynamics.state_limits()
     safe_m, safe_l = dynamics.safe_limits(sm, sl, fault)
     i_train = 0
     
     loss_current = 100.0
+    gamma_actual = torch.zeros(1, 4)
+    
+    gamma_actual[fault_control_index] = 0.5
 
     for i in range(100):
         state0 = util.x_samples(safe_m, safe_l, n_sample)
         
         state = state0.clone()
-            
+
+        u_nominal = dynamics.u_nominal(state)
+        
+        gamma_fault = gamma(state, u_nominal)
+
         for k in range(1000):
             t.tic()
             
@@ -134,16 +140,25 @@ def main(args):
             gx = dynamics._g(state, params=nominal_params)
 
             h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
-
-            u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+            
+            u = util.fault_controller(u_nominal, fx, gx, h, grad_h, gamma_actual)
 
             gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
 
             dx = fx.reshape(n_sample, n_state) + gxu.reshape(n_sample, n_state)
 
-            state = state + dx * dt
+            state = state.clone() + dx * dt
 
-            dataset.add_data(state, u, torch.tensor([]).reshape(0, m_control))
+            gamma_fault = gamma_fault + gamma(state, u) * dt
+
+            for j1 in range(n_sample):
+                for j2 in range(n_state):
+                    if state[j1, j2] > sm[j2]:
+                        state[j1, j2] = sm[j2].clone()
+                    if state[j1, j2] < sl[j2]:
+                        state[j1, j2] = sl[j2].clone()
+
+            dataset.add_data(state, torch.tensor(u), torch.tensor(gamma_fault))
 
             is_safe = int(torch.sum(util.is_safe(state))) / n_sample
 
@@ -154,17 +169,17 @@ def main(args):
             else:
                 i_train = i
 
-        loss_np, acc_np = trainer.train_gamma()
+        loss_np = trainer.train_gamma(gamma_actual)
         time_iter = t.tocvalue()
         print(
-            'step, {}, loss, {:.3f}, acc, safety rate, {:.3f}, time, {:.3f} '.format(
-                i, loss_np, acc_np, safety_rate, time_iter))
+            'step, {}, loss, {:.3f}, safety rate, {:.3f}, time, {:.3f} '.format(
+                i, loss_np, safety_rate, time_iter))
 
-        torch.save(cbf.state_dict(), str_data)
+        torch.save(gamma.state_dict(), str_data)
         
         if loss_np < 0.01 and loss_np < loss_current and i > 50:
             loss_current = loss_np.copy()
-            torch.save(cbf.state_dict(), str_good_data)
+            torch.save(gamma.state_dict(), str_good_data)
         
         if loss_np < 0.001 and i > 100:
             break
