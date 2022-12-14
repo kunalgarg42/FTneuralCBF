@@ -105,7 +105,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u, buffer_size=n_sample*1000)
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u, buffer_size=n_sample*10)
     trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=0, num_traj=n_sample,
@@ -132,7 +132,6 @@ def main(args):
         gamma_fault = gamma(state, u_nominal)
 
         for k in range(10):
-            t.tic()
             
             u_nominal = dynamics.u_nominal(state)
 
@@ -168,7 +167,7 @@ def main(args):
                 i_train = int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1
             else:
                 i_train = i
-
+        t.tic()
         loss_np = trainer.train_gamma(gamma_actual)
         time_iter = t.tocvalue()
         print(
