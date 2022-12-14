@@ -60,7 +60,7 @@ print(init_param)
 train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
 print(train_u)
 
-n_sample = 1000
+n_sample = 10000
 
 traj_len = 100
 
@@ -117,7 +117,7 @@ def main(args):
     gamma_actual_bs = torch.ones(n_sample, m_control)
     
     for j in range(n_sample):
-        fault_control_index = int(j / (n_sample))
+        fault_control_index = int(j / (n_sample / 4))
         gamma_actual_bs[j, fault_control_index] = 0.0
     
     dataset.add_data(torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, m_control), gamma_actual_bs)
