@@ -351,7 +351,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, gamma_actual, traj_len, batch_size=2000, opt_iter=10, eps=0.1, eps_deriv=0.01):
+    def train_gamma(self, state, u, gamma_actual, traj_len, batch_size=2000, opt_iter=10, eps=0.1, eps_deriv=0.01):
         loss_np = 0.0
         if batch_size > self.dataset.n_pts:
             batch_size = self.dataset.n_pts
@@ -361,8 +361,7 @@ class Trainer(object):
             for i in range(opt_iter):
                 # t.tic()
                 # print(i)
-                
-                state, u, _ = self.dataset.sample_data_all()
+                # state, u, _ = self.dataset.sample_data_all()
                 
                 if self.gpu_id >= 0:
                     state = state.cuda(self.gpu_id)
@@ -498,7 +497,7 @@ class Trainer(object):
             gamma (m_control,)
         """
 
-        ns = int(state.shape[0] / traj_len)
+        ns = state.shape[0]
 
         gamma_data = torch.zeros(ns, self.m_control)
         gamma_temp = torch.zeros(ns, self.m_control)

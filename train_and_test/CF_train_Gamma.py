@@ -122,7 +122,7 @@ def main(args):
         gamma_actual_bs[j, fault_control_index] = 0.0
     
     dataset.add_data(torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, m_control), gamma_actual_bs)
-
+    
     for i in range(100):
         state0 = util.x_samples(safe_m, safe_l, n_sample)
         
@@ -135,7 +135,7 @@ def main(args):
         u_nominal = dynamics.u_nominal(state)
         
         t.tic()
-        
+
         for k in range(traj_len):
             
             u_nominal = dynamics.u_nominal(state)
@@ -145,12 +145,12 @@ def main(args):
 
             h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
             
+            # u = u_nominal.clone()
+
             u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
 
             state_traj[:, k, :] = state.clone()
             u_traj[:, k, :] = u.clone()
-            
-            dataset.add_data(state, u, torch.tensor([]).reshape(0, m_control))
 
             u = u * gamma_actual_bs[k, :]
 
@@ -160,32 +160,29 @@ def main(args):
 
             state = state.clone() + dx * dt
 
-            for j1 in range(n_sample):
-                for j2 in range(n_state):
-                    if state[j1, j2] > sm[j2]:
-                        state[j1, j2] = sm[j2].clone()
-                    if state[j1, j2] < sl[j2]:
-                        state[j1, j2] = sl[j2].clone()
+            # for j1 in range(n_sample):
+            #     for j2 in range(n_state):
+            #         if state[j1, j2] > sm[j2]:
+            #             state[j1, j2] = sm[j2].clone()
+            #         if state[j1, j2] < sl[j2]:
+            #             state[j1, j2] = sl[j2].clone()
 
             is_safe = int(torch.sum(util.is_safe(state))) / n_sample
 
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
-            
-            if loss_np < 0.01 or i_train >= i - 1:
-                i_train = int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1
-            else:
-                i_train = i
-          
+
+        # dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
+        # print(t.toc())
         # gamma.to(torch.device('cpu'))
         if gpu_id >= 0:
             gamma.to(torch.device(gpu_id))
             state_traj = state_traj.cuda(gpu_id)
             u_traj = u_traj.cuda(gpu_id)
             gamma_fault = gamma(state_traj[0, :, :].reshape(1, traj_len, n_state), u_traj[0, :, :].reshape(1, traj_len, m_control))
-
         print(gamma_fault)
 
-        loss_np = trainer.train_gamma(gamma_actual_bs, traj_len)
+        loss_np = trainer.train_gamma(state_traj, u_traj, gamma_actual_bs, traj_len)
+
         time_iter = t.tocvalue()
         print(
             'step, {}, loss, {:.3f}, safety rate, {:.3f}, time, {:.3f} '.format(
