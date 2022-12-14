@@ -351,7 +351,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, gamma_actual, traj_len, batch_size=5000, opt_iter=20, eps=0.1, eps_deriv=0.03):
+    def train_gamma(self, gamma_actual, traj_len, batch_size=2000, opt_iter=25, eps=0.1, eps_deriv=0.01):
         loss_np = 0.0
         if batch_size > self.dataset.n_pts:
             batch_size = self.dataset.n_pts
@@ -360,7 +360,7 @@ class Trainer(object):
         if self.gpu_id >= 0:
             gamma_actual = gamma_actual.cuda(self.gpu_id)
 
-        opt_count = 10
+        opt_count = 20
         for _ in range(opt_count):
             for i in range(opt_iter):
                 # t.tic()
@@ -376,8 +376,10 @@ class Trainer(object):
                 gamma_data = self.gamma_gen(state, u, traj_len)
                 
                 num_gamma = gamma_data.shape[0]
-                
-                gamma_error = torch.linalg.norm(gamma_data - gamma_actual, dim=1)
+
+                gamma_error = gamma_data - gamma_actual.repeat(num_gamma, 1)
+
+                gamma_error = torch.linalg.norm(gamma_error, dim=1)
 
                 loss = torch.sum(nn.ReLU()(-eps_deriv + gamma_error).reshape(1, num_gamma)) / num_gamma
 

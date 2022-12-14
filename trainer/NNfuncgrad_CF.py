@@ -329,5 +329,5 @@ class Gamma(nn.Module):
         x = self.activation(self.fc0(x))
         x = self.activation(self.fc1(x))
         x = self.output_activation(self.fc2(x))
-        gamma = x
+        gamma = x ** 2
         return gamma

@@ -100,7 +100,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u, buffer_size=n_sample*10)
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u, buffer_size=n_sample*traj_len)
     trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=0, num_traj=n_sample,
@@ -115,7 +115,7 @@ def main(args):
     loss_current = 100.0
     gamma_actual = torch.ones(1, 4)
     
-    gamma_actual[fault_control_index] = 0.0
+    gamma_actual[fault_control_index, 0] = 0.0
 
     gamma_actual_bs = gamma_actual.repeat(n_sample, 1)
 
