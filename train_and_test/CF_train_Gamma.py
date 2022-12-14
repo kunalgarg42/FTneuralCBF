@@ -62,6 +62,8 @@ print(train_u)
 
 n_sample = 1000
 
+traj_len = 50
+
 fault = nominal_params["fault"]
 
 fault_control_index = 0
@@ -133,7 +135,7 @@ def main(args):
         
         t.tic()
         
-        for k in range(10):
+        for k in range(traj_len):
             
             u_nominal = dynamics.u_nominal(state)
 
@@ -170,7 +172,7 @@ def main(args):
             else:
                 i_train = i
         
-        loss_np = trainer.train_gamma(gamma_actual, k+1)
+        loss_np = trainer.train_gamma(gamma_actual, traj_len)
         time_iter = t.tocvalue()
         print(
             'step, {}, loss, {:.3f}, safety rate, {:.3f}, time, {:.3f} '.format(

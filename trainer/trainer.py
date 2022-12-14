@@ -42,7 +42,7 @@ class Trainer(object):
             self.cbf.parameters(), lr=1e-5, weight_decay=1e-5)
         if gamma is not None:
             self.gamma_optimizer = torch.optim.Adam(
-                self.gamma.parameters(), lr=1e-5, weight_decay=1e-5)
+                self.gamma.parameters(), lr=1e-4, weight_decay=1e-5)
         # # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=1e-5, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
@@ -360,7 +360,7 @@ class Trainer(object):
         if self.gpu_id >= 0:
             gamma_actual = gamma_actual.cuda(self.gpu_id)
 
-        opt_count = 1
+        opt_count = 10
         for _ in range(opt_count):
             for i in range(opt_iter):
                 # t.tic()
