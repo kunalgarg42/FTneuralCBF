@@ -75,32 +75,25 @@ t = TicToc()
 
 
 def main(args):
-    fault = args.fault
+    fault = 1
+    fault_control_index = args.fault_index
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)
-    # nn_controller = NNController_new(n_state=n_state, m_control=m_control)
     cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
               fault_control_index=fault_control_index)
     gamma = Gamma(n_state=n_state, m_control=m_control)
 
-    # alpha = alpha_param(n_state=n_state)
-    # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
-    # nn_controller.eval()
     if init_param == 1:
         try:
             gamma.load_state_dict(torch.load(str_good_data))
             cbf.eval()
-            # nn_controller.eval()
-            # alpha.eval()
         except:
             print("No good data available")
             try:
                 gamma.load_state_dict(torch.load(str_data))
                 gamma.eval()
-                # nn_controller.eval()
-                # alpha.eval()
             except:
                 print("No pre-train data available")
     
@@ -120,9 +113,11 @@ def main(args):
     i_train = 0
     
     loss_current = 100.0
-    gamma_actual = torch.zeros(1, 4)
+    gamma_actual = torch.ones(1, 4)
     
-    gamma_actual[fault_control_index] = 0.5
+    gamma_actual[fault_control_index] = 0.0
+
+    gamma_actual_bs = gamma_actual.repeat(n_sample, 1)
 
     for i in range(100):
         state0 = util.x_samples(safe_m, safe_l, n_sample)
@@ -144,7 +139,11 @@ def main(args):
 
             h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
             
-            u = util.fault_controller(u_nominal, fx, gx, h, grad_h, gamma_actual)
+            u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+
+            dataset.add_data(state, torch.tensor(u), torch.tensor([]).reshape(0, m_control))
+
+            u = u * gamma_actual_bs
 
             gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
 
@@ -161,8 +160,6 @@ def main(args):
                     if state[j1, j2] < sl[j2]:
                         state[j1, j2] = sl[j2].clone()
 
-            dataset.add_data(state, torch.tensor(u), torch.tensor(gamma_fault))
-
             is_safe = int(torch.sum(util.is_safe(state))) / n_sample
 
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
@@ -172,6 +169,8 @@ def main(args):
             else:
                 i_train = i
         
+        print(gamma_fault[-1, :])
+
         loss_np = trainer.train_gamma(gamma_actual, traj_len)
         time_iter = t.tocvalue()
         print(
@@ -190,6 +189,6 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-fault', type=int, default=0)
+    parser.add_argument('-fault_index', type=int, default=0)
     args = parser.parse_args()
     main(args)

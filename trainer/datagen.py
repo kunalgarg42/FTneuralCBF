@@ -135,5 +135,5 @@ class Dataset_with_Grad(object):
             #     u = np.array(u)
             # else:
             u_NN = self.buffer_data_u_NN[indices, :]
-            u = self.buffer_data_u[indices, :]
+            u = []
             return s, u_NN, u

@@ -502,8 +502,12 @@ class Trainer(object):
             self.gamma.to(torch.device(self.gpu_id))
 
         # for i in range(self.num_traj):
-        for j in range(traj_len-1):
-            gamma_temp = gamma_temp + self.gamma(state[j + ns*j:j + ns * (j+1), :].reshape(ns, self.n_state), u[j + ns*j:j + ns * (j+1), :].reshape(ns, self.m_control)) * self.dt
+        gamma_dot = self.gamma(state, u)
+        gamma_dot = gamma_dot.reshape(ns, traj_len, self.m_control)
+        gamma_temp = torch.sum(gamma_dot, dim=1) * self.dt
+        gamma_temp = gamma_temp.reshape(ns, self.m_control)
+        # for j in range(traj_len-1):
+        #     gamma_temp = gamma_temp + self.gamma(state[j + ns*j:j + ns * (j+1), :].reshape(ns, self.n_state), u[j + ns*j:j + ns * (j+1), :].reshape(ns, self.m_control)) * self.dt
 
         gamma_data = gamma_temp.clone()
         # gamma_temp = 0 * gamma_temp.clone()

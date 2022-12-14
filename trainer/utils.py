@@ -214,7 +214,7 @@ class Utils(object):
 
         return u_nominal
 
-    def fault_controller(self, u_nominal, fx, gx, h, grad_h, gamma_actual):
+    def fault_controller(self, u_nominal, fx, gx, h, grad_h):
         """
         args:
             state (n_state,)
@@ -288,7 +288,7 @@ class Utils(object):
                         u[j] = um[j].clone()
                 u_neural[i, :] = torch.tensor([u[0:self.m_control]]).reshape(1, m_control)
 
-            u_neural[i, :] = u_neural[i, :] * gamma_actual
+            u_neural[i, :] = u_neural[i, :]
             
         return u_neural.reshape(bs, m_control)
     
