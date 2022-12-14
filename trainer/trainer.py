@@ -157,7 +157,9 @@ class Trainer(object):
                 loss_deriv_mid = deriv_factor * 0.1 * torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * mid_mask.reshape(1, batch_size)) / (
                                          1e-5 + num_mid)
-
+                
+                loss_alpha = 0 * loss_h_safe.clone()
+                
                 loss_deriv_dang = deriv_factor * 0.01 * torch.sum(
                     nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
                                           1e-5 + num_dang)
