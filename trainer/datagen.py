@@ -91,7 +91,7 @@ class Dataset_with_Grad(object):
         u = []
         return s, u_NN, u
 
-    def sample_data_all(self, batch_size, index):
+    def sample_data_all(self):
             """
             Sample batch_size data points from the data buffers.
 
@@ -102,38 +102,10 @@ class Dataset_with_Grad(object):
             returns:
                 a random selection of batch_size data points, sampled without replacement.
             """
+            s = self.buffer_data_s
 
-            # s, u_NN, u = self.sample_data_from_buffer(batch_size, self.buffer_data, index)
+            u = self.buffer_data_u_NN
 
-            # We'll sample these points by pulling a range of indices from the list of
-            # permuted indices. Start by getting the start and end points of this range
-            indices_init = index * batch_size
-            indices_end = (index + 1) * batch_size
+            gamma = self.buffer_data_u
 
-            # If the end of the range exceeds the number of available data points,
-            # shift both the start and the end back until the batch fits
-            if indices_end > self.n_pts:
-                extra_pts_needed = indices_end - self.n_pts
-                indices_init -= extra_pts_needed
-                indices_end -= extra_pts_needed
-
-            # Get the slice of randomly permuted indices
-            indices = self.permuted_indices[indices_init:indices_end]
-            # print(index)
-            # print(batch_size)
-            # print((indices_init, indices_end))
-            # print(indices[:10])
-
-            # Sample data from those indices.
-            s = self.buffer_data_s[indices, :]
-
-            # Not sure what's happening here. Looks like we're not sampling control values?
-            # Probably OK since these return values aren't being used.
-            # if self.train_u > 0:
-            #     u_NN = self.buffer_data_u_NN[indices, :]
-            #     u = self.buffer_data_u[indices, :]
-            #     u = np.array(u)
-            # else:
-            u_NN = self.buffer_data_u_NN[indices, :]
-            u = []
-            return s, u_NN, u
+            return s, u, gamma

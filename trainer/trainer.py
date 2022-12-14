@@ -351,25 +351,23 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, gamma_actual, traj_len, batch_size=2000, opt_iter=25, eps=0.1, eps_deriv=0.01):
+    def train_gamma(self, gamma_actual, traj_len, batch_size=2000, opt_iter=10, eps=0.1, eps_deriv=0.01):
         loss_np = 0.0
         if batch_size > self.dataset.n_pts:
             batch_size = self.dataset.n_pts
-        # print("training only CBF")
-        # t.tic()
-        if self.gpu_id >= 0:
-            gamma_actual = gamma_actual.cuda(self.gpu_id)
-
-        opt_count = 20
+        
+        opt_count = 1
         for _ in range(opt_count):
             for i in range(opt_iter):
                 # t.tic()
                 # print(i)
-                state, u, _ = self.dataset.sample_data_all(batch_size, i)
+                
+                state, u, _ = self.dataset.sample_data_all()
                 
                 if self.gpu_id >= 0:
                     state = state.cuda(self.gpu_id)
                     u = u.cuda(self.gpu_id)
+                    gamma_actual = gamma_actual.cuda(self.gpu_id)
                     # gamma_data = gamma_data.cuda(self.gpu_id)
                     self.gamma.to(torch.device(self.gpu_id))
 
@@ -377,11 +375,19 @@ class Trainer(object):
                 
                 num_gamma = gamma_data.shape[0]
 
-                gamma_error = gamma_data - gamma_actual.repeat(num_gamma, 1)
+                gamma_error = gamma_data - gamma_actual
 
-                gamma_error = torch.linalg.norm(gamma_error, dim=1)
+                gamma_error = torch.abs(gamma_error) * 100
 
-                loss = torch.sum(nn.ReLU()(-eps_deriv + gamma_error).reshape(1, num_gamma)) / num_gamma
+                loss_1 = torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, 0]).reshape(1, num_gamma)) / num_gamma
+
+                loss_2 = torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, 1]).reshape(1, num_gamma)) / num_gamma
+
+                loss_3 = torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, 2]).reshape(1, num_gamma)) / num_gamma
+
+                loss_4 = torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, 3]).reshape(1, num_gamma)) / num_gamma
+
+                loss = loss_1 + loss_2 + loss_3 + loss_4
 
                 self.gamma_optimizer.zero_grad()
                 # self.alpha_optimizer.zero_grad()
@@ -503,15 +509,17 @@ class Trainer(object):
             gamma_temp = gamma_temp.cuda(self.gpu_id)
             self.gamma.to(torch.device(self.gpu_id))
 
+        state = state.reshape(ns, traj_len, self.n_state)
+        u = u.reshape(ns, traj_len, self.m_control)
         # for i in range(self.num_traj):
         gamma_dot = self.gamma(state, u)
-        gamma_dot = gamma_dot.reshape(ns, traj_len, self.m_control)
-        gamma_temp = torch.sum(gamma_dot, dim=1) * self.dt
-        gamma_temp = gamma_temp.reshape(ns, self.m_control)
+        gamma_dot = gamma_dot.reshape(ns, self.m_control)
+        # gamma_temp = torch.sum(gamma_dot, dim=0)
+        # gamma_temp = gamma_temp.reshape(ns, self.m_control)
         # for j in range(traj_len-1):
         #     gamma_temp = gamma_temp + self.gamma(state[j + ns*j:j + ns * (j+1), :].reshape(ns, self.n_state), u[j + ns*j:j + ns * (j+1), :].reshape(ns, self.m_control)) * self.dt
 
-        gamma_data = gamma_temp.clone()
+        gamma_data = gamma_dot.clone()
         # gamma_temp = 0 * gamma_temp.clone()
 
         return gamma_data
