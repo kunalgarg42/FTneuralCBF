@@ -60,7 +60,7 @@ print(init_param)
 train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
 print(train_u)
 
-n_sample = 10000
+n_sample = 1000
 
 traj_len = 100
 
@@ -73,6 +73,7 @@ str_good_data = './good_data/data/CF_gamma_NN_weights{}.pth'.format(fault_contro
 
 t = TicToc()
 
+gpu_id = 0
 
 def main(args):
     fault = 1
@@ -103,7 +104,7 @@ def main(args):
     dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u, buffer_size=n_sample*traj_len)
     trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
-                      fault=fault, gpu_id=0, num_traj=n_sample,
+                      fault=fault, gpu_id=gpu_id, num_traj=n_sample,
                       fault_control_index=fault_control_index)
     loss_np = 1.0
     safety_rate = 0.0
@@ -149,7 +150,7 @@ def main(args):
             state_traj[:, k, :] = state.clone()
             u_traj[:, k, :] = u.clone()
             
-            dataset.add_data(state, torch.tensor(u), torch.tensor([]).reshape(0, m_control))
+            dataset.add_data(state, u, torch.tensor([]).reshape(0, m_control))
 
             u = u * gamma_actual_bs[k, :]
 
@@ -175,11 +176,14 @@ def main(args):
             else:
                 i_train = i
           
-        gamma.to(torch.device('cpu'))
-        
-        gamma_fault = gamma(state_traj, u_traj)
+        # gamma.to(torch.device('cpu'))
+        if gpu_id >= 0:
+            gamma.to(torch.device(gpu_id))
+            state_traj = state_traj.cuda(gpu_id)
+            u_traj = u_traj.cuda(gpu_id)
+            gamma_fault = gamma(state_traj[0, :, :].reshape(1, traj_len, n_state), u_traj[0, :, :].reshape(1, traj_len, m_control))
 
-        print(gamma_fault[-1, :])
+        print(gamma_fault)
 
         loss_np = trainer.train_gamma(gamma_actual_bs, traj_len)
         time_iter = t.tocvalue()
@@ -189,11 +193,11 @@ def main(args):
 
         torch.save(gamma.state_dict(), str_data)
         
-        if loss_np < 0.01 and loss_np < loss_current and i > 50:
+        if loss_np < 0.01 and loss_np < loss_current and i > 5:
             loss_current = loss_np.copy()
             torch.save(gamma.state_dict(), str_good_data)
         
-        if loss_np < 0.001 and i > 100:
+        if loss_np < 0.001 and i > 50:
             break
 
 

@@ -237,7 +237,7 @@ class Utils(object):
         Q = Q / 100
 
         for i in range(bs):
-            u_nom = torch.tensor(u_nominal[i, :]).reshape(m_control)
+            u_nom = u_nominal[i, :].reshape(m_control)
             F = torch.hstack((u_nom, torch.tensor(1.0))).reshape(size_Q, 1)
 
             F = - np.array(F)
@@ -286,9 +286,8 @@ class Utils(object):
                         u[j] = ul[j].clone()
                     if u[j] > um[j]:
                         u[j] = um[j].clone()
-                u_neural[i, :] = torch.tensor([u[0:self.m_control]]).reshape(1, m_control)
-
-            u_neural[i, :] = u_neural[i, :]
+                u = torch.tensor(u)
+                u_neural[i, :] = u[0:self.m_control].reshape(1, m_control)
             
         return u_neural.reshape(bs, m_control)
     
