@@ -60,7 +60,7 @@ print(init_param)
 train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
 print(train_u)
 
-n_sample = 100
+n_sample = 1000
 
 fault = nominal_params["fault"]
 
@@ -130,7 +130,9 @@ def main(args):
         u_nominal = dynamics.u_nominal(state)
         gamma = gamma.to(torch.device('cpu'))
         gamma_fault = gamma(state, u_nominal)
-
+        
+        t.tic()
+        
         for k in range(10):
             
             u_nominal = dynamics.u_nominal(state)
@@ -167,8 +169,8 @@ def main(args):
                 i_train = int(config.TRAIN_STEPS / config.POLICY_UPDATE_INTERVAL) / 2 + 1
             else:
                 i_train = i
-        t.tic()
-        loss_np = trainer.train_gamma(gamma_actual)
+        
+        loss_np = trainer.train_gamma(gamma_actual, k+1)
         time_iter = t.tocvalue()
         print(
             'step, {}, loss, {:.3f}, safety rate, {:.3f}, time, {:.3f} '.format(

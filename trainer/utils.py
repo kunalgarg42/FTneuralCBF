@@ -237,8 +237,8 @@ class Utils(object):
         Q = Q / 100
 
         for i in range(bs):
-
-            F = torch.hstack((torch.tensor(u_nominal[i, :]).reshape(m_control), torch.tensor(1.0))).reshape(size_Q, 1)
+            u_nom = torch.tensor(u_nominal[i, :]).reshape(m_control)
+            F = torch.hstack((u_nom, torch.tensor(1.0))).reshape(size_Q, 1)
 
             F = - np.array(F)
         # F[0] = F[0] / um[0]
