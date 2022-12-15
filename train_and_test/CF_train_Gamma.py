@@ -101,7 +101,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u, buffer_size=n_sample*traj_len)
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u, buffer_size=n_sample*traj_len*100)
     trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample,
@@ -120,9 +120,10 @@ def main(args):
         fault_control_index = int(j / (n_sample / 2))
         gamma_actual_bs[j, fault_control_index] = 0.2
     
-    dataset.add_data(torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, m_control), gamma_actual_bs)
-    
     for i in range(100):
+
+        dataset.add_data(torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, m_control), gamma_actual_bs)
+
         state0 = util.x_samples(safe_m, safe_l, n_sample)
         
         state_traj = torch.zeros(n_sample, traj_len, n_state)
@@ -170,7 +171,7 @@ def main(args):
 
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
 
-        # dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
+        dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
         # print(t.toc())
         # gamma.to(torch.device('cpu'))
         if gpu_id >= 0:
@@ -180,7 +181,7 @@ def main(args):
             gamma_fault = gamma(state_traj[0, :, :].reshape(1, traj_len, n_state), u_traj[0, :, :].reshape(1, traj_len, m_control))
         print(gamma_fault)
 
-        loss_np = trainer.train_gamma(state_traj, u_traj, gamma_actual_bs, traj_len)
+        loss_np = trainer.train_gamma(traj_len)
 
         time_iter = t.tocvalue()
         print(

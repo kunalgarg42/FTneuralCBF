@@ -351,17 +351,19 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, state, u, gamma_actual, traj_len, batch_size=2000, opt_iter=10, eps=0.1, eps_deriv=0.01):
+    def train_gamma(self, traj_len, batch_size=5000, opt_iter=10, eps=0.1, eps_deriv=0.01):
         loss_np = 0.0
+
         if batch_size > self.dataset.n_pts:
             batch_size = self.dataset.n_pts
         
-        opt_count = 1
+        ns = int(batch_size / traj_len)
+        opt_count = 10
         for _ in range(opt_count):
             for i in range(opt_iter):
                 # t.tic()
                 # print(i)
-                # state, u, _ = self.dataset.sample_data_all()
+                state, u, gamma_actual = self.dataset.sample_data_all(batch_size, ns, i)
                 
                 if self.gpu_id >= 0:
                     state = state.cuda(self.gpu_id)
@@ -497,15 +499,14 @@ class Trainer(object):
             gamma (m_control,)
         """
 
-        ns = state.shape[0]
+        ns = int(state.shape[0] / traj_len)
 
         gamma_data = torch.zeros(ns, self.m_control)
-        gamma_temp = torch.zeros(ns, self.m_control)
+
         if state.get_device() >= 0:
             state = state.cuda(self.gpu_id)
             u = u.cuda(self.gpu_id)
             gamma_data = gamma_data.cuda(self.gpu_id)
-            gamma_temp = gamma_temp.cuda(self.gpu_id)
             self.gamma.to(torch.device(self.gpu_id))
 
         state = state.reshape(ns, traj_len, self.n_state)

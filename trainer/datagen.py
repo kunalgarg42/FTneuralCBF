@@ -91,7 +91,7 @@ class Dataset_with_Grad(object):
         u = []
         return s, u_NN, u
 
-    def sample_data_all(self):
+    def sample_data_all(self, batch_size, ns , index):
             """
             Sample batch_size data points from the data buffers.
 
@@ -102,10 +102,24 @@ class Dataset_with_Grad(object):
             returns:
                 a random selection of batch_size data points, sampled without replacement.
             """
-            s = self.buffer_data_s
 
-            u = self.buffer_data_u_NN
+            indices_init = (index - 1) * batch_size
 
-            gamma = self.buffer_data_u
+            indices_end = index * batch_size
+
+            if indices_end > self.buffer_data_s.shape[1]:
+                indices_s = np.arange(0, batch_size, 1)
+                indices_gamma = np.arange(0, ns, 1)
+            else:
+                indices_init_gamma = (index - 1) * ns
+                indices_end_gamma = index * ns
+                indices_s = np.arange(indices_init, indices_end, 1)
+                indices_gamma = np.arange(indices_init_gamma, indices_end_gamma, 1)
+
+            s = self.buffer_data_s[indices_s, :]
+
+            u = self.buffer_data_u_NN[indices_s, :]
+
+            gamma = self.buffer_data_u[indices_gamma, :]
 
             return s, u, gamma
