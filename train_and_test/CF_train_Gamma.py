@@ -111,15 +111,14 @@ def main(args):
 
     sm, sl = dynamics.state_limits()
     safe_m, safe_l = dynamics.safe_limits(sm, sl, fault)
-    i_train = 0
     
     loss_current = 100.0
     
     gamma_actual_bs = torch.ones(n_sample, m_control)
     
     for j in range(n_sample):
-        fault_control_index = int(j / (n_sample / 4))
-        gamma_actual_bs[j, fault_control_index] = 0.0
+        fault_control_index = int(j / (n_sample / 2))
+        gamma_actual_bs[j, fault_control_index] = 0.2
     
     dataset.add_data(torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, m_control), gamma_actual_bs)
     
