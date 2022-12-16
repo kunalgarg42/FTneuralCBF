@@ -389,7 +389,7 @@ class Trainer(object):
 
                 gamma_error = gamma_data - gamma_actual
 
-                gamma_error = torch.abs(gamma_error)
+                gamma_error = torch.abs(gamma_error) * 10
 
                 acc_np += torch.sum(torch.linalg.norm(gamma_error, dim=1) < eps_deriv) / num_gamma
 
