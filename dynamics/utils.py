@@ -23,6 +23,9 @@ def lqr(
 
     # first, try to solve the ricatti equation
     X = scipy.linalg.solve_discrete_are(A, B, Q, R)
+    
+    # np.set_printoptions(2, linewidth=200)
+    # print(X)
 
     # compute the LQR gain
     K = scipy.linalg.inv(B.T @ X @ B + R) @ (B.T @ X @ A)
@@ -30,7 +33,7 @@ def lqr(
     if not return_eigs:
         return K
     else:
-        eigVals, _ = scipy.linalg.eig(A - B * K)
+        eigVals, _ = scipy.linalg.eig(A - np.matmul(B, K))
         return K, eigVals
 
 

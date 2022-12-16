@@ -4,12 +4,15 @@ import torch
 
 class Dataset_with_Grad(object):
 
-    def __init__(self, n_state, m_control, train_u, buffer_size=100000):
+    def __init__(self, n_state, m_control, train_u, buffer_size=100000, traj_len = 100):
         self.n_state = n_state
         self.train_u = train_u
         self.m_control = m_control
         self.buffer_size = buffer_size
+        self.traj_len = traj_len
+        self.ns = int(self.buffer_size / self.traj_len)
         self.buffer_data_s = torch.tensor([]).reshape(0, n_state)
+        self.buffer_data_s_diff = torch.tensor([]).reshape(0, n_state)
         self.buffer_data_u_NN = torch.tensor([]).reshape(0, m_control)
         self.buffer_data_u = torch.tensor([]).reshape(0, m_control)
         self.dang_count = 0
@@ -20,7 +23,7 @@ class Dataset_with_Grad(object):
         # epoch
         self.permuted_indices = torch.tensor([])
 
-    def add_data(self, state, u, u_nominal):
+    def add_data(self, state, state_diff, u, u_nominal):
         """
         args:
             state (n_state,): state of the agent
@@ -30,12 +33,14 @@ class Dataset_with_Grad(object):
         """
 
         self.buffer_data_s = torch.vstack((self.buffer_data_s, state.clone()))
+        self.buffer_data_s_diff = torch.vstack((self.buffer_data_s_diff, state_diff.clone()))
         self.buffer_data_u_NN = torch.vstack((self.buffer_data_u_NN, u.clone()))
         self.buffer_data_u = torch.vstack((self.buffer_data_u, u_nominal.clone()))
 
         self.buffer_data_s = self.buffer_data_s[-self.buffer_size:]
+        self.buffer_data_s_diff = self.buffer_data_s_diff[-self.buffer_size:]
         self.buffer_data_u_NN = self.buffer_data_u_NN[-self.buffer_size:]
-        self.buffer_data_u = self.buffer_data_u[-self.buffer_size:]
+        self.buffer_data_u = self.buffer_data_u[-self.ns:]
 
         # Get a new set of permuted indices
         self.permuted_indices = torch.randperm(self.n_pts)
@@ -117,9 +122,9 @@ class Dataset_with_Grad(object):
                 indices_gamma = np.arange(indices_init_gamma, indices_end_gamma, 1)
 
             s = self.buffer_data_s[indices_s, :]
-
+            s_diff = self.buffer_data_s_diff[indices_s, :]
             u = self.buffer_data_u_NN[indices_s, :]
 
             gamma = self.buffer_data_u[indices_gamma, :]
 
-            return s, u, gamma
+            return s, s_diff, u, gamma

@@ -17,6 +17,7 @@ class Trainer(object):
                  params,
                  n_state,
                  m_control,
+                 traj_len,
                  gamma=None,
                  num_traj=1,
                  j_const=1,
@@ -31,6 +32,7 @@ class Trainer(object):
         self.n_state = n_state
         self.m_control = m_control
         self.j_const = j_const
+        self.traj_len = traj_len
         self.dyn = dyn
         self.cbf = cbf
         self.gamma = gamma
@@ -42,7 +44,7 @@ class Trainer(object):
             self.cbf.parameters(), lr=1e-5, weight_decay=1e-5)
         if gamma is not None:
             self.gamma_optimizer = torch.optim.Adam(
-                self.gamma.parameters(), lr=1e-4, weight_decay=1e-5)
+                self.gamma.parameters(), lr=5e-4, weight_decay=1e-5)
         # # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=1e-5, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
@@ -351,34 +353,45 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, traj_len, batch_size=5000, opt_iter=10, eps=0.1, eps_deriv=0.01):
+    def train_gamma(self, batch_size=10000, opt_iter=10, eps=0.1, eps_deriv=0.01):
         loss_np = 0.0
+        
+        traj_len = self.traj_len
 
         if batch_size > self.dataset.n_pts:
             batch_size = self.dataset.n_pts
         
+        opt_iter = int(self.dataset.n_pts / batch_size)
+        
         ns = int(batch_size / traj_len)
         opt_count = 10
+        
+        acc = 0.0
+        acc_np = 0.0
         for _ in range(opt_count):
             for i in range(opt_iter):
                 # t.tic()
                 # print(i)
-                state, u, gamma_actual = self.dataset.sample_data_all(batch_size, ns, i)
+                state, state_diff, u, gamma_actual = self.dataset.sample_data_all(batch_size, ns, i)
                 
                 if self.gpu_id >= 0:
+                    # state_gamma = state_gamma.cuda(self.gpu_id)
+                    state_diff = state_diff.cuda(self.gpu_id)
                     state = state.cuda(self.gpu_id)
                     u = u.cuda(self.gpu_id)
                     gamma_actual = gamma_actual.cuda(self.gpu_id)
                     # gamma_data = gamma_data.cuda(self.gpu_id)
                     self.gamma.to(torch.device(self.gpu_id))
 
-                gamma_data = self.gamma_gen(state, u, traj_len)
+                gamma_data = self.gamma_gen(state, state_diff, u, traj_len)
                 
                 num_gamma = gamma_data.shape[0]
 
                 gamma_error = gamma_data - gamma_actual
 
-                gamma_error = torch.abs(gamma_error) * 100
+                gamma_error = torch.abs(gamma_error)
+
+                acc_np += torch.sum(torch.linalg.norm(gamma_error, dim=1) < eps_deriv) / num_gamma
 
                 loss_1 = torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, 0]).reshape(1, num_gamma)) / num_gamma
 
@@ -400,10 +413,11 @@ class Trainer(object):
 
                 # log statics
                 loss_np += loss.detach().cpu().numpy()
-                
+        
+        acc_np = acc_np.detach().cpu().numpy()                
         loss_np /= opt_iter * opt_count
-
-        return loss_np
+        acc_np /= opt_count * opt_iter
+        return loss_np, acc_np
 
 
     def doth_max(self, h, state, grad_h, um, ul):
@@ -490,7 +504,7 @@ class Trainer(object):
 
         return dsdt
 
-    def gamma_gen(self, state, u, traj_len):
+    def gamma_gen(self, state, state_diff, u, traj_len):
         """
         args:
             state (n_state,)
@@ -501,25 +515,17 @@ class Trainer(object):
 
         ns = int(state.shape[0] / traj_len)
 
-        gamma_data = torch.zeros(ns, self.m_control)
-
         if state.get_device() >= 0:
             state = state.cuda(self.gpu_id)
+            state_diff = state_diff.cuda(self.gpu_id)
             u = u.cuda(self.gpu_id)
-            gamma_data = gamma_data.cuda(self.gpu_id)
             self.gamma.to(torch.device(self.gpu_id))
 
         state = state.reshape(ns, traj_len, self.n_state)
         u = u.reshape(ns, traj_len, self.m_control)
+        state_diff = state_diff.reshape(ns, traj_len, self.n_state)
         # for i in range(self.num_traj):
-        gamma_dot = self.gamma(state, u)
-        gamma_dot = gamma_dot.reshape(ns, self.m_control)
-        # gamma_temp = torch.sum(gamma_dot, dim=0)
-        # gamma_temp = gamma_temp.reshape(ns, self.m_control)
-        # for j in range(traj_len-1):
-        #     gamma_temp = gamma_temp + self.gamma(state[j + ns*j:j + ns * (j+1), :].reshape(ns, self.n_state), u[j + ns*j:j + ns * (j+1), :].reshape(ns, self.m_control)) * self.dt
-
-        gamma_data = gamma_dot.clone()
-        # gamma_temp = 0 * gamma_temp.clone()
-
+        gamma_data = self.gamma(state, state_diff, u)
+        gamma_data = gamma_data.reshape(ns, self.m_control)
+        
         return gamma_data

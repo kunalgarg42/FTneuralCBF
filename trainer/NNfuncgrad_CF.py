@@ -292,7 +292,7 @@ class Gamma(nn.Module):
         self.m_control = m_control
         self.preprocess_func = preprocess_func
 
-        self.conv0 = nn.Conv1d((n_state + m_control) * traj_len, 64, 1)
+        self.conv0 = nn.Conv1d((2 * n_state + m_control) * traj_len, 64, 1)
         self.conv1 = nn.Conv1d(64, 128, 1)
         self.conv2 = nn.Conv1d(128, 128, 1)
         self.fc0 = nn.Linear(128, 128)
@@ -301,7 +301,7 @@ class Gamma(nn.Module):
         self.activation = nn.ReLU()
         self.output_activation = nn.Tanh()
 
-    def forward(self, state, u):
+    def forward(self, state, state_diff, u):
         """
         args:
             state (bs, traj_len, n_state)
@@ -310,7 +310,7 @@ class Gamma(nn.Module):
             gamma (bs, m_control)
         """
 
-        state = torch.cat([state, u], dim=-1)
+        state = torch.cat([state, state_diff, u], dim=-1)
         state_shape = state.shape
 
         state = state.reshape(state_shape[0], state_shape[1] * state_shape[2], 1)

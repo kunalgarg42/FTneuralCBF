@@ -135,6 +135,38 @@ class CrazyFlies(ControlAffineSystemNew):
     def n_controls(self) -> int:
         return CrazyFlies.N_CONTROLS
 
+    def compute_AB_matrices(self, state, u):
+        """Compute the linearized continuous-time state-state derivative transfer matrix
+        about the goal point"""
+        # Linearize the system about the x = 0, u = 0
+        # if scenario is None:
+        scenario = self.nominal_params
+
+        x0 = state
+        u0 = u
+        dynamics = lambda x0: self.closed_loop_dynamics(x0, u0, scenario).squeeze()
+        A = jacobian(dynamics, x0).squeeze().cpu().numpy()
+        A = np.reshape(A, (self.n_dims, self.n_dims))
+
+        return A
+
+    def EKF_gain(self, A, C, P):
+        A_EKF = A
+
+        Q = np.eye(self.n_dims + self.n_controls) * 0.1
+        
+        R = np.eye(self.n_dims) / 100
+        
+        P = A @ P @ A.T + Q
+        S = C @ P @ C.T + R
+        K = P @ C.T @ np.linalg.inv(S)
+        P = (np.eye(self.n_dims + self.n_controls) - K @ C) @ P
+        # B_EKF = np.transpose(C)
+        # L = lqr(A_EKF, B_EKF, Q, R)
+        # L = np.transpose(L)
+    
+        return torch.tensor(K, dtype=torch.float32), P
+
     def compute_A_matrix(self, scenario) -> np.ndarray:
         """Compute the linearized continuous-time state-state derivative transfer matrix
         about the goal point"""
