@@ -54,15 +54,15 @@ print(fault)
 init_add = 1  # int(input("init data add? (0 -> no, 1 -> yes): "))
 print(init_add)
 
-init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
+init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 print(init_param)
 
 train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
 print(train_u)
 
-n_sample = 500
+n_sample = 5000
 
-n_sample_data = 100
+n_sample_data = 1000
 
 traj_len = 100
 
@@ -128,7 +128,7 @@ def main(args):
         # gamma_fault_rand = torch.rand() / 4
 
         for j in range(n_sample):
-            fault_control_index = np.mod(j, 2)
+            fault_control_index = np.mod(j, 4)
             gamma_actual_bs[j, fault_control_index] = 0.0
         # fault_control_index = int(np.mod(i, 8) / 2)
         # gamma_actual_bs[:, fault_control_index] = torch.ones(n_sample,) * 0.2
@@ -206,7 +206,7 @@ def main(args):
             # state_traj_gamma[:, k, :] = state_gamma.clone()
             gxu_no_fault = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
             
-            u = u * gamma_actual_bs[k, :]
+            u = u * gamma_actual_bs
             
             gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
 
