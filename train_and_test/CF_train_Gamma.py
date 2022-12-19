@@ -128,14 +128,17 @@ def main(args):
         # gamma_fault_rand = torch.rand() / 4
 
         for j in range(n_sample):
-            fault_control_index = np.mod(j, 4)
-            gamma_actual_bs[j, fault_control_index] = 0.0
+            fault_control_index = np.mod(j, 5)
+            if fault_control_index < 4:
+                gamma_actual_bs[j, fault_control_index] = 0.1
+            # else:
+                # gamma_actual_bs[j, fault_control_index]
         # fault_control_index = int(np.mod(i, 8) / 2)
         # gamma_actual_bs[:, fault_control_index] = torch.ones(n_sample,) * 0.2
 
         dataset.add_data(torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, m_control), gamma_actual_bs)
 
-        state0 = util.x_samples(sm, sl, n_sample)
+        state0 = util.x_samples(safe_m, safe_l, n_sample)
         
         state_traj = torch.zeros(n_sample, traj_len, n_state)
         
@@ -216,7 +219,7 @@ def main(args):
             
             state_no_fault = state.clone() + dx_no_fault * dt 
 
-            state = state.clone() + dx * dt
+            state = state.clone() + dx * dt + torch.randn(n_sample, n_state) * dt
             
             # for j1 in range(n_sample):
             #     for j2 in range(n_state):
