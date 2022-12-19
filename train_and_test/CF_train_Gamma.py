@@ -70,9 +70,6 @@ fault = nominal_params["fault"]
 
 fault_control_index = 0
 
-str_data = './data/CF_gamma_NN_weights{}.pth'.format(fault_control_index)
-str_good_data = './good_data/data/CF_gamma_NN_weights{}.pth'.format(fault_control_index)
-
 t = TicToc()
 
 gpu_id = 0
@@ -80,6 +77,8 @@ gpu_id = 0
 def main(args):
     fault = 1
     fault_control_index = args.fault_index
+    str_data = './data/CF_gamma_NN_weights{}.pth'.format(fault_control_index)
+    str_good_data = './good_data/data/CF_gamma_NN_weights{}.pth'.format(fault_control_index)
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
@@ -135,7 +134,7 @@ def main(args):
                 # gamma_actual_bs[j, fault_control_index]
         # fault_control_index = int(np.mod(i, 8) / 2)
         # gamma_actual_bs[:, fault_control_index] = torch.ones(n_sample,) * 0.2
-
+        
         dataset.add_data(torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, m_control), gamma_actual_bs)
 
         state0 = util.x_samples(safe_m, safe_l, n_sample)
@@ -234,7 +233,7 @@ def main(args):
         
         # print(state_EKF[-m_control:])
         
-        dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), state_traj_diff.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
+        dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), (args.fault_index - 1) * state_traj_diff.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
         # print(t.toc())
         # gamma.to(torch.device('cpu'))
         # if gpu_id >= 0:
