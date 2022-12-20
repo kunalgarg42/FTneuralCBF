@@ -129,7 +129,7 @@ def main(args):
         for j in range(n_sample):
             fault_control_index = np.mod(j, 6)
             if fault_control_index < 4:
-                gamma_actual_bs[j, fault_control_index] = 0.1
+                gamma_actual_bs[j, fault_control_index] = 0.0
             # else:
                 # gamma_actual_bs[j, fault_control_index]
         # fault_control_index = int(np.mod(i, 8) / 2)
@@ -154,87 +154,115 @@ def main(args):
         u_nominal = dynamics.u_nominal(state)
         
         t.tic()
+        for n in range(2):
+            if n == 1:
+                if gpu_id >= 0:
+                    gamma.to(torch.device(gpu_id))
+                    state_traj = state_traj.cuda(gpu_id)
+                    state_traj_diff = state_traj_diff.cuda(gpu_id)
+                    u_traj = u_traj.cuda(gpu_id)           
+                gamm_pred = gamma(state_traj, state_traj_diff, u_traj)
+                gamm_pred = gamm_pred.clone().detach().cpu().reshape(n_sample, m_control)
+            else:
+                gamm_pred = torch.ones(n_sample, m_control)
 
-        for k in range(traj_len):
-            
-            u_nominal = dynamics.u_nominal(state)
-
-            fx = dynamics._f(state, params=nominal_params)
-            gx = dynamics._g(state, params=nominal_params)
-
-            # fx_gamma = dynamics._f(state_EKF[0:n_state].reshape(1, n_state), params=nominal_params)
-            # gx_gamma = dynamics._g(state_EKF[0:n_state].reshape(1, n_state), params=nominal_params)
-
-            # u_nominal_gamma = dynamics.u_nominal(state_gamma)
-            # A_mat = dynamics.compute_AB_matrices(state_EKF[0:n_state].reshape(1, n_state), u_nominal[0, :].reshape(1, m_control) * state_EKF[-m_control:].reshape(1, m_control))
-            
-            # gxu0 = gx[0, :, 0] * u_nominal[0, 0] * state_EKF[-m_control]
-            # gxu1 = gx[0, :, 1] * u_nominal[0, 1] * state_EKF[-m_control+1]
-            # gxu2 = gx[0, :, 2] * u_nominal[0, 2] * state_EKF[-m_control+2]
-            # gxu3 = gx[0, :, 3] * u_nominal[0, 3] * state_EKF[-m_control+3]
-
-            # A_mat = np.hstack((A_mat, np.array(gxu0).reshape(n_state, 1), np.array(gxu1).reshape(n_state, 1), np.array(gxu2).reshape(n_state, 1), np.array(gxu3).reshape(n_state, 1)))
-            
-            # A_mat = np.vstack((A_mat, np.array([0]*m_control*(n_state+m_control)).reshape(m_control, n_state + m_control))) * dt + np.eye(n_state + m_control)
-                        
-            # L_EKF, P = dynamics.EKF_gain(A_mat, C_EKF, P)
-            
-            # np.set_printoptions(2, linewidth=200)
-
-            # # print(np.diag(P))
-            
-            # # print(L_EKF)
-
-            # # print(asasas)
-            # state_aug = torch.vstack((state[0, :].reshape(n_state, 1), gamma_actual_bs[0, :].reshape(m_control, 1)))
-            # C_EKFtorch = torch.tensor(C_EKF,dtype=torch.float32)
-            # state_EKF = torch.matmul(torch.tensor(A_mat, dtype=torch.float32), state_EKF) - torch.matmul(L_EKF, torch.matmul(C_EKFtorch, (state_EKF - state_aug)))
-            
-            # state_EKF = state_EKF + torch.vstack((fx_gamma.reshape(n_state, 1) * dt + torch.matmul(gx_gamma, u_nominal[0, :] * gamma_actual_bs[0, :]).reshape(n_state, 1) * dt, torch.zeros(m_control, 1))) - torch.matmul(L_EKF, torch.matmul(C_EKFtorch, (state_EKF - state_aug)))
-
-            # h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
-            
-            u = u_nominal.clone()
-
-            # u_gamma = u_nominal_gamma.clone()
-            # u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
-
-            state_traj[:, k, :] = state.clone()
-            
-            state_traj_diff[:, k, :] = state_no_fault.clone() - state.clone()
-            
-            u_traj[:, k, :] = u.clone()
-
-            # state_traj_gamma[:, k, :] = state_gamma.clone()
-            gxu_no_fault = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
-            
-            u = u * gamma_actual_bs
-            
-            gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
-
-            dx = fx.reshape(n_sample, n_state) + gxu.reshape(n_sample, n_state)
-
-            dx_no_fault = fx.reshape(n_sample, n_state) + gxu_no_fault.reshape(n_sample, n_state)
-            
-            state_no_fault = state.clone() + dx_no_fault * dt 
-
-            state = state.clone() + dx * dt + torch.randn(n_sample, n_state) * dt
-            
-            # for j1 in range(n_sample):
-            #     for j2 in range(n_state):
-            #         if state[j1, j2] > sm[j2]:
-            #             state[j1, j2] = sm[j2].clone()
-            #         if state[j1, j2] < sl[j2]:
-            #             state[j1, j2] = sl[j2].clone()
-
-            is_safe = int(torch.sum(util.is_safe(state))) / n_sample
-
-            safety_rate = (i * safety_rate + is_safe) / (i + 1)
+            state_traj = torch.zeros(n_sample, traj_len, n_state)
         
-        # print(state_EKF[-m_control:])
-        
-        dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), (1 - args.fault_index) * state_traj_diff.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
+            state_traj_diff = state_traj.clone()
+
+            u_traj = torch.zeros(n_sample, traj_len, m_control)
+
+            for k in range(traj_len):
+                
+                u_nominal = dynamics.u_nominal(state)
+
+                fx = dynamics._f(state, params=nominal_params)
+                gx = dynamics._g(state, params=nominal_params)
+
+                # fx_gamma = dynamics._f(state_EKF[0:n_state].reshape(1, n_state), params=nominal_params)
+                # gx_gamma = dynamics._g(state_EKF[0:n_state].reshape(1, n_state), params=nominal_params)
+
+                # u_nominal_gamma = dynamics.u_nominal(state_gamma)
+                # A_mat = dynamics.compute_AB_matrices(state_EKF[0:n_state].reshape(1, n_state), u_nominal[0, :].reshape(1, m_control) * state_EKF[-m_control:].reshape(1, m_control))
+                
+                # gxu0 = gx[0, :, 0] * u_nominal[0, 0] * state_EKF[-m_control]
+                # gxu1 = gx[0, :, 1] * u_nominal[0, 1] * state_EKF[-m_control+1]
+                # gxu2 = gx[0, :, 2] * u_nominal[0, 2] * state_EKF[-m_control+2]
+                # gxu3 = gx[0, :, 3] * u_nominal[0, 3] * state_EKF[-m_control+3]
+
+                # A_mat = np.hstack((A_mat, np.array(gxu0).reshape(n_state, 1), np.array(gxu1).reshape(n_state, 1), np.array(gxu2).reshape(n_state, 1), np.array(gxu3).reshape(n_state, 1)))
+                
+                # A_mat = np.vstack((A_mat, np.array([0]*m_control*(n_state+m_control)).reshape(m_control, n_state + m_control))) * dt + np.eye(n_state + m_control)
+                            
+                # L_EKF, P = dynamics.EKF_gain(A_mat, C_EKF, P)
+                
+                # np.set_printoptions(2, linewidth=200)
+
+                # # print(np.diag(P))
+                
+                # # print(L_EKF)
+
+                # # print(asasas)
+                # state_aug = torch.vstack((state[0, :].reshape(n_state, 1), gamma_actual_bs[0, :].reshape(m_control, 1)))
+                # C_EKFtorch = torch.tensor(C_EKF,dtype=torch.float32)
+                # state_EKF = torch.matmul(torch.tensor(A_mat, dtype=torch.float32), state_EKF) - torch.matmul(L_EKF, torch.matmul(C_EKFtorch, (state_EKF - state_aug)))
+                
+                # state_EKF = state_EKF + torch.vstack((fx_gamma.reshape(n_state, 1) * dt + torch.matmul(gx_gamma, u_nominal[0, :] * gamma_actual_bs[0, :]).reshape(n_state, 1) * dt, torch.zeros(m_control, 1))) - torch.matmul(L_EKF, torch.matmul(C_EKFtorch, (state_EKF - state_aug)))
+                
+                u = u_nominal.clone()
+
+                # u_gamma = u_nominal_gamma.clone()
+                # h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
+                # u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+                
+               
+                # u = util.neural_controller_gamma(u_nominal, fx, gx, h, grad_h, 1, fault_control_index)
+                state_traj[:, k, :] = state.clone()
+                
+                state_traj_diff[:, k, :] = state_no_fault.clone() - state.clone()
+                
+                u_traj[:, k, :] = u.clone()
+
+                # state_traj_gamma[:, k, :] = state_gamma.clone()
+                gxu_no_fault = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
+                
+                u = u * gamma_actual_bs * gamm_pred
+                
+                gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
+
+                dx = fx.reshape(n_sample, n_state) + gxu.reshape(n_sample, n_state)
+
+                dx_no_fault = fx.reshape(n_sample, n_state) + gxu_no_fault.reshape(n_sample, n_state)
+                
+                state_no_fault = state.clone() + dx_no_fault * dt 
+
+                state = state.clone() + dx * dt + torch.randn(n_sample, n_state) * dt
+                
+                for j2 in range(n_state):
+                    ind_sm = state[:, j2] > sm[j2]
+                    if torch.sum(ind_sm) > 0:
+                        state[ind_sm, j2] = sm[j2].repeat(torch.sum(ind_sm),)
+                    ind_sl = state[:, j2] < sl[j2]
+                    if torch.sum(ind_sl) > 0:
+                        state[ind_sl, j2] = sl[j2].repeat(torch.sum(ind_sl),)
+                # for j1 in range(n_sample):
+                #     for j2 in range(n_state):
+                #         if state[j1, j2] > sm[j2]:
+                #             state[j1, j2] = sm[j2].clone()
+                #         if state[j1, j2] < sl[j2]:
+                #             state[j1, j2] = sl[j2].clone()
+
+                is_safe = int(torch.sum(util.is_safe(state))) / n_sample
+
+                safety_rate = (i * safety_rate + is_safe) / (i + 1)
+            
+            # print(state_EKF[-m_control:])
+            
+            dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), (1 - args.fault_index) * state_traj_diff.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
         # print(t.toc())
+        # print(gamm_pred)
+        # print(gamma_actual_bs)
+        # print(u)
         # gamma.to(torch.device('cpu'))
         # if gpu_id >= 0:
         #     gamma.to(torch.device(gpu_id))

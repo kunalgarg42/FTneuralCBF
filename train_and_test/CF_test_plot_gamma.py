@@ -169,41 +169,41 @@ def main():
 
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
+        if detect == 0:
+            h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
+            h_prev, _ = NN_cbf.V_with_jacobian(previous_state.reshape(1, n_state, 1))
+            u = util.neural_controller(u_nominal, fx, gx, h, grad_h, detect)
 
-        h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
-        h_prev, _ = NN_cbf.V_with_jacobian(previous_state.reshape(1, n_state, 1))
-        u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+            u = u.clone().type(torch.float32)
 
-        u = u.clone().type(torch.float32)
+            u = u.reshape(1, m_control)
 
-        u = u.reshape(1, m_control)
+            gxu_no_fault = torch.matmul(gx, u.reshape(m_control, 1))
 
-        gxu_no_fault = torch.matmul(gx, u.reshape(m_control, 1))
+            dx_no_fault = fx.reshape(1, n_state) + gxu_no_fault.reshape(1, n_state)
 
-        dx_no_fault = fx.reshape(1, n_state) + gxu_no_fault.reshape(1, n_state)
+            if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
+                u[0, fault_control_index] = 0 * ul[0, 0].clone() #  0 * (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone()
+                fault_start = 1.0
+            else:
+                fault_start = 0.0
 
-        if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
-            u[0, fault_control_index] = 0 * ul[0, 0].clone() #  0 * (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone()
-            fault_start = 1.0
-        else:
-            fault_start = 0.0
+            for j in range(m_control):
+                if u[0, j] < ul[0, j]:
+                    u[0, j] = ul[0, j].clone()
+                if u[0, j] > um[0, j]:
+                    u[0, j] = um[0, j].clone()
 
-        for j in range(m_control):
-            if u[0, j] < ul[0, j]:
-                u[0, j] = ul[0, j].clone()
-            if u[0, j] > um[0, j]:
-                u[0, j] = um[0, j].clone()
+            u = u.clone().type(torch.float32)
+            
+            u_command = u.clone()
 
-        u = u.clone().type(torch.float32)
-        
-        u_command = u.clone()
+            gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
-        gxu = torch.matmul(gx, u.reshape(m_control, 1))
+            dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
-        dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
-
-        dot_h = (h - h_prev) / dt + 0.01 * h
-        
+            dot_h = (h - h_prev) / dt + 0.01 * h
+            
         traj_size = state_traj.shape[1]
         
         if traj_size >= traj_len:
@@ -231,11 +231,13 @@ def main():
             detect = 1
             h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
-            u = util.neural_controller_gamma(u_nominal, fx, gx, h, grad_h, fault_start, fault_index_NN)
+            u = util.neural_controller_gamma(u_nominal, fx, gx, h, grad_h, detect, fault_index_NN)
 
             u = u.reshape(1, m_control)
 
             u = torch.tensor(u, dtype=torch.float32)
+
+            u_command = u.clone()
 
             gxu_no_fault = torch.matmul(gx, u.reshape(m_control, 1))
 
@@ -413,14 +415,14 @@ def main():
         np.diff(fault_activity.squeeze()).nonzero()[0]
     ]
     lims = z_ax.get_ylim()
-    fault_handle = z_ax.fill_between(
-        [t_fault_start, t_fault_end],
-        [-10.0, -10.0],
-        [10.0, 10.0],
-        color="grey",
-        alpha=0.5,
-        label="Fault",
-    )
+    # fault_handle = z_ax.fill_between(
+    #     [t_fault_start, t_fault_end],
+    #     [-10.0, -10.0],
+    #     [10.0, 10.0],
+    #     color="grey",
+    #     alpha=0.5,
+    #     label="Fault",
+    # )
     z_ax.set_ylim(lims)
     lims = w_ax.get_ylim()
     w_ax.fill_between(
@@ -491,14 +493,15 @@ def main():
         horizontalalignment="right",
         verticalalignment="center",
     )
-    u_ax.text(
-        t_fault_end,
-        mean_u,
-        "Fault clears",
-        rotation="vertical",
-        horizontalalignment="right",
-        verticalalignment="center",
-    )
+
+    # u_ax.text(
+    #     t_fault_end,
+    #     mean_u,
+    #     "Fault clears",
+    #     rotation="vertical",
+    #     horizontalalignment="right",
+    #     verticalalignment="center",
+    # )
     u_ax.set_ylim(lims)
 
     fig.tight_layout(pad=1.15)
