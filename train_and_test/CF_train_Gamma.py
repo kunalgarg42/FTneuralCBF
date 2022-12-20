@@ -127,7 +127,7 @@ def main(args):
         # gamma_fault_rand = torch.rand() / 4
 
         for j in range(n_sample):
-            fault_control_index = np.mod(j, 5)
+            fault_control_index = np.mod(j, 6)
             if fault_control_index < 4:
                 gamma_actual_bs[j, fault_control_index] = 0.1
             # else:
@@ -233,7 +233,7 @@ def main(args):
         
         # print(state_EKF[-m_control:])
         
-        dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), (args.fault_index - 1) * state_traj_diff.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
+        dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), (1 - args.fault_index) * state_traj_diff.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
         # print(t.toc())
         # gamma.to(torch.device('cpu'))
         # if gpu_id >= 0:
