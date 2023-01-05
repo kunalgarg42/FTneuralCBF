@@ -268,6 +268,7 @@ class Utils(object):
             B_in = torch.vstack((ub, -lb))
             B = torch.vstack((B, B_in.reshape(2 * self.m_control + 2, 1)))
 
+            
             B = np.array(B)
 
             # print(A)
@@ -421,9 +422,10 @@ class Utils(object):
 
         lb = torch.vstack((ul.reshape(self.m_control, 1), torch.tensor(-100).reshape(1, 1)))
         ub = torch.vstack((um.reshape(self.m_control, 1), torch.tensor(100).reshape(1, 1)))
-        A_in = torch.tensor(
-            [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [-1, 0, 0, 0, 0],
-             [0, -1, 0, 0, 0], [0, 0, -1, 0, 0], [0, 0, 0, -1, 0], [0, 0, 0, 0, -1]])
+        A_in = torch.vstack((torch.eye(m_control+1), -torch.eye(m_control + 1)))
+        # A_in = torch.tensor(
+        #     [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [-1, 0, 0, 0, 0],
+        #      [0, -1, 0, 0, 0], [0, 0, -1, 0, 0], [0, 0, 0, -1, 0], [0, 0, 0, 0, -1]])
 
         A = torch.vstack((A.clone().detach(), A_in))
 
@@ -505,7 +507,7 @@ class Utils(object):
         
         if fault_index >= 0:
             B[fault_index + 1] = 0
-            B[fault_index + 6]  = 0
+            B[fault_index + m_control + 2]  = 0
     
         # print(A)
         A = scipy.sparse.csc.csc_matrix(A)

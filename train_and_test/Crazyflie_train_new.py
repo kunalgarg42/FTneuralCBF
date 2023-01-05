@@ -224,7 +224,7 @@ def main(args):
 
             init_states = init_states + torch.randn(num_states, n_state) / 100 * i
 
-            dataset.add_data(init_states, torch.tensor([]).reshape(0, m_control),
+            dataset.add_data(init_states, torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, m_control),
                              torch.tensor([]).reshape(0, m_control))
 
             is_safe = int(torch.sum(util.is_safe(init_states))) / num_states

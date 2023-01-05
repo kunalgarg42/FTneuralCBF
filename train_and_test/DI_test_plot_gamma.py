@@ -17,7 +17,7 @@ sys.path.insert(1, os.path.abspath(".."))
 sys.path.insert(1, os.path.abspath("."))
 
 # from dynamics.fixed_wing_dyn import fw_dyn_ext, fw_dyn
-from dynamics.Crazyflie import CrazyFlies
+from dynamics.DI_dyn import DI
 from trainer import config
 from trainer.constraints_crazy import constraints
 from trainer.datagen import Dataset_with_Grad
@@ -25,12 +25,16 @@ from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, Gamma
 
-xg = torch.tensor([0.0, 0.0, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-
-x0 = torch.tensor([[2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 dt = 0.001
-n_state = 12
-m_control = 4
+
+m_control = 3
+
+n_state = m_control * 2
+
+x0 = torch.randn(1, n_state)
+
+xg = torch.randn(1, n_state)
+
 fault = 0
 
 traj_len = config.TRAJ_LEN
@@ -45,7 +49,7 @@ fault_known = 0
 n_sample = 1
 
 def main():
-    dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
+    dynamics = DI(x=x0, goal=xg, dt=dt, dim=m_control, nominal_parameters=[])
     util = Utils(
         n_state=n_state,
         m_control=m_control,
@@ -65,19 +69,19 @@ def main():
         # NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weightsCBF.pth'))
         NN_cbf.load_state_dict(
             torch.load(
-                "./good_data/data/CF_cbf_NN_weightsCBF.pth",
+                "./good_data/data/DI_cbf_NN_weightsCBF.pth",
                 map_location=torch.device("cpu"),
             )
         )
         FT_cbf.load_state_dict(
             torch.load(
-                "./good_data/data/CF_cbf_FT_weightsCBF.pth",
+                "./good_data/data/DI_cbf_FT_weightsCBF.pth",
                 map_location=torch.device("cpu"),
             )
         )
         gamma.load_state_dict(
             torch.load(
-                "./good_data/data/CF_gamma_NN_weights0.pth",
+                "./good_data/data/DI_gamma_NN_weights0.pth",
                 map_location=torch.device("cpu"),
             )
         )
@@ -86,17 +90,17 @@ def main():
         # NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
         NN_cbf.load_state_dict(
             torch.load(
-                "./data/CF_cbf_NN_weightsCBF.pth", map_location=torch.device("cpu")
+                "./data/DI_cbf_NN_weightsCBF.pth", map_location=torch.device("cpu")
             )
         )
         FT_cbf.load_state_dict(
             torch.load(
-                "./data/CF_cbf_FT_weightsCBF.pth", map_location=torch.device("cpu")
+                "./data/DI_cbf_FT_weightsCBF.pth", map_location=torch.device("cpu")
             )
         )
         gamma.load_state_dict(
             torch.load(
-                "./data/CF_gamma_NN_weights0.pth",
+                "./data/DI_gamma_NN_weights0.pth",
                 map_location=torch.device("cpu"),
             )
         )
@@ -506,9 +510,9 @@ def main():
 
     fig.tight_layout(pad=1.15)
     if fault_known == 1:
-        plt.savefig("./plots/plot_CF_known_F_gamma.png")
+        plt.savefig("./plots/plot_DI_known_F_gamma.png")
     else:
-        plt.savefig("./plots/plot_CF_gamma.png")
+        plt.savefig("./plots/plot_DI_gamma.png")
 
     fig2 = plt.figure(figsize=(21, 9))
     axs2 = fig2.subplots(1, 1)
@@ -531,9 +535,9 @@ def main():
     fig2.tight_layout(pad=1.15)
 
     if fault_known == 1:
-        plt.savefig("./plots/plot_CF_known_F_gamma_index.png")
+        plt.savefig("./plots/plot_DI_known_F_gamma_index.png")
     else:
-        plt.savefig("./plots/plot_CF_gamma_index.png")
+        plt.savefig("./plots/plot_DI_gamma_index.png")
     
 if __name__ == "__main__":
     main()

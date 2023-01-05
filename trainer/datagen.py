@@ -4,7 +4,7 @@ import torch
 
 class Dataset_with_Grad(object):
 
-    def __init__(self, n_state, m_control, train_u, buffer_size=100000, traj_len = 100):
+    def __init__(self, n_state, m_control, train_u, buffer_size=1000000, traj_len = 100):
         self.n_state = n_state
         self.train_u = train_u
         self.m_control = m_control
@@ -48,6 +48,10 @@ class Dataset_with_Grad(object):
     @property
     def n_pts(self):
         return self.buffer_data_s.shape[0]
+
+    @property
+    def n_pts_gamma(self):
+        return self.buffer_data_u.shape[0]
 
     def sample_data(self, batch_size, index):
         """
