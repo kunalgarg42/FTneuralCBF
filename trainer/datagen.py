@@ -4,7 +4,7 @@ import torch
 
 class Dataset_with_Grad(object):
 
-    def __init__(self, n_state, m_control, train_u, buffer_size=1000000, traj_len = 100):
+    def __init__(self, n_state, m_control, train_u, buffer_size=200000, traj_len = 100):
         self.n_state = n_state
         self.train_u = train_u
         self.m_control = m_control
