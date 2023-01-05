@@ -168,21 +168,21 @@ def main(args):
                     loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, loss_action))
             if fault == 0:
                 torch.save(cbf.state_dict(), './data/CF_cbf_NN_weights.pth')
-                torch.save(nn_controller.state_dict(), './data/CF_controller_NN_weights.pth')
-                torch.save(alpha.state_dict(), './data/CF_alpha_NN_weights.pth')
+                # torch.save(nn_controller.state_dict(), './data/CF_controller_NN_weights.pth')
+                # torch.save(alpha.state_dict(), './data/CF_alpha_NN_weights.pth')
             else:
                 torch.save(cbf.state_dict(), './data/CF_cbf_FT_weights.pth')
-                torch.save(nn_controller.state_dict(), './data/CF_controller_FT_weights.pth')
-                torch.save(alpha.state_dict(), './data/CF_alpha_FT_weights.pth')
+                # torch.save(nn_controller.state_dict(), './data/CF_controller_FT_weights.pth')
+                # torch.save(alpha.state_dict(), './data/CF_alpha_FT_weights.pth')
             if loss_np < 0.01:
                 if fault == 0:
                     torch.save(cbf.state_dict(), './good_data/data/CF_cbf_NN_weights.pth')
-                    torch.save(nn_controller.state_dict(), './good_data/data/CF_controller_NN_weights.pth')
-                    torch.save(alpha.state_dict(), './good_data/data/CF_alpha_NN_weights.pth')
+                    # torch.save(nn_controller.state_dict(), './good_data/data/CF_controller_NN_weights.pth')
+                    # torch.save(alpha.state_dict(), './good_data/data/CF_alpha_NN_weights.pth')
                 else:
                     torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weights.pth')
-                    torch.save(nn_controller.state_dict(), './good_data/data/CF_controller_FT_weights.pth')
-                    torch.save(alpha.state_dict(), './good_data/data/CF_alpha_FT_weights.pth')
+                    # torch.save(nn_controller.state_dict(), './good_data/data/CF_controller_FT_weights.pth')
+                    # torch.save(alpha.state_dict(), './good_data/data/CF_alpha_FT_weights.pth')
             if loss_np < 0.001 and i > 100:
                 break
     else:
