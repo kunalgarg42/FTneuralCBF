@@ -78,7 +78,7 @@ def main(args):
     dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u)
     trainer = Trainer(cbf, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params, traj_len=100,
-                      fault=fault, gpu_id=2,
+                      fault=fault, gpu_id=0,
                       fault_control_index=fault_control_index)
     loss_np = 1.0
     safety_rate = 0.0
