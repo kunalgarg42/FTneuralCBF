@@ -53,9 +53,9 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 1000
+n_sample = 2000
 
-n_sample_data = 1000
+n_sample_data = 2000
 
 traj_len = 100
 
