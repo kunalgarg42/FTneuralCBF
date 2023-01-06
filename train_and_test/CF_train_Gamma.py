@@ -65,7 +65,7 @@ fault_control_index = 0
 
 t = TicToc()
 
-gpu_id = 1
+gpu_id = 0
 
 def main(args):
     fault = 1
