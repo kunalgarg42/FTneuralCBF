@@ -113,7 +113,7 @@ def main(args):
 
         num_states = init_states.shape[0]
 
-        init_states = init_states + torch.randn(num_states, n_state) / 10 * i
+        init_states = init_states + torch.randn(num_states, n_state) / 100 * i
                 
         dataset.add_data(init_states, torch.tensor([]).reshape(0, n_state),
                             torch.tensor([]).reshape(0, m_control),torch.tensor([]).reshape(0, m_control))
