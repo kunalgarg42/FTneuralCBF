@@ -376,6 +376,8 @@ class Trainer(object):
                 # print(i)
                 state, state_diff, u, gamma_actual = self.dataset.sample_data_all(batch_size, ns, i)
                 
+                torch.cuda.empty_cache()
+
                 if self.gpu_id >= 0:
                     # state_gamma = state_gamma.cuda(self.gpu_id)
                     state_diff = state_diff.cuda(self.gpu_id)
@@ -529,11 +531,11 @@ class Trainer(object):
 
         ns = int(state.shape[0] / traj_len)
 
-        if state.get_device() >= 0:
-            state = state.cuda(self.gpu_id)
-            state_diff = state_diff.cuda(self.gpu_id)
-            u = u.cuda(self.gpu_id)
-            self.gamma.to(torch.device(self.gpu_id))
+        # if state.get_device() >= 0:
+        #     state = state.cuda(self.gpu_id)
+        #     state_diff = state_diff.cuda(self.gpu_id)
+        #     u = u.cuda(self.gpu_id)
+        #     self.gamma.to(torch.device(self.gpu_id))
 
         state = state.reshape(ns, traj_len, self.n_state)
         u = u.reshape(ns, traj_len, self.m_control)
