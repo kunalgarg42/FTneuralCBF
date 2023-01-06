@@ -364,7 +364,7 @@ class Trainer(object):
         opt_iter = int(self.dataset.n_pts / batch_size)
         
         ns = int(batch_size / traj_len)
-        opt_count = 10
+        opt_count = 100
         
         acc = 0.0
         acc_np = 0.0
