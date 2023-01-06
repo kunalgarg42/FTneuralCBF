@@ -540,8 +540,9 @@ class Utils(object):
         direction = torch.randint(2, size=(batch,), dtype=torch.bool)
         assert direction.shape == (batch,)
 
-        lo = sl
-        hi = sm
+        lo = sl.reshape(n_dims,)
+        hi = sm.reshape(n_dims,)
+
         assert lo.shape == hi.shape == (n_dims,)
         dist = td.Uniform(lo, hi)
 

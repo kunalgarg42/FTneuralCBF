@@ -3,6 +3,7 @@ import sys
 import torch
 import numpy as np
 import argparse
+import random
 
 sys.path.insert(1, os.path.abspath('..'))
 sys.path.insert(1, os.path.abspath('.'))
@@ -50,7 +51,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 fault = nominal_params["fault"]
 
-init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
+init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
 n_sample = 5000
 
@@ -64,7 +65,7 @@ fault_control_index = 0
 
 t = TicToc()
 
-gpu_id = 0
+gpu_id = 1
 
 def main(args):
     fault = 1
@@ -115,20 +116,22 @@ def main(args):
     # P = np.eye(n_state + m_control)
 
     for i in range(1000):
-        rand_ind = torch.randperm(n_sample)
 
         gamma_actual_bs = torch.ones(n_sample, m_control)
         # gamma_fault_rand = torch.rand() / 4
-
+        fault_index_extra = random.randint(0, m_control-1)
         for j in range(n_sample):
-            fault_control_index = np.mod(j, 8)
-            if fault_control_index < 4:
+            fault_control_index = np.mod(j, 6)
+            if fault_control_index < m_control:
                 gamma_actual_bs[j, fault_control_index] = 0.0
+            if fault_control_index == 5:
+                gamma_actual_bs[j, fault_index_extra] = 0.0
             # else:
                 # gamma_actual_bs[j, fault_control_index]
         # fault_control_index = int(np.mod(i, 8) / 2)
         # gamma_actual_bs[:, fault_control_index] = torch.ones(n_sample,) * 0.2
-        # gamma_actual_bs = gamma_actual_bs[rand_ind, :]
+        rand_ind = torch.randperm(n_sample)
+        gamma_actual_bs = gamma_actual_bs[rand_ind, :]
 
         dataset.add_data(torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, m_control), gamma_actual_bs)
 

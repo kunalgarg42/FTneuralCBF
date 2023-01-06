@@ -31,7 +31,7 @@ class DI(ControlAffineSystemNew):
 
     The system is parameterized by
         m: mass
-        
+
     NOTE: Z is defined as positive downwards
     """
 
@@ -168,16 +168,25 @@ class DI(ControlAffineSystemNew):
         # fault = self.fault
         if fault == 0:
             safe_x = 50.0
+            safe_u = 7.0
             safe_x_l = - 50.0
+            safe_u_l = -7.0
         else:
             safe_x = 60.0
+            safe_u = 8.0
             safe_x_l = - 60.0
+            safe_u_l = -8.0
         
         safe_mask = torch.ones_like(x[:, 0], dtype=torch.bool)
         for j in range(self.dim):
             safe_maskx = torch.logical_and(
                 x[:, j] <= safe_x, x[:, j] >= safe_x_l)
-            safe_mask = torch.logical_and(safe_mask, safe_maskx)    
+            safe_mask = torch.logical_and(safe_mask, safe_maskx)
+        
+        for j in range(self.dim):
+            safe_masku = torch.logical_and(
+                x[:, j + self.dim] <= safe_u, x[:, j + self.dim] >= safe_u_l)
+            safe_mask = torch.logical_and(safe_mask, safe_masku)
         # safe_mask2 = torch.logical_and(
         #     x[:, DI.Y] <= safe_x, x[:, DI.Y] >= safe_x_l)
         # safe_mask3 = torch.logical_and(
@@ -186,23 +195,6 @@ class DI(ControlAffineSystemNew):
         # safe_mask = torch.logical_and(safe_mask, safe_mask3)
 
         return safe_mask
-
-    # def multi_safe_mask(self, x1, x2):
-    #     """Return the mask of x indicating safe regions for the obstacle task
-
-    #     args:
-    #         x: a tensor of points in the state space
-    #     """
-    #     fault = self.fault
-    #     if fault == 0:
-    #         safe_dist = 2.0
-    #     else:
-    #         safe_dist = 3.0
-    #     x1pos = torch.tensor([x1[:, DI.X], x1[:, DI.Y], x1[:, DI.Z]])
-    #     x2pos = torch.tensor([x2[:, DI.X], x2[:, DI.Y], x2[:, DI.Z]])
-    #     safe_mask = torch.norm(x1pos - x2pos) >= safe_dist
-
-    #     return safe_mask
 
     def safe_limits(self, sm=[], sl=[]):
         """Return the mask of x indicating safe regions for the obstacle task
@@ -213,32 +205,41 @@ class DI(ControlAffineSystemNew):
         fault = self.fault
         if fault == 0:
             safe_x = 50.0
+            safe_u = 7.0
             safe_x_l = - 50.0
+            safe_u_l = -7.0
         else:
             safe_x = 60.0
+            safe_u = 8
             safe_x_l = - 60.0
+            safe_u_l = -8
         # safe_radius = 3
 
-        safe_l = safe_x_l * torch.ones(self.n_dims)
-        safe_m = safe_x * torch.ones(self.n_dims)
+        safe_l = torch.vstack((safe_x_l * torch.ones(self.dim,1), safe_u_l * torch.ones(self.dim,1)))
+        safe_m = torch.vstack((safe_x * torch.ones(self.dim,1), safe_u * torch.ones(self.dim,1)))
+
         # safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] <= safe_beta)
         # safe_mask = torch.logical_and(safe_mask, x[:, FixedWing.BETA] >= -safe_beta)
 
         return safe_m, safe_l
 
-    def unsafe_mask(self, x):
+    def unsafe_mask(self, x, fault=0):
         """Return the mask of x indicating unsafe regions for the obstacle task
 
         args:
             x: a tensor of points in the state space
         """
-        fault = self.fault
+        # fault = self.fault
         if fault == 0:
             unsafe_x = 60.0
+            unsafe_u = 7.5
             unsafe_x_l = - 60.0
+            unsafe_u_l = -7.5
         else:
             unsafe_x = 70.0
+            unsafe_u = 8.5
             unsafe_x_l = - 70.0
+            unsafe_u_l = -8.5
 
         unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
 
@@ -247,6 +248,10 @@ class DI(ControlAffineSystemNew):
                 x[:, j] >= unsafe_x, x[:, j] <= unsafe_x_l)
             unsafe_mask = torch.logical_or(unsafe_mask, unsafe_maskx)
 
+        for j in range(self.dim):
+            unsafe_masku = torch.logical_or(
+                x[:, j + self.dim] >= unsafe_u, x[:, j + self.dim] <= unsafe_u_l)
+            unsafe_mask = torch.logical_or(unsafe_mask, unsafe_masku)
         # unsafe_mask2 = torch.logical_and(
         #     x[:, :, DI.Y] >= unsafe_x, x[:, :, DI.Y] <= unsafe_x_l)
         # unsafe_mask3 = torch.logical_and(
@@ -256,6 +261,9 @@ class DI(ControlAffineSystemNew):
 
         return unsafe_mask
 
+    def mid_mask(self, x, fault=0):
+        mid_mask =   (~ self.safe_mask(x, fault)) * (~ self.unsafe_mask(x, fault))
+        return mid_mask
     # def multi_unsafe_mask(self, x1, x2):
     #     """Return the mask of x indicating safe regions for the obstacle task
 
@@ -410,6 +418,12 @@ class DI(ControlAffineSystemNew):
         unsafe, so watch out (only a best-effort sampling).
         """
         return self.sample_with_mask(num_samples, self.unsafe_mask, max_tries)
+
+    def sample_mid(self, num_samples: int, max_tries: int = 15000) -> torch.Tensor:
+        """Sample uniformly from the unsafe space. May return some points that are not
+        unsafe, so watch out (only a best-effort sampling).
+        """
+        return self.sample_with_mask(num_samples, self.mid_mask, max_tries)
 
     # @property
     # def n_dims(self) -> int:

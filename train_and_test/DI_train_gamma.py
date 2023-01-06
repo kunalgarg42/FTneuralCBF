@@ -38,7 +38,7 @@ n_state = m_control * 2
 
 x0 = torch.randn(1, n_state)
 
-xg = torch.randn(1, n_state)
+xg = 100 * torch.randn(1, n_state)
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
@@ -116,7 +116,7 @@ def main(args):
         # gamma_fault_rand = torch.rand() / 4
 
         for j in range(n_sample):
-            fault_control_index = np.mod(j, 2 * m_control)
+            fault_control_index = np.mod(j, m_control + 1)
             if fault_control_index < m_control:
                 gamma_actual_bs[j, fault_control_index] = 0.0
             # else:

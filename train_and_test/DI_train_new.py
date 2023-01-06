@@ -32,7 +32,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 fault = nominal_params["fault"]
 print(fault)
 
-init_add = 1  # int(input("init data add? (0 -> no, 1 -> yes): "))
+init_add = 0  # int(input("init data add? (0 -> no, 1 -> yes): "))
 print(init_add)
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
@@ -105,7 +105,11 @@ def main(args):
 
         unsafe_states = unsafe_states.reshape(n_sample, n_state)
 
-        init_states = torch.vstack((init_states, safe_states, unsafe_states))
+        mid_states = dynamics.sample_mid(n_sample)
+
+        mid_states = mid_states.reshape(n_sample, n_state)
+
+        init_states = torch.vstack((init_states, safe_states, unsafe_states, mid_states))
 
         num_states = init_states.shape[0]
 

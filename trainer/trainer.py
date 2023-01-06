@@ -353,7 +353,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, batch_size=20000, opt_iter=10, eps=0.1, eps_deriv=0.01):
+    def train_gamma(self, batch_size=10000, opt_iter=10, eps=0.1, eps_deriv=0.01):
         loss_np = 0.0
         
         traj_len = self.traj_len
@@ -364,11 +364,12 @@ class Trainer(object):
         opt_iter = int(self.dataset.n_pts / batch_size)
         
         ns = int(batch_size / traj_len)
-        opt_count = 20
+        opt_count = 10
         
         acc = 0.0
         acc_np = 0.0
-        acc_ind = torch.zeros(self.m_control + 1, 1)
+        acc_ind = torch.zeros(1, self.m_control + 1)
+        acc_ind_temp = torch.zeros(1, self.m_control + 1)
         for _ in range(opt_count):
             for i in range(opt_iter):
                 # t.tic()
@@ -383,6 +384,7 @@ class Trainer(object):
                     gamma_actual = gamma_actual.cuda(self.gpu_id)
                     # gamma_data = gamma_data.cuda(self.gpu_id)
                     self.gamma.to(torch.device(self.gpu_id))
+                    acc_ind_temp = acc_ind_temp.cuda(self.gpu_id)
                     acc_ind = acc_ind.cuda(self.gpu_id)
                 
                 gamma_data = self.gamma_gen(state, state_diff, u, traj_len)
@@ -390,11 +392,15 @@ class Trainer(object):
                 for j in range(self.m_control):
                     index_fault = gamma_actual[:, j]==0
                     index_num = torch.sum(index_fault)
-                    acc_ind[j] += 1 - torch.abs(torch.sum(gamma_actual[index_fault, j] - gamma_data[index_fault, j]) / (index_num + 1e-5))
+                    acc_ind_temp[0, j] = 1 - torch.abs(torch.sum(gamma_actual[index_fault, j] - gamma_data[index_fault, j]) / (index_num + 1e-5))
                 
                 index_no_fault = torch.sum(gamma_actual, dim=1)==self.m_control
                 index_num = torch.sum(index_no_fault)
-                acc_ind[-1] += torch.sum(gamma_data[index_no_fault, :]) / (index_num + 1e-5) / 4
+                acc_ind_temp[0, -1] = torch.sum(gamma_data[index_no_fault, :]) / (index_num + 1e-5) / 4
+
+                acc_ind += acc_ind_temp
+                # acc_ind_temp = acc_ind.clone()
+                acc_ind_temp = acc_ind_temp.detach()
 
                 num_gamma = gamma_data.shape[0]
 
@@ -407,7 +413,7 @@ class Trainer(object):
                 loss = 0.0
 
                 for j in range(self.m_control):
-                    loss += torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, j]).reshape(1, num_gamma)) / num_gamma
+                    loss += torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, j]).reshape(1, num_gamma)) / num_gamma / (acc_ind_temp[0, j] + 1e-5)
 
                 self.gamma_optimizer.zero_grad()
                 # self.alpha_optimizer.zero_grad()
@@ -425,7 +431,7 @@ class Trainer(object):
         loss_np /= opt_iter * opt_count
         acc_np /= opt_count * opt_iter
         acc_ind /= opt_count * opt_iter
-        return loss_np, acc_np, acc_ind.reshape(1, self.m_control + 1)
+        return loss_np, acc_np, acc_ind
 
 
     def doth_max(self, h, state, grad_h, um, ul):
@@ -485,7 +491,7 @@ class Trainer(object):
             dang_mask (bs, k_obstacle)
         """
         safe_mask = self.dyn.safe_mask(state, self.fault).float()
-        dang_mask = self.dyn.unsafe_mask(state).float()
+        dang_mask = self.dyn.unsafe_mask(state, self.fault).float()
         mid_mask = (1 - safe_mask) * (1 - dang_mask)
 
         return safe_mask, dang_mask, mid_mask
