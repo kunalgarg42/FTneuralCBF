@@ -123,16 +123,16 @@ class Dataset_with_Grad(object):
                 a random selection of batch_size data points, sampled without replacement.
             """
 
-            indices_init = (index - 1) * batch_size
+            indices_init = index * batch_size
 
-            indices_end = index * batch_size
+            indices_end = (index + 1) * batch_size
 
             if indices_end > self.buffer_data_s.shape[1]:
                 indices_s = np.arange(0, batch_size, 1)
                 indices_gamma = np.arange(0, ns, 1)
             else:
-                indices_init_gamma = (index - 1) * ns
-                indices_end_gamma = index * ns
+                indices_init_gamma = index * ns
+                indices_end_gamma = (index + 1) * ns
                 indices_s = np.arange(indices_init, indices_end, 1)
                 indices_gamma = np.arange(indices_init_gamma, indices_end_gamma, 1)
 

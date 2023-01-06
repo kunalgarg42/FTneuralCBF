@@ -51,7 +51,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 fault = nominal_params["fault"]
 
-init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
+init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
 n_sample = 1000
 
