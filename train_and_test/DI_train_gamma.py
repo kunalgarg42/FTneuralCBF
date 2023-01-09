@@ -47,9 +47,9 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 1000
+n_sample = 500
 
-n_sample_data = 1000
+n_sample_data = 500
 
 traj_len = 100
 
