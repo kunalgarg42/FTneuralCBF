@@ -31,7 +31,7 @@ class Dataset_with_Grad(object):
             u_nominal (m_control,): the nominal control
             state_next (n_state,): state of the agent at the next timestep
         """
-        if self.buffer_data_s.shape[0] == self.buffer_size:
+        if self.buffer_data_s.shape[0] == self.buffer_size and self.n_pts_gamma > 0:
             s_size = int(self.buffer_size / 2)
             gamma_size = int(self.n_pts_gamma / 2)
             self.buffer_data_s = self.buffer_data_s[-s_size:]
