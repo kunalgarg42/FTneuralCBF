@@ -44,7 +44,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 # fault = nominal_params["fault"]
 
-init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
+init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
 n_sample = 1000
 
@@ -114,11 +114,13 @@ def main(args):
 
         gamma_actual_bs = torch.ones(n_sample, m_control)
         # gamma_fault_rand = torch.rand() / 4
-
+        fault_index_extra = random.randint(0, m_control-1)
         for j in range(n_sample):
-            fault_control_index = np.mod(j, m_control + 1)
+            fault_control_index = np.mod(j, m_control + 2)
             if fault_control_index < m_control:
                 gamma_actual_bs[j, fault_control_index] = 0.0
+            if fault_control_index == m_control + 1:
+                gamma_actual_bs[j, fault_index_extra] = 0.0
             # else:
                 # gamma_actual_bs[j, fault_control_index]
         # fault_control_index = int(np.mod(i, 8) / 2)
