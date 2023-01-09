@@ -32,16 +32,16 @@ class Dataset_with_Grad(object):
             state_next (n_state,): state of the agent at the next timestep
         """
         if self.buffer_data_s.shape[0] == self.buffer_size and self.n_pts_gamma > 0:
-            s_size = int(self.buffer_size / 2)
-            gamma_size = int(self.n_pts_gamma / 2)
-            self.buffer_data_s = self.buffer_data_s[-s_size:]
-            self.buffer_data_s_diff = self.buffer_data_s_diff[-s_size:]
-            self.buffer_data_u_NN = self.buffer_data_u_NN[-s_size:]
-            self.buffer_data_u = self.buffer_data_u[-gamma_size:]
-        #     self.buffer_data_s = torch.tensor([]).reshape(0, self.n_state)
-        #     self.buffer_data_s_diff = torch.tensor([]).reshape(0, self.n_state)
-        #     self.buffer_data_u_NN = torch.tensor([]).reshape(0, self.m_control)
-        #     self.buffer_data_u = torch.tensor([]).reshape(0, self.m_control)
+            # s_size = int(self.buffer_size / 2)
+            # gamma_size = int(self.n_pts_gamma / 2)
+            # self.buffer_data_s = self.buffer_data_s[-s_size:]
+            # self.buffer_data_s_diff = self.buffer_data_s_diff[-s_size:]
+            # self.buffer_data_u_NN = self.buffer_data_u_NN[-s_size:]
+            # self.buffer_data_u = self.buffer_data_u[-gamma_size:]
+            self.buffer_data_s = torch.tensor([]).reshape(0, self.n_state)
+            self.buffer_data_s_diff = torch.tensor([]).reshape(0, self.n_state)
+            self.buffer_data_u_NN = torch.tensor([]).reshape(0, self.m_control)
+            self.buffer_data_u = torch.tensor([]).reshape(0, self.m_control)
 
         self.buffer_data_s = torch.vstack((self.buffer_data_s, state.clone()))
         self.buffer_data_s_diff = torch.vstack((self.buffer_data_s_diff, state_diff.clone()))
