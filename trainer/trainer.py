@@ -41,7 +41,7 @@ class Trainer(object):
         self.fault_control_index = fault_control_index
         self.num_traj = num_traj
         self.cbf_optimizer = torch.optim.Adam(
-            self.cbf.parameters(), lr=1e-5, weight_decay=1e-5)
+            self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
         if gamma is not None:
             self.gamma_optimizer = torch.optim.Adam(
                 self.gamma.parameters(), lr=1e-4, weight_decay=1e-5)
@@ -290,11 +290,11 @@ class Trainer(object):
                 acc_h_dang = torch.sum(
                     (h < 0).reshape(1, batch_size).float() * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
 
-                loss_h_safe = 10 * torch.sum(
+                loss_h_safe = torch.sum(
                     nn.ReLU()(eps - h).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
                                       1e-5 + num_safe) / (acc_h_safe.clone().detach() + 1e-5)
 
-                loss_h_dang = 10 * torch.sum(
+                loss_h_dang = torch.sum(
                     nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
                                       1e-5 + num_dang) / (acc_h_dang.clone().detach() + 1e-5)
 
