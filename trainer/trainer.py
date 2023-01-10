@@ -365,7 +365,7 @@ class Trainer(object):
         
         # ns = int(batch_size / traj_len)
         ns = batch_size
-        opt_count = 20
+        opt_count = 50
         
         acc = 0.0
         acc_np = 0.0
