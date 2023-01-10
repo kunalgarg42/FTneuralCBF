@@ -95,7 +95,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample_data*traj_len*20, traj_len=traj_len)
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample_data*20, traj_len=traj_len)
     trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
@@ -133,7 +133,7 @@ def main(args):
         rand_ind = torch.randperm(n_sample)
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
 
-        dataset.add_data(torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, n_state), torch.tensor([]).reshape(0, m_control), gamma_actual_bs)
+        dataset.add_data(torch.tensor([]).reshape(0, traj_len, n_state), torch.tensor([]).reshape(0, traj_len, n_state), torch.tensor([]).reshape(0, traj_len, m_control), gamma_actual_bs)
 
         # state0 = util.x_samples(safe_m, safe_l, n_sample)
         
@@ -263,7 +263,8 @@ def main(args):
             
             # print(state_EKF[-m_control:])
             
-            dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), 1 * state_traj_diff.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
+            # dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), 1 * state_traj_diff.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
+            dataset.add_data(state_traj, state_traj_diff, u_traj, torch.tensor([]).reshape(0, m_control))
         # print(t.toc())
         # print(gamm_pred)
         # print(gamma_actual_bs)
