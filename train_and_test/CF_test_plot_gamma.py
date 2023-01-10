@@ -37,10 +37,10 @@ traj_len = config.TRAJ_LEN
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
-fault_control_index = 0
+fault_control_index = 1
 fault_duration = config.FAULT_DURATION
 
-fault_known = 0
+fault_known = 1
 
 n_sample = 1
 

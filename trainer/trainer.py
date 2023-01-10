@@ -353,7 +353,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, batch_size=10000, opt_iter=10, eps=0.1, eps_deriv=0.01):
+    def train_gamma(self, batch_size=20000, opt_iter=10, eps=0.1, eps_deriv=0.01):
         loss_np = 0.0
         
         traj_len = self.traj_len
