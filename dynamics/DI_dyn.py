@@ -327,6 +327,7 @@ class DI(ControlAffineSystemNew):
         f = f.type_as(x)
         for j in range(self.dim):
             f[:, j, :] = x[:, j + self.dim].reshape(batch_size, 1)
+            f[:, j, :] += 0.1 * x[:, np.mod(j + 1, self.dim)].reshape(batch_size, 1) * x[:, np.mod(j + 2, self.dim)].reshape(batch_size, 1)
             # f[:, :, DI.Y] = uy
             # f[:, :, DI.Z] = uz
 
