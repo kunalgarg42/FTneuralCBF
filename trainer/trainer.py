@@ -353,7 +353,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, batch_size=200, opt_iter=10, eps=0.1, eps_deriv=0.01):
+    def train_gamma(self, batch_size=5000, opt_iter=10, eps=0.1, eps_deriv=0.01):
         loss_np = 0.0
         
         traj_len = self.traj_len
@@ -372,14 +372,13 @@ class Trainer(object):
         acc_ind = torch.zeros(1, self.m_control + 1)
         acc_ind_temp = torch.zeros(1, self.m_control + 1)
         
-        for _ in range(opt_count):
+        for iter in range(opt_count):
+            # self.gpu_id = np.mod(iter, 4)
             for i in range(opt_iter):
                 # t.tic()
                 # print(i)
                 state, state_diff, u, gamma_actual = self.dataset.sample_data_all(batch_size, ns, i)
                 
-                torch.cuda.empty_cache()
-
                 if self.gpu_id >= 0:
                     # state_gamma = state_gamma.cuda(self.gpu_id)
                     state_diff = state_diff.cuda(self.gpu_id)
@@ -390,7 +389,7 @@ class Trainer(object):
                     self.gamma.to(torch.device(self.gpu_id))
                     acc_ind_temp = acc_ind_temp.cuda(self.gpu_id)
                     acc_ind = acc_ind.cuda(self.gpu_id)
-                
+                # for _ in range(5):
                 gamma_data = self.gamma_gen(state, state_diff, u, traj_len)
                 
                 for j in range(self.m_control):
@@ -411,8 +410,8 @@ class Trainer(object):
                 gamma_error = gamma_data - gamma_actual
 
                 gamma_error = torch.abs(gamma_error) * 10
-
-                acc_np += torch.sum(torch.linalg.norm(gamma_error, dim=1) < eps_deriv) / num_gamma
+                                
+                acc_np += torch.sum(torch.linalg.norm(gamma_error.detach().cpu(), dim=1) < eps_deriv) / num_gamma
                 
                 loss = 0.0
 
@@ -422,7 +421,7 @@ class Trainer(object):
                 self.gamma_optimizer.zero_grad()
                 # self.alpha_optimizer.zero_grad()
 
-                loss.backward(retain_graph=True)
+                loss.backward()
 
                 self.gamma_optimizer.step()
                 # self.alpha_optimizer.step()
@@ -430,8 +429,8 @@ class Trainer(object):
                 # log statics
                 loss_np += loss.detach().cpu().numpy()
 
-        acc_np = acc_np.detach().cpu().numpy()    
-        acc_ind = acc_ind[0].detach().cpu().numpy()            
+        acc_np = acc_np.detach().cpu().numpy()
+        acc_ind = acc_ind[0].detach().cpu().numpy()
         loss_np /= opt_iter * opt_count
         acc_np /= opt_count * opt_iter
         acc_ind /= opt_count * opt_iter

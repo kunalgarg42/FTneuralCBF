@@ -53,13 +53,13 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 100
+n_sample = 1000
 
-n_sample_data = 100
+n_sample_data = 1000
 
 traj_len = 100
 
-num_traj_factor = 1.2
+num_traj_factor = 1.5
 
 fault = nominal_params["fault"]
 
@@ -67,7 +67,7 @@ fault_control_index = 0
 
 t = TicToc()
 
-gpu_id = 0 # torch.cuda.current_device()
+gpu_id = 2 # torch.cuda.current_device()
 
 def main(args):
     fault = 1
@@ -97,7 +97,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample_data*50, traj_len=traj_len)
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample_data*100, traj_len=traj_len)
     trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
@@ -217,7 +217,7 @@ def main(args):
             loss_current = loss_np.copy()
             torch.save(gamma.state_dict(), str_data)
 
-            if loss_np < 0.01:
+            if loss_np < 0.01 or acc_np > 0.96:
                 torch.save(gamma.state_dict(), str_good_data)
         
         if loss_np < 0.001 and i > 250:
