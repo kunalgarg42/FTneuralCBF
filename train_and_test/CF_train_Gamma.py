@@ -67,7 +67,7 @@ fault_control_index = 0
 
 t = TicToc()
 
-gpu_id = 2 # torch.cuda.current_device()
+gpu_id = 0 # torch.cuda.current_device()
 
 def main(args):
     fault = 1
