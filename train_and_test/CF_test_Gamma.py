@@ -92,7 +92,7 @@ def main(args):
     safe_m, safe_l = dynamics.safe_limits(sm, sl, fault)
     
     gamma_actual_bs = torch.ones(n_sample, m_control)
-    fault_value = 0.2
+    fault_value = 0.0
     for j in range(n_sample):
         fault_control_index = np.mod(j, 5)
         if fault_control_index < 4:
@@ -122,10 +122,10 @@ def main(args):
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
 
-        h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
+        # h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
 
-        # u = u_nominal.clone()
-        u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+        u = u_nominal.clone()
+        # u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
 
         state_traj[:, k, :] = state.clone()
         

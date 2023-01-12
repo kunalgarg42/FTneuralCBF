@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import argparse
 import random
+import platform
 
 sys.path.insert(1, os.path.abspath('..'))
 sys.path.insert(1, os.path.abspath('.'))
@@ -53,9 +54,9 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 1000
+n_sample = 250
 
-n_sample_data = 1000
+n_sample_data = 250
 
 traj_len = 100
 
@@ -68,6 +69,9 @@ fault_control_index = 0
 t = TicToc()
 
 gpu_id = 0 # torch.cuda.current_device()
+
+if platform.uname()[1] == 'realm2':
+    gpu_id = 2
 
 def main(args):
     fault = 1
@@ -97,7 +101,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample_data*102, traj_len=traj_len)
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample_data*500, traj_len=traj_len)
     trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
