@@ -367,17 +367,17 @@ class Trainer(object):
         ns = batch_size
         opt_count = 200
         
-        acc = 0.0
+        # acc = 0.0
         acc_np = 0.0
         acc_ind = torch.zeros(1, self.m_control + 1)
         acc_ind_temp = torch.zeros(1, self.m_control + 1)
         
-        for iter in range(opt_count):
+        for _ in range(opt_count):
             # self.gpu_id = np.mod(iter, 4)
             for i in range(opt_iter):
                 # t.tic()
                 # print(i)
-                state, state_diff, u, gamma_actual = self.dataset.sample_data_all(batch_size, ns, i)
+                state, state_diff, u, gamma_actual = self.dataset.sample_data_all(batch_size, i)
                 
                 if self.gpu_id >= 0:
                     # state_gamma = state_gamma.cuda(self.gpu_id)

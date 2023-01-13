@@ -126,7 +126,7 @@ class Dataset_with_Grad(object):
         u = []
         return s, u_NN, u
 
-    def sample_data_all(self, batch_size, ns , index):
+    def sample_data_all(self, batch_size, index):
             """
             Sample batch_size data points from the data buffers.
 
@@ -138,23 +138,36 @@ class Dataset_with_Grad(object):
                 a random selection of batch_size data points, sampled without replacement.
             """
 
-            indices_init = index * batch_size
+            # indices_init = index * batch_size
 
+            # indices_end = (index + 1) * batch_size
+
+            # if indices_end > self.buffer_data_s.shape[1]:
+            #     indices_s = np.arange(0, batch_size, 1)
+            #     indices_gamma = np.arange(0, ns, 1)
+            # else:
+            #     indices_init_gamma = index * ns
+            #     indices_end_gamma = (index + 1) * ns
+            #     indices_s = np.arange(indices_init, indices_end, 1)
+            #     indices_gamma = np.arange(indices_init_gamma, indices_end_gamma, 1)
+
+            indices_init = index * batch_size
             indices_end = (index + 1) * batch_size
 
-            if indices_end > self.buffer_data_s.shape[1]:
-                indices_s = np.arange(0, batch_size, 1)
-                indices_gamma = np.arange(0, ns, 1)
-            else:
-                indices_init_gamma = index * ns
-                indices_end_gamma = (index + 1) * ns
-                indices_s = np.arange(indices_init, indices_end, 1)
-                indices_gamma = np.arange(indices_init_gamma, indices_end_gamma, 1)
+            # If the end of the range exceeds the number of available data points,
+            # shift both the start and the end back until the batch fits
+            if indices_end > self.n_pts:
+                extra_pts_needed = indices_end - self.n_pts
+                indices_init -= extra_pts_needed
+                indices_end -= extra_pts_needed
 
-            s = self.buffer_data_s[indices_s, :]
-            s_diff = self.buffer_data_s_diff[indices_s, :]
-            u = self.buffer_data_u_NN[indices_s, :]
+            # Get the slice of randomly permuted indices
+            indices = self.permuted_indices[indices_init:indices_end]
 
-            gamma = self.buffer_data_u[indices_gamma, :]
+            s = self.buffer_data_s[indices, :]
+            s_diff = self.buffer_data_s_diff[indices, :]
+            u = self.buffer_data_u_NN[indices, :]
+
+            gamma = self.buffer_data_u[indices, :]
 
             return s, s_diff, u, gamma
