@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import argparse
 import random
+import tqdm
 
 sys.path.insert(1, os.path.abspath('..'))
 sys.path.insert(1, os.path.abspath('.'))
@@ -53,7 +54,7 @@ fault = nominal_params["fault"]
 
 use_good = 1
 
-n_sample = 10000
+n_sample = 1000
 
 traj_len = 100
 
@@ -121,17 +122,16 @@ def main(args):
     
     t.tic()
 
-    for k in range(Eval_steps):
+    for k in tqdm.trange(config.EVAL_STEPS):
         
         u_nominal = dynamics.u_nominal(state)
 
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
 
-        # h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
-
-        u = u_nominal.clone()
-        # u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+        h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
+        # u = u_nominal.clone()
+        u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
 
         state_traj[:, k, :] = state.clone()
         

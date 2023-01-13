@@ -121,6 +121,8 @@ def main(args):
     # P = np.eye(n_state + m_control)
 
     for i in range(1000):
+        
+        new_goal = torch.randn(n_state, 1)
 
         gamma_actual_bs = torch.ones(n_sample, m_control)
         # gamma_fault_rand = torch.rand() / 4
@@ -160,7 +162,7 @@ def main(args):
 
         for k in range(int(traj_len * num_traj_factor)):
             
-            u_nominal = dynamics.u_nominal(state)
+            u_nominal = dynamics.u_nominal(state, op_point=new_goal)
 
             fx = dynamics._f(state, params=nominal_params)
             gx = dynamics._g(state, params=nominal_params)
