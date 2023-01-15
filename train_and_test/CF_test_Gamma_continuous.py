@@ -129,9 +129,9 @@ def main(args):
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
 
-        h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
-        # u = u_nominal.clone()
-        u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+        # h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
+        u = u_nominal.clone()
+        # u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
 
         state_traj[:, k, :] = state.clone()
         

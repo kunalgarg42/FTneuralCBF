@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 from pytictoc import TicToc
+from .FxTS_GF import FxTS_Momentum
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -45,6 +46,8 @@ class Trainer(object):
         if gamma is not None:
             self.gamma_optimizer = torch.optim.Adam(
                 self.gamma.parameters(), lr=1e-4, weight_decay=1e-5)
+            # self.gamma_optimizer = FxTS_Momentum(
+            #     self.gamma.parameters(), lr=1e-4, momentum=0.2)
         # # self.controller_optimizer = FxTS_Momentum(
         #     self.controller.parameters(), lr=1e-5, momentum=0.2)
         # self.cbf_optimizer = FxTS_Momentum(
@@ -365,7 +368,7 @@ class Trainer(object):
         
         # ns = int(batch_size / traj_len)
         ns = batch_size
-        opt_count = 200
+        opt_count = 50
         
         # acc = 0.0
         acc_np = 0.0

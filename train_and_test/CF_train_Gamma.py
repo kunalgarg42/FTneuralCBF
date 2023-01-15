@@ -58,8 +58,6 @@ n_sample = 500
 
 # n_sample_data = 500
 
-traj_len = 100
-
 num_traj_factor = 1.5
 
 fault = nominal_params["fault"]
@@ -76,8 +74,10 @@ if platform.uname()[1] == 'realm2':
 def main(args):
     fault = 1
     fault_control_index = args.fault_index
-    str_data = './data/CF_gamma_NN_weights{}.pth'.format(fault_control_index)
-    str_good_data = './good_data/data/CF_gamma_NN_weights{}.pth'.format(fault_control_index)
+    traj_len = args.traj_len
+    data_index = int((traj_len - 100) / 100)
+    str_data = './data/CF_gamma_NN_weights{}.pth'.format(data_index)
+    str_good_data = './good_data/data/CF_gamma_NN_weights{}.pth'.format(data_index)
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
@@ -232,5 +232,6 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-fault_index', type=int, default=0)
+    parser.add_argument('-traj_len', type=int, default=100)
     args = parser.parse_args()
     main(args)
