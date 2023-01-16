@@ -54,11 +54,9 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 100
+n_sample = 250
 
 # n_sample_data = 500
-
-num_traj_factor = 1.5
 
 fault = nominal_params["fault"]
 
@@ -75,6 +73,7 @@ def main(args):
     fault = 1
     fault_control_index = args.fault_index
     traj_len = args.traj_len
+    num_traj_factor = int(1.6 - traj_len / 1000)
     data_index = int((traj_len - 100) / 100)
     str_data = './data/CF_gamma_NN_weights{}.pth'.format(data_index)
     str_good_data = './good_data/data/CF_gamma_NN_weights{}.pth'.format(data_index)
@@ -101,7 +100,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*500, traj_len=traj_len)
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*200, traj_len=traj_len)
     trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
