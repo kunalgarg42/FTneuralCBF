@@ -121,7 +121,7 @@ def main(args):
         for j in range(n_sample):
             fault_control_index = np.mod(j, 2)
             if fault_control_index < 1:
-                gamma_actual_bs[j, fault_control_index] = 0.0
+                gamma_actual_bs[j, fault_control_index + 1] = 0.0
            
         rand_ind = torch.randperm(n_sample)
 
