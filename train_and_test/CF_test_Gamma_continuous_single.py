@@ -98,7 +98,7 @@ def main(args):
     for j in range(n_sample):
         fault_control_index = np.mod(j, 2)
         if fault_control_index < 1:
-            gamma_actual_bs[j, fault_control_index] = 0.0
+            gamma_actual_bs[j, fault_control_index + 1] = 0.0
         # if fault_control_index == 5:
         #     gamma_actual_bs[j, fault_index_extra] = 0.0
 

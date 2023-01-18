@@ -75,8 +75,8 @@ def main(args):
     traj_len = args.traj_len
     num_traj_factor = int(1.6 - traj_len / 1000)
     data_index = int((traj_len - 100) / 100)
-    str_data = './data/CF_gamma_NN_weightssingle{}.pth'.format(data_index)
-    str_good_data = './good_data/data/CF_gamma_NN_weightssingle{}.pth'.format(data_index)
+    str_data = './data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
+    str_good_data = './good_data/data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
