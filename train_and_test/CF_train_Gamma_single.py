@@ -54,7 +54,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 5000
+n_sample = 1000
 
 # n_sample_data = 500
 
@@ -67,13 +67,13 @@ t = TicToc()
 gpu_id = 0 # torch.cuda.current_device()
 
 if platform.uname()[1] == 'realm2':
-    gpu_id = 2
+    gpu_id = 3
 
 def main(args):
     fault = 1
     fault_control_index = args.fault_index
     traj_len = args.traj_len
-    num_traj_factor = int(1.6 - traj_len / 1000)
+    num_traj_factor = 1.6 - traj_len / 1000
     data_index = int((traj_len - 100) / 100)
     str_data = './data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
     str_good_data = './good_data/data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
@@ -113,7 +113,6 @@ def main(args):
     loss_current = 100.0
 
     for i in range(10000):
-        
         new_goal = torch.randn(n_state, 1)
 
         gamma_actual_bs = torch.ones(n_sample, m_control)
@@ -170,7 +169,7 @@ def main(args):
             if k <= traj_len:
                 # gamma_ind = np.arange(n_sample - k * traj_len, n_sample)
                 # if sum(gamma_ind) > 0:
-                gamma_applied[-k * traj_len:] = gamma_actual_bs[-k * traj_len:].clone()
+                gamma_applied[-k * 10:] = gamma_actual_bs[-k * 10:].clone()
             else:
                 gamma_applied = gamma_actual_bs.clone()
 
