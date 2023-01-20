@@ -184,7 +184,7 @@ def main(args):
             
             acc_ind[0, -1] = torch.sum(gamma_pred[index_no_fault, :]) / (index_num + 1e-5) / m_control
             
-            print('{}, {:.3f}, {:.3f}'.format(np.min([k - (traj_len - 2), traj_len]), acc_ind[0][1], acc_ind[0][-1]))
+            print('{}, {:.3f}, {:.3f},{:.3f}, {:.3f}'.format(np.min([k - (traj_len - 2), traj_len]), acc_ind[0][1], acc_ind[0][-1], acc_ind[0][0],acc_ind[0][2]))
     
 
 if __name__ == '__main__':
