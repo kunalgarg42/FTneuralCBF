@@ -56,13 +56,11 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 1000
-
-# n_sample_data = 500
+n_sample = 500
 
 fault = nominal_params["fault"]
 
-fault_control_index = 0
+fault_control_index = 1
 
 t = TicToc()
 
@@ -228,7 +226,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-fault_index', type=int, default=0)
+    parser.add_argument('-fault_index', type=int, default=1)
     parser.add_argument('-traj_len', type=int, default=100)
     args = parser.parse_args()
     main(args)

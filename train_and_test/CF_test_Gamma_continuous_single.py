@@ -105,7 +105,8 @@ def main(args):
     rand_ind = torch.randperm(n_sample)
     gamma_actual_bs = gamma_actual_bs[rand_ind, :]
 
-    state0 = util.x_samples(safe_m, safe_l, n_sample)
+    # state0 = (safe_m, safe_l, n_sample)
+    state0 = dynamics.sample_safe(n_sample)
     
     state_traj = torch.zeros(n_sample, Eval_steps, n_state)
     
