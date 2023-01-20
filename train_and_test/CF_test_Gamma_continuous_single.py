@@ -58,7 +58,7 @@ n_sample = 1000
 
 traj_len = 100
 
-Eval_steps = 200
+Eval_steps = 199
 
 fault = nominal_params["fault"]
 
@@ -135,7 +135,7 @@ def main(args):
             u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
         else:
             u = u_nominal.clone()
-
+                
         state_traj[:, k, :] = state.clone()
         
         state_traj_diff[:, k, :] = state_no_fault.clone() - state.clone()

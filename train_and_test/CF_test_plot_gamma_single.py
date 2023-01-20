@@ -61,42 +61,34 @@ def main():
     gamma = Gamma(n_state=n_state, m_control=m_control, traj_len=traj_len)
     # NN_alpha = alpha_param(n_state=n_state)
     FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
+    NN_cbf.load_state_dict(
+        torch.load(
+            "./good_data/data/CF_cbf_NN_weightsCBF.pth",
+            map_location=torch.device("cpu"),
+        )
+    )
+    FT_cbf.load_state_dict(
+        torch.load(
+            "./good_data/data/CF_cbf_FT_weightsCBF.pth",
+            map_location=torch.device("cpu"),
+        )
+    )
     try:
         # NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weightsCBF.pth'))
-        NN_cbf.load_state_dict(
-            torch.load(
-                "./good_data/data/CF_cbf_NN_weightsCBF.pth",
-                map_location=torch.device("cpu"),
-            )
-        )
-        FT_cbf.load_state_dict(
-            torch.load(
-                "./good_data/data/CF_cbf_FT_weightsCBF.pth",
-                map_location=torch.device("cpu"),
-            )
-        )
+        
         gamma.load_state_dict(
             torch.load(
-                "./good_data/data/CF_gamma_NN_weights0.pth",
+                "./good_data/data/CF_gamma_NN_weightssingle1.pth",
                 map_location=torch.device("cpu"),
             )
         )
         # NN_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
     except:
         # NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
-        NN_cbf.load_state_dict(
-            torch.load(
-                "./data/CF_cbf_NN_weightsCBF.pth", map_location=torch.device("cpu")
-            )
-        )
-        FT_cbf.load_state_dict(
-            torch.load(
-                "./data/CF_cbf_FT_weightsCBF.pth", map_location=torch.device("cpu")
-            )
-        )
+        
         gamma.load_state_dict(
             torch.load(
-                "./data/CF_gamma_NN_weights0.pth",
+                "./data/CF_gamma_NN_weightssingle1.pth",
                 map_location=torch.device("cpu"),
             )
         )
@@ -132,10 +124,10 @@ def main():
     u_traj = torch.tensor([]).reshape(n_sample, 0, m_control)
 
     x_pl = np.array(state).reshape(1, n_state)
-    fault_activity = np.array([0])
-    actual_fault_index = np.array([0])
+    fault_activity = np.array([-1])
+    actual_fault_index = np.array([-1])
     detect_activity = np.array([0])
-    NN_fault_index = np.array([0])
+    NN_fault_index = np.array([-1])
 
     u_pl = np.array([0] * m_control).reshape(1, m_control)
     h, _ = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
@@ -144,7 +136,7 @@ def main():
 
     rand_start = random.uniform(1.01, 50)
 
-    fault_start_epoch = 10 * math.floor(config.EVAL_STEPS / rand_start)
+    fault_start_epoch = config.EVAL_STEPS / 2 # 10 * math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
     detect = 0
 
@@ -155,6 +147,8 @@ def main():
     fault_index_NN = -1
     gamma_min = 1
     
+    detect_start = -1
+
     detect_prev = 0
 
     for i in tqdm.trange(config.EVAL_STEPS):
@@ -180,7 +174,7 @@ def main():
 
             u = u.reshape(1, m_control)
 
-            # u_command = u.clone()
+            u_command = u.clone()
 
             gxu_no_fault = torch.matmul(gx, u.reshape(m_control, 1))
 
@@ -200,38 +194,34 @@ def main():
 
             u = u.clone().type(torch.float32)
             
-            u_command = u.clone()
+            # u_command = u.clone()
 
             gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
             dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
             dot_h = (h - h_prev) / dt + 0.01 * h
-            
-        traj_size = state_traj.shape[1]
         
-        if traj_size >= traj_len:
+        if i >= traj_len: # and np.mod(i, 50) == 0:
             gamma_NN = gamma(state_traj.reshape(n_sample, traj_len, n_state), state_traj_diff.reshape(n_sample, traj_len, n_state), u_traj.reshape(n_sample, traj_len, m_control))
             gamma_NN = gamma_NN.detach()
             gamma_min = torch.min(gamma_NN)
             fault_index_NN = torch.argmin(gamma_NN).numpy()
-            # print(gamma_NN)
-            # print(gamma_min)
-            # print(fault_index_NN)
-            # print(Asas)
-
         else:
             gamma_min = 1
         # print(gamma_min)
         
-        if gamma_min > 0.5:
+        if gamma_min > 0.02:
             detect = 0
             fault_index_NN = -1
-
-        if (detect == 0 and gamma_min < 0.2) or detect == 1:
-            # print(gamma_NN)
+        else:
+            if detect_start == -1:
+                detect_start = i
+        
+        if (detect == 0 and gamma_min < 0.2 and i - detect_start > 75) or detect == 1:
 
             detect = 1
+
             h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
             u = util.neural_controller_gamma(u_nominal, fx, gx, h, grad_h, detect, fault_index_NN)
@@ -240,13 +230,13 @@ def main():
 
             u = torch.tensor(u, dtype=torch.float32)
 
+            u_command = u.clone()
+
             for j in range(m_control):
                 if u[0, j] <= ul[0, j]:
                     u[0, j] = ul[0, j].clone()
                 if u[0, j] >= um[0, j]:
                     u[0, j] = um[0, j].clone()
-
-            # u_command = u.clone()
 
             gxu_no_fault = torch.matmul(gx, u.reshape(m_control, 1))
 
@@ -267,7 +257,10 @@ def main():
         else:
             actual_fault_index = np.vstack((actual_fault_index, -1.0))
 
-        NN_fault_index = np.vstack((NN_fault_index, fault_index_NN))
+        if detect == 1:
+            NN_fault_index = np.vstack((NN_fault_index, fault_index_NN))
+        else:
+            NN_fault_index = np.vstack((NN_fault_index, -1.0))
 
         if fault_known == 0:
             dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach().numpy()))
@@ -392,129 +385,13 @@ def main():
         handletextpad=0.3,
     )
 
-    # Plot the fault detection on a third axis
-    # w_ax = axs[2]
-    # dot_h_pl[0] = dot_h_pl[1]  # remove dummy value from start
-    # w_ax.plot(time_pl, dot_h_pl, linewidth=4.0, label="$\omega$")
-    # w_ax.plot(
-    #     time_pl,
-    #     0 * time_pl + epsilon - 10 * dt,
-    #     "--",
-    #     color="grey",
-    #     # label="detection threshold",
-    # )
-    # # w_ax.plot(
-    # #     time_pl,
-    # #     0 * time_pl + epsilon,
-    # #     ":",
-    # #     color="grey",
-    # #     label="Fault cleared threshold",
-    # # )
-    # w_ax.set_xlabel("Time (s)")
-    # # w_ax.set_ylabel("Fault indicator $\omega$")
-
-    # # Add the fault indicators
-    # (t_fault_start, t_fault_end) = time_pl[
-    #     np.diff(fault_activity.squeeze()).nonzero()[0]
-    # ]
-    # lims = z_ax.get_ylim()
-    # # fault_handle = z_ax.fill_between(
-    # #     [t_fault_start, t_fault_end],
-    # #     [-10.0, -10.0],
-    # #     [10.0, 10.0],
-    # #     color="grey",
-    # #     alpha=0.5,
-    # #     label="Fault",
-    # # )
-    # z_ax.set_ylim(lims)
-    # lims = w_ax.get_ylim()
-    # w_ax.fill_between(
-    #     [t_fault_start, t_fault_end],
-    #     [-100.0, -100.0],
-    #     [100.0, 100.0],
-    #     color="grey",
-    #     alpha=0.5,
-    # )
-    # w_ax.set_ylim(lims)
-    # w_ax.plot(
-    #     time_pl,
-    #     detect_activity,
-    #     color=colors[3],
-    #     label="Fault detected",
-    #     linewidth=4.0,
-    # )
-    # # detected_mask = detect_activity.squeeze().nonzero()[0]
-    # # if detected_mask.size > 0:
-    # #     # Plot the fault detection
-    # #     w_ax.plot(
-    # #         time_pl[detected_mask],
-    # #         0 * detect_activity[detected_mask],
-    # #         color=colors[3],
-    # #         label="Fault detected",
-    # #         linewidth=4.0,
-    # #     )
-    # #     w_ax.plot(
-    # #         [time_pl[detected_mask].min(), time_pl[detected_mask].max()],
-    # #         [0.0, 0.0],
-    # #         "o",
-    # #         color=colors[3],
-    # #         markersize=15.0,
-    # #     )
-    # w_ax.legend(
-    #     loc="upper center",
-    #     bbox_to_anchor=(0.5, 1.17),
-    #     ncol=3,
-    #     frameon=False,
-    #     # columnspacing=0.7,
-    #     # handlelength=0.7,
-    #     # handletextpad=0.3,
-    # )
-    # # fig.legend(
-    # #     [fault_handle],
-    # #     ["Fault"],
-    # #     loc="upper center",
-    # #     bbox_to_anchor=(0.5, 1.05),
-    # #     borderaxespad=0.1,
-    # #     frameon=False,
-    # # )
-
-    # lims = u_ax.get_ylim()
-    # u_ax.fill_between(
-    #     [t_fault_start, t_fault_end],
-    #     [-1.0, -1.0],
-    #     [1.0, 1.0],
-    #     color="grey",
-    #     alpha=0.5,
-    #     label="Fault",
-    # )
-    # mean_u = (u_pl.max() + u_pl.min()) / 2.0
-    # u_ax.text(
-    #     t_fault_start,
-    #     mean_u,
-    #     "Fault occurs",
-    #     rotation="vertical",
-    #     horizontalalignment="right",
-    #     verticalalignment="center",
-    # )
-
-    # u_ax.text(
-    #     t_fault_end,
-    #     mean_u,
-    #     "Fault clears",
-    #     rotation="vertical",
-    #     horizontalalignment="right",
-    #     verticalalignment="center",
-    # )
-    # u_ax.set_ylim(lims)
-
-    # fig2 = plt.figure(figsize=(21, 9))
-    # axs2 = fig2.subplots(1, 1)
     w_ax = axs[2]
     
-    w_ax.plot(time_pl, actual_fault_index, linewidth=4.0, label="Actual fault index")
-    w_ax.plot(time_pl, NN_fault_index, linewidth=4.0, label="Predicted fault index")
+    w_ax.plot(time_pl, actual_fault_index + 1.0, linewidth=4.0, label="Actual fault index")
+    w_ax.plot(time_pl, NN_fault_index + 1.0, linewidth=4.0, label="Predicted fault index")
     w_ax.set_xlabel("Time (s)")
     w_ax.set_ylabel("Fault Index")
+    w_ax.set_ylim(-0.5, 4.5)
     w_ax.legend(
         loc="upper center",
         bbox_to_anchor=(0.5, 1.17),
@@ -528,9 +405,7 @@ def main():
     fig.tight_layout(pad=1.15)
     
     plt.savefig("./plots/plot_CF_gamma_single.png")
-    # fig2.tight_layout(pad=1.15)
-    
-    # plt.savefig("./plots/plot_CF_gamma_index_single.png")
+
     
 if __name__ == "__main__":
     main()

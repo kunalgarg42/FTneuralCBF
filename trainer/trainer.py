@@ -366,7 +366,7 @@ class Trainer(object):
         
         opt_iter = int(self.dataset.n_pts / batch_size)
         
-        opt_count = 250
+        opt_count = 500
         
         # acc = 0.0
         acc_np = 0.0
@@ -410,14 +410,14 @@ class Trainer(object):
 
                 gamma_error = gamma_data - gamma_actual
 
-                gamma_error = torch.abs(gamma_error) * 10
+                gamma_error = torch.abs(gamma_error)
                                 
                 acc_np += torch.sum(torch.linalg.norm(gamma_error.detach().cpu(), dim=1) < eps_deriv) / num_gamma
                 
                 loss = 0.0
 
                 for j in range(self.m_control):
-                    loss += torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, j]).reshape(1, num_gamma)) / num_gamma / (acc_ind_temp[0, j] + 1e-5)
+                    loss += 10 * torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, j]).reshape(1, num_gamma)) / num_gamma / (acc_ind_temp[0, j] + 1e-5)
 
                 self.gamma_optimizer.zero_grad(set_to_none=True)
                 # self.alpha_optimizer.zero_grad()
