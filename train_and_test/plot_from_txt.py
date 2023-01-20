@@ -3,7 +3,7 @@ import numpy as np
 import os
 import sys
 
-str = 'log_gamma_test'
+str = 'log_gamma_test_cbf_u'
 file_name = str + '.txt'
 plot_name = './plots/' + str + '.png'
 f = open(file_name,'r')
@@ -33,5 +33,7 @@ plt.ylabel('Accuracy', fontsize = 12)
 plt.title('Failure Test Accuracy', fontsize = 20)
 plt.legend()
 ax.set_xlim(traj_len[0], traj_len[-1])
-ax.set_ylim(0, 1)
+ax.set_ylim(0.3, 1)
 plt.savefig(plot_name)
+
+print("saved file:", str + '.png')

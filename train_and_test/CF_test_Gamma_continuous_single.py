@@ -144,7 +144,7 @@ def main(args):
 
         gxu_no_fault = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
         
-        if k >= int(traj_len / 1.01):
+        if k >= traj_len - 2:
             u = u * gamma_actual_bs
         
         gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
@@ -184,7 +184,7 @@ def main(args):
             
             acc_ind[0, -1] = torch.sum(gamma_pred[index_no_fault, :]) / (index_num + 1e-5) / m_control
             
-            print('{}, {:.3f}, {:.3f}'.format(np.min([k - int(traj_len / 1.01), traj_len]), acc_ind[0][1], acc_ind[0][-1]))
+            print('{}, {:.3f}, {:.3f}'.format(np.min([k - (traj_len - 2), traj_len]), acc_ind[0][1], acc_ind[0][-1]))
     
 
 if __name__ == '__main__':
