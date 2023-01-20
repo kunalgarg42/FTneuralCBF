@@ -18,6 +18,8 @@ from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, Gamma
 
+torch.backends.cudnn.benchmark = True
+
 xg = torch.tensor([[0.0,
                     0.0,
                     5.5,
@@ -67,13 +69,13 @@ t = TicToc()
 gpu_id = 0 # torch.cuda.current_device()
 
 if platform.uname()[1] == 'realm2':
-    gpu_id = 3
+    gpu_id = 2
 
 def main(args):
     fault = 1
     fault_control_index = args.fault_index
     traj_len = args.traj_len
-    num_traj_factor = 1.6 - traj_len / 1000
+    num_traj_factor = 1.5
     data_index = int((traj_len - 100) / 100)
     str_data = './data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
     str_good_data = './good_data/data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
@@ -100,7 +102,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*100, traj_len=traj_len)
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*200, traj_len=traj_len)
     trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
@@ -112,8 +114,11 @@ def main(args):
     
     loss_current = 100.0
 
-    for i in range(10000):
-        new_goal = torch.randn(n_state, 1)
+    for i in range(1000):
+        
+        new_goal = dynamics.sample_safe(1)
+
+        new_goal = new_goal.reshape(n_state, 1)
 
         gamma_actual_bs = torch.ones(n_sample, m_control)
 
@@ -126,7 +131,7 @@ def main(args):
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
-        state = dynamics.sample_safe(n_sample)
+        state = dynamics.sample_safe(n_sample) + torch.randn(n_sample, n_state) * 2
                 
         state_no_fault = state.clone()
 
@@ -164,16 +169,19 @@ def main(args):
             #     param = k
             # else:
             #     param = -1
-            gamma_applied = torch.ones(n_sample, m_control)
+            # gamma_applied = torch.ones(n_sample, m_control)
 
-            if k <= traj_len:
-                # gamma_ind = np.arange(n_sample - k * traj_len, n_sample)
-                # if sum(gamma_ind) > 0:
-                gamma_applied[-k * 10:] = gamma_actual_bs[-k * 10:].clone()
-            else:
-                gamma_applied = gamma_actual_bs.clone()
+            # if k <= traj_len:
+            #     # gamma_ind = np.arange(n_sample - k * traj_len, n_sample)
+            #     # if sum(gamma_ind) > 0:
+            #     gamma_applied[-k * 10:] = gamma_actual_bs[-k * 10:].clone()
+            # else:
+            #     gamma_applied = gamma_actual_bs.clone()
 
-            u = u * gamma_applied
+            if k >= traj_len - 2:
+                u = u * gamma_actual_bs
+
+            # u = u * gamma_applied
             
             gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
 
@@ -214,8 +222,8 @@ def main(args):
             if loss_np < 0.01 or acc_np > 0.96:
                 torch.save(gamma.state_dict(), str_good_data)
         
-        if loss_np < 0.001 and i > 2500:
-            break
+            if loss_np < 0.001 and i > 250:
+                break
 
 
 if __name__ == '__main__':

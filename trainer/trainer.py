@@ -4,7 +4,7 @@ import numpy as np
 from pytictoc import TicToc
 from .FxTS_GF import FxTS_Momentum
 
-torch.autograd.set_detect_anomaly(True)
+# torch.autograd.set_detect_anomaly(True)
 
 t = TicToc()
 
@@ -366,9 +366,7 @@ class Trainer(object):
         
         opt_iter = int(self.dataset.n_pts / batch_size)
         
-        # ns = int(batch_size / traj_len)
-        ns = batch_size
-        opt_count = 200
+        opt_count = 500
         
         # acc = 0.0
         acc_np = 0.0
@@ -421,7 +419,7 @@ class Trainer(object):
                 for j in range(self.m_control):
                     loss += torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, j]).reshape(1, num_gamma)) / num_gamma / (acc_ind_temp[0, j] + 1e-5)
 
-                self.gamma_optimizer.zero_grad()
+                self.gamma_optimizer.zero_grad(set_to_none=True)
                 # self.alpha_optimizer.zero_grad()
 
                 loss.backward()
@@ -430,8 +428,9 @@ class Trainer(object):
                 # self.alpha_optimizer.step()
 
                 # log statics
-                loss_np += loss.detach().cpu().numpy()
-
+                loss_np += loss
+                
+        loss_np = loss_np.detach().cpu().numpy()
         acc_np = acc_np.detach().cpu().numpy()
         acc_ind = acc_ind[0].detach().cpu().numpy()
         loss_np /= opt_iter * opt_count

@@ -52,13 +52,13 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 fault = nominal_params["fault"]
 
-use_good = 0
+use_good = 1
 
 n_sample = 1000
 
 traj_len = 100
 
-Eval_steps = 500
+Eval_steps = 200
 
 fault = nominal_params["fault"]
 
@@ -68,6 +68,7 @@ gpu_id = 0
 
 def main(args):
     fault_control_index = args.fault_index
+    use_nom = args.use_nom
     str_data = './data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
     str_good_data = './good_data/data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
@@ -78,10 +79,11 @@ def main(args):
     gamma = Gamma(n_state=n_state, m_control=m_control, traj_len=traj_len)
 
     if use_good == 1:
-    # try:
-        gamma.load_state_dict(torch.load(str_good_data))
-    # except:
-    #     print("No good data available")
+        try:
+            gamma.load_state_dict(torch.load(str_good_data))
+        except:
+            gamma.load_state_dict(torch.load(str_data))
+            print("No good data available")
     else:
         gamma.load_state_dict(torch.load(str_data))
     
@@ -99,8 +101,6 @@ def main(args):
         fault_control_index = np.mod(j, 2)
         if fault_control_index < 1:
             gamma_actual_bs[j, fault_control_index + 1] = 0.0
-        # if fault_control_index == 5:
-        #     gamma_actual_bs[j, fault_index_extra] = 0.0
 
     rand_ind = torch.randperm(n_sample)
     gamma_actual_bs = gamma_actual_bs[rand_ind, :]
@@ -121,6 +121,8 @@ def main(args):
     
     t.tic()
 
+    print('length of failure, acc fail , acc no fail')
+
     for k in range(Eval_steps):
 
         u_nominal = dynamics.u_nominal(state)
@@ -128,9 +130,11 @@ def main(args):
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
 
-        # h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
-        u = u_nominal.clone()
-        # u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+        if use_nom == 0:
+            h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
+            u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+        else:
+            u = u_nominal.clone()
 
         state_traj[:, k, :] = state.clone()
         
@@ -140,7 +144,7 @@ def main(args):
 
         gxu_no_fault = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
         
-        if k > random.randint(0, traj_len - 1):
+        if k >= int(traj_len / 1.01):
             u = u * gamma_actual_bs
         
         gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
@@ -162,44 +166,30 @@ def main(args):
                 state[ind_sl, j2] = sl[j2].repeat(torch.sum(ind_sl),)
         
         if k >= traj_len - 1:
-            # if np.mod(k + 1, traj_len) > 0:
-            gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :], (1 - args.fault_index) * state_traj_diff[:, k - traj_len + 1:k + 1, :], u_traj[:, k - traj_len + 1:k + 1, :])
+            
+            gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :], state_traj_diff[:, k - traj_len + 1:k + 1, :], u_traj[:, k - traj_len + 1:k + 1, :])
             
             gamma_pred = gamma_NN.reshape(n_sample, m_control).clone().detach()
-            # for j in range(n_sample):
-            #     min_gamma = int(torch.argmin(gamma_pred[j, :]))
-            #     # print(min_gamma)
-            #     for i in range(m_control):
-            #         if i == min_gamma and gamma_pred[j, min_gamma] < fault_value + 0.5:
-            #             gamma_pred[j, i] = 0.0                        
-            #         else:
-            #             gamma_pred[j, i] = 1.0
+            
             acc_ind = torch.zeros(1, m_control+1)            
+            
             for j in range(m_control):
                 index_fault = gamma_actual_bs[:, j]==0
                 index_num = torch.sum(index_fault)
                 acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred[index_fault, j]) / (index_num + 1e-5))
             
             index_no_fault = torch.sum(gamma_actual_bs, dim=1) == m_control
+            
             index_num = torch.sum(index_no_fault)
+            
             acc_ind[0, -1] = torch.sum(gamma_pred[index_no_fault, :]) / (index_num + 1e-5) / m_control
-            print(k)
-            print(acc_ind)
-            # print(gamma_pred)
-            # print(gamma_actual_bs)
-            # gamma_err = gamma_pred - gamma_actual_bs
-            # correct_gamma1 = 1 - torch.sum(torch.abs(gamma_err[:, 0])) / n_sample
-            # print(correct_gamma1)
-            # correct_gamma2 = 1 - torch.sum(torch.abs(gamma_err[:, 1])) / n_sample
-            # print(correct_gamma2)
-            # correct_gamma3 = 1 - torch.sum(torch.abs(gamma_err[:, 2])) / n_sample
-            # print(correct_gamma3)
-            # correct_gamma4 = 1 - torch.sum(torch.abs(gamma_err[:, 3])) / n_sample
-            # print(correct_gamma4)
+            
+            print('{}, {:.3f}, {:.3f}'.format(np.min([k - int(traj_len / 1.01), traj_len]), acc_ind[0][1], acc_ind[0][-1]))
     
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-fault_index', type=int, default=0)
+    parser.add_argument('-use_nom', type=int, default=1)
     args = parser.parse_args()
     main(args)

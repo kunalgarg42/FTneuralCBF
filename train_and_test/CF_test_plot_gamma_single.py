@@ -161,6 +161,8 @@ def main():
 
         u_nominal = dynamics.u_nominal(state)
 
+        u_command = u_nominal.clone()
+
         for j in range(n_state):
             if state[0, j] < sl[j]:
                 state[0, j] = sl[j].clone()
@@ -177,6 +179,8 @@ def main():
             u = u.clone().type(torch.float32)
 
             u = u.reshape(1, m_control)
+
+            # u_command = u.clone()
 
             gxu_no_fault = torch.matmul(gx, u.reshape(m_control, 1))
 
@@ -211,6 +215,11 @@ def main():
             gamma_NN = gamma_NN.detach()
             gamma_min = torch.min(gamma_NN)
             fault_index_NN = torch.argmin(gamma_NN).numpy()
+            # print(gamma_NN)
+            # print(gamma_min)
+            # print(fault_index_NN)
+            # print(Asas)
+
         else:
             gamma_min = 1
         # print(gamma_min)
@@ -218,12 +227,6 @@ def main():
         if gamma_min > 0.5:
             detect = 0
             fault_index_NN = -1
-        
-        # If no fault previously detected and dot_h is too small, then detect a fault
-        if (i > 0 and detect != detect_prev):
-            state_traj = torch.tensor([]).reshape(1, 0, n_state)
-            state_traj_diff = torch.tensor([]).reshape(1, 0, n_state)
-            u_traj = torch.tensor([]).reshape(1, 0, m_control)
 
         if (detect == 0 and gamma_min < 0.2) or detect == 1:
             # print(gamma_NN)
@@ -237,7 +240,13 @@ def main():
 
             u = torch.tensor(u, dtype=torch.float32)
 
-            u_command = u.clone()
+            for j in range(m_control):
+                if u[0, j] <= ul[0, j]:
+                    u[0, j] = ul[0, j].clone()
+                if u[0, j] >= um[0, j]:
+                    u[0, j] = um[0, j].clone()
+
+            # u_command = u.clone()
 
             gxu_no_fault = torch.matmul(gx, u.reshape(m_control, 1))
 
@@ -245,12 +254,6 @@ def main():
 
             if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
                 u[0, fault_control_index] = 0 * ul[0, 0].clone() #  0 * (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone() #  torch.rand(1) / 4
-
-            for j in range(m_control):
-                if u[0, j] <= ul[0, j]:
-                    u[0, j] = ul[0, j].clone()
-                if u[0, j] >= um[0, j]:
-                    u[0, j] = um[0, j].clone()
 
             gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
@@ -390,109 +393,109 @@ def main():
     )
 
     # Plot the fault detection on a third axis
-    w_ax = axs[2]
-    dot_h_pl[0] = dot_h_pl[1]  # remove dummy value from start
-    w_ax.plot(time_pl, dot_h_pl, linewidth=4.0, label="$\omega$")
-    w_ax.plot(
-        time_pl,
-        0 * time_pl + epsilon - 10 * dt,
-        "--",
-        color="grey",
-        # label="detection threshold",
-    )
+    # w_ax = axs[2]
+    # dot_h_pl[0] = dot_h_pl[1]  # remove dummy value from start
+    # w_ax.plot(time_pl, dot_h_pl, linewidth=4.0, label="$\omega$")
     # w_ax.plot(
     #     time_pl,
-    #     0 * time_pl + epsilon,
-    #     ":",
+    #     0 * time_pl + epsilon - 10 * dt,
+    #     "--",
     #     color="grey",
-    #     label="Fault cleared threshold",
+    #     # label="detection threshold",
     # )
-    w_ax.set_xlabel("Time (s)")
-    # w_ax.set_ylabel("Fault indicator $\omega$")
+    # # w_ax.plot(
+    # #     time_pl,
+    # #     0 * time_pl + epsilon,
+    # #     ":",
+    # #     color="grey",
+    # #     label="Fault cleared threshold",
+    # # )
+    # w_ax.set_xlabel("Time (s)")
+    # # w_ax.set_ylabel("Fault indicator $\omega$")
 
-    # Add the fault indicators
-    (t_fault_start, t_fault_end) = time_pl[
-        np.diff(fault_activity.squeeze()).nonzero()[0]
-    ]
-    lims = z_ax.get_ylim()
-    # fault_handle = z_ax.fill_between(
+    # # Add the fault indicators
+    # (t_fault_start, t_fault_end) = time_pl[
+    #     np.diff(fault_activity.squeeze()).nonzero()[0]
+    # ]
+    # lims = z_ax.get_ylim()
+    # # fault_handle = z_ax.fill_between(
+    # #     [t_fault_start, t_fault_end],
+    # #     [-10.0, -10.0],
+    # #     [10.0, 10.0],
+    # #     color="grey",
+    # #     alpha=0.5,
+    # #     label="Fault",
+    # # )
+    # z_ax.set_ylim(lims)
+    # lims = w_ax.get_ylim()
+    # w_ax.fill_between(
     #     [t_fault_start, t_fault_end],
-    #     [-10.0, -10.0],
-    #     [10.0, 10.0],
+    #     [-100.0, -100.0],
+    #     [100.0, 100.0],
+    #     color="grey",
+    #     alpha=0.5,
+    # )
+    # w_ax.set_ylim(lims)
+    # w_ax.plot(
+    #     time_pl,
+    #     detect_activity,
+    #     color=colors[3],
+    #     label="Fault detected",
+    #     linewidth=4.0,
+    # )
+    # # detected_mask = detect_activity.squeeze().nonzero()[0]
+    # # if detected_mask.size > 0:
+    # #     # Plot the fault detection
+    # #     w_ax.plot(
+    # #         time_pl[detected_mask],
+    # #         0 * detect_activity[detected_mask],
+    # #         color=colors[3],
+    # #         label="Fault detected",
+    # #         linewidth=4.0,
+    # #     )
+    # #     w_ax.plot(
+    # #         [time_pl[detected_mask].min(), time_pl[detected_mask].max()],
+    # #         [0.0, 0.0],
+    # #         "o",
+    # #         color=colors[3],
+    # #         markersize=15.0,
+    # #     )
+    # w_ax.legend(
+    #     loc="upper center",
+    #     bbox_to_anchor=(0.5, 1.17),
+    #     ncol=3,
+    #     frameon=False,
+    #     # columnspacing=0.7,
+    #     # handlelength=0.7,
+    #     # handletextpad=0.3,
+    # )
+    # # fig.legend(
+    # #     [fault_handle],
+    # #     ["Fault"],
+    # #     loc="upper center",
+    # #     bbox_to_anchor=(0.5, 1.05),
+    # #     borderaxespad=0.1,
+    # #     frameon=False,
+    # # )
+
+    # lims = u_ax.get_ylim()
+    # u_ax.fill_between(
+    #     [t_fault_start, t_fault_end],
+    #     [-1.0, -1.0],
+    #     [1.0, 1.0],
     #     color="grey",
     #     alpha=0.5,
     #     label="Fault",
     # )
-    z_ax.set_ylim(lims)
-    lims = w_ax.get_ylim()
-    w_ax.fill_between(
-        [t_fault_start, t_fault_end],
-        [-100.0, -100.0],
-        [100.0, 100.0],
-        color="grey",
-        alpha=0.5,
-    )
-    w_ax.set_ylim(lims)
-    w_ax.plot(
-        time_pl,
-        detect_activity,
-        color=colors[3],
-        label="Fault detected",
-        linewidth=4.0,
-    )
-    # detected_mask = detect_activity.squeeze().nonzero()[0]
-    # if detected_mask.size > 0:
-    #     # Plot the fault detection
-    #     w_ax.plot(
-    #         time_pl[detected_mask],
-    #         0 * detect_activity[detected_mask],
-    #         color=colors[3],
-    #         label="Fault detected",
-    #         linewidth=4.0,
-    #     )
-    #     w_ax.plot(
-    #         [time_pl[detected_mask].min(), time_pl[detected_mask].max()],
-    #         [0.0, 0.0],
-    #         "o",
-    #         color=colors[3],
-    #         markersize=15.0,
-    #     )
-    w_ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, 1.17),
-        ncol=3,
-        frameon=False,
-        # columnspacing=0.7,
-        # handlelength=0.7,
-        # handletextpad=0.3,
-    )
-    # fig.legend(
-    #     [fault_handle],
-    #     ["Fault"],
-    #     loc="upper center",
-    #     bbox_to_anchor=(0.5, 1.05),
-    #     borderaxespad=0.1,
-    #     frameon=False,
+    # mean_u = (u_pl.max() + u_pl.min()) / 2.0
+    # u_ax.text(
+    #     t_fault_start,
+    #     mean_u,
+    #     "Fault occurs",
+    #     rotation="vertical",
+    #     horizontalalignment="right",
+    #     verticalalignment="center",
     # )
-
-    lims = u_ax.get_ylim()
-    u_ax.fill_between(
-        [t_fault_start, t_fault_end],
-        [-1.0, -1.0],
-        [1.0, 1.0],
-        color="grey",
-        alpha=0.5,
-        label="Fault",
-    )
-    mean_u = (u_pl.max() + u_pl.min()) / 2.0
-    u_ax.text(
-        t_fault_start,
-        mean_u,
-        "Fault occurs",
-        rotation="vertical",
-        horizontalalignment="right",
-        verticalalignment="center",
-    )
 
     # u_ax.text(
     #     t_fault_end,
@@ -502,17 +505,11 @@ def main():
     #     horizontalalignment="right",
     #     verticalalignment="center",
     # )
-    u_ax.set_ylim(lims)
+    # u_ax.set_ylim(lims)
 
-    fig.tight_layout(pad=1.15)
-    if fault_known == 1:
-        plt.savefig("./plots/plot_CF_known_F_gamma.png")
-    else:
-        plt.savefig("./plots/plot_CF_gamma.png")
-
-    fig2 = plt.figure(figsize=(21, 9))
-    axs2 = fig2.subplots(1, 1)
-    w_ax = axs2
+    # fig2 = plt.figure(figsize=(21, 9))
+    # axs2 = fig2.subplots(1, 1)
+    w_ax = axs[2]
     
     w_ax.plot(time_pl, actual_fault_index, linewidth=4.0, label="Actual fault index")
     w_ax.plot(time_pl, NN_fault_index, linewidth=4.0, label="Predicted fault index")
@@ -528,12 +525,12 @@ def main():
         # handletextpad=0.3,
     )
 
-    fig2.tight_layout(pad=1.15)
-
-    if fault_known == 1:
-        plt.savefig("./plots/plot_CF_known_F_gamma_index.png")
-    else:
-        plt.savefig("./plots/plot_CF_gamma_index.png")
+    fig.tight_layout(pad=1.15)
+    
+    plt.savefig("./plots/plot_CF_gamma_single.png")
+    # fig2.tight_layout(pad=1.15)
+    
+    # plt.savefig("./plots/plot_CF_gamma_index_single.png")
     
 if __name__ == "__main__":
     main()

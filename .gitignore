@@ -26,6 +26,8 @@ example.py
 
 /build/
 
+/myScript_data/
+
 sept*
 
 *.pt
