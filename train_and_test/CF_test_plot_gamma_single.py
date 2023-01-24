@@ -1,9 +1,6 @@
 import os
 import sys
-
-import numpy
 import torch
-import math
 import random
 import numpy as np
 import matplotlib.pyplot as plt
@@ -32,6 +29,8 @@ dt = 0.001
 n_state = 12
 m_control = 4
 fault = 0
+
+FT_tol = 0.1
 
 traj_len = config.TRAJ_LEN
 
@@ -100,7 +99,7 @@ def main():
 
     gamma.eval()
 
-    state = x0
+    state = dynamics.sample_safe(1)
 
     safety_rate = 0.0
     unsafety_rate = 0.0
@@ -133,8 +132,9 @@ def main():
     h, _ = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
     h_pl = np.array(h.detach()).reshape(1, 1)
+    pred_pl = np.array([0])
 
-    rand_start = random.uniform(1.01, 50)
+    # rand_start = random.uniform(1.01, 50)
 
     fault_start_epoch = config.EVAL_STEPS / 2 # 10 * math.floor(config.EVAL_STEPS / rand_start)
     fault_start = 0
@@ -148,8 +148,6 @@ def main():
     gamma_min = 1
     
     detect_start = -1
-
-    detect_prev = 0
 
     for i in tqdm.trange(config.EVAL_STEPS):
 
@@ -168,7 +166,7 @@ def main():
         if detect == 0:
             h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
             h_prev, _ = NN_cbf.V_with_jacobian(previous_state.reshape(1, n_state, 1))
-            u = util.neural_controller(u_nominal, fx, gx, h, grad_h, detect)
+            u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
 
             u = u.clone().type(torch.float32)
 
@@ -187,8 +185,8 @@ def main():
                 fault_start = 0.0
 
             for j in range(m_control):
-                if u[0, j] < ul[0, j]:
-                    u[0, j] = ul[0, j].clone()
+                if u[0, j] < 0.0:
+                    u[0, j] = 0.0
                 if u[0, j] > um[0, j]:
                     u[0, j] = um[0, j].clone()
 
@@ -204,31 +202,61 @@ def main():
         
         if i >= traj_len: # and np.mod(i, 50) == 0:
             gamma_NN = gamma(state_traj.reshape(n_sample, traj_len, n_state), state_traj_diff.reshape(n_sample, traj_len, n_state), u_traj.reshape(n_sample, traj_len, m_control))
+            
             gamma_NN = gamma_NN.detach()
+
             gamma_min = torch.min(gamma_NN)
+
             fault_index_NN = torch.argmin(gamma_NN).numpy()
+            # else:
+            #     gamma_min = 0.0
+
+            if fault_start == 1:
+                pred_acc = 1 - torch.abs(gamma_NN[:, fault_control_index])
+            else:
+                pred_acc = 1 - torch.abs(gamma_NN[:, fault_control_index] - 1)
+            
+            if gamma_min >= FT_tol:
+                gamma_NN[0, fault_index_NN] = 1.0
+                gamma_min = 1.0
+            # print(gamma_NN)
+            # print(gamma_NN)
+
+            # if fault_index_NN == fault_index_NN_prev:
+            #     fault_count += 1
+            #     gamma_cumulative = (gamma_cumulative + gamma_min) / 2
+                # gamma_cumulative /= 50
+
+            # print(pred_acc)
+            # fault_index_NN_prev = fault_index_NN.copy()
         else:
             gamma_min = 1
-        # print(gamma_min)
-        
-        if gamma_min > 0.02:
+
+        # if fault_count >= 50:
+        #     gamma_cum /= 50
+        #     if gamma_cum > 0.1:
+        #         fault_count = 0
+                
+        if gamma_min > FT_tol:
             detect = 0
             fault_index_NN = -1
         else:
             if detect_start == -1:
                 detect_start = i
-        
-        if (detect == 0 and gamma_min < 0.2 and i - detect_start > 75) or detect == 1:
+
+        if (gamma_min < FT_tol and i - detect_start > 50): # or detect == 1:
 
             detect = 1
 
-            h, grad_h = FT_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
+            h, grad_h = FT_cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
 
-            u = util.neural_controller_gamma(u_nominal, fx, gx, h, grad_h, detect, fault_index_NN)
+            u_new = util.neural_controller_gamma(u_nominal, fx, gx, h, grad_h, detect, fault_index_NN)
 
-            u = u.reshape(1, m_control)
-
-            u = torch.tensor(u, dtype=torch.float32)
+            u_new = u_new.clone().type(torch.float32).reshape(n_sample, m_control)
+            
+            u_new[0, fault_control_index] = u[0, fault_control_index].clone()
+            
+            u = u_new.clone()
 
             u_command = u.clone()
 
@@ -248,10 +276,9 @@ def main():
             gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
             dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
-        # If we have previously detected a fault, switch to no fault if dot_h is
-        # increasing
 
         detect_activity = np.vstack((detect_activity, detect))
+        
         if fault_start == 1:
             actual_fault_index = np.vstack((actual_fault_index, fault_control_index))
         else:
@@ -269,9 +296,7 @@ def main():
 
         if fault_known == 1:
             dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach().numpy()))
-
-        if dot_h < 0:
-            print(i)
+        
         state_next = state + dx * dt
 
         state_next_no_fault = state + dx_no_fault * dt
@@ -294,6 +319,11 @@ def main():
         u_pl = np.vstack((u_pl, np.array(u.clone().detach()).reshape(1, m_control)))
         h_pl = np.vstack((h_pl, np.array(h.clone().detach()).reshape(1, 1)))
 
+        if i >= traj_len:
+            pred_pl = np.vstack((pred_pl, pred_acc))
+        else:
+            pred_pl = np.vstack((pred_pl, np.array([0.0])))
+
         state = state_next.clone()
 
         state_diff = state_next_no_fault - state
@@ -307,8 +337,6 @@ def main():
         u_traj = torch.cat([u_traj, u_command.reshape(1, 1, m_control)], dim=-2)
         u_traj = u_traj[:, -traj_len:, :]
 
-        detect_prev = detect_activity[-1]
-        # print('h, {}, dot_h, {}'.format(h.detach().cpu().numpy()[0][0], dot_h.detach().cpu().numpy()[0][0]))
     time_pl = np.arange(0.0, dt * config.EVAL_STEPS + dt, dt)
     
     fault_activity[-2] = 1.0
@@ -328,11 +356,11 @@ def main():
 
     colors = sns.color_palette()
 
-    fig = plt.figure(figsize=(31, 9))
-    axs = fig.subplots(1, 3)
+    fig = plt.figure(figsize=(31, 15))
+    axs = fig.subplots(2, 2)
 
     # Plot the altitude and CBF value on one axis
-    z_ax = axs[0]
+    z_ax = axs[0, 0]
     z_ax.plot(time_pl, z_pl, linewidth=4.0, label="z (m)", color=colors[0])
 
     # z_ax.plot(time_pl, dot_h_pl, linewidth=2.0, label="z (m)", color=colors[2])
@@ -367,7 +395,7 @@ def main():
     h_ax.tick_params(axis="y", labelcolor=colors[1])
 
     # Plot the control action on another axis
-    u_ax = axs[1]
+    u_ax = axs[0, 1]
     u_ax.plot(time_pl, u2, linewidth=2.0, label="$u_2$ (faulty)")
     u_ax.plot(time_pl, u1, linewidth=2.0, label="$u_1$")
     u_ax.plot(time_pl, u3, linewidth=2.0, label="$u_3$")
@@ -385,7 +413,7 @@ def main():
         handletextpad=0.3,
     )
 
-    w_ax = axs[2]
+    w_ax = axs[1, 0]
     
     w_ax.plot(time_pl, actual_fault_index + 1.0, linewidth=4.0, label="Actual fault index")
     w_ax.plot(time_pl, NN_fault_index + 1.0, linewidth=4.0, label="Predicted fault index")
@@ -393,6 +421,21 @@ def main():
     w_ax.set_ylabel("Fault Index")
     w_ax.set_ylim(-0.5, 4.5)
     w_ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.17),
+        ncol=3,
+        frameon=False,
+        # columnspacing=0.7,
+        # handlelength=0.7,
+        # handletextpad=0.3,
+    )
+
+    acc_ax = axs[1, 1]
+    acc_ax.plot(time_pl, pred_pl, linewidth=4.0, label="Prediction accuracy")
+    acc_ax.set_xlabel("Time (s)")
+    acc_ax.set_ylabel("Accuracy")
+    acc_ax.set_ylim(-0.2, 1.2)
+    acc_ax.legend(
         loc="upper center",
         bbox_to_anchor=(0.5, 1.17),
         ncol=3,

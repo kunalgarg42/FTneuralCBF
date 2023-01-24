@@ -420,8 +420,8 @@ class Utils(object):
         A = torch.hstack((- Lg.reshape(1, m_control), -h))
         B = Lf.detach().cpu()
 
-        lb = torch.vstack((ul.reshape(self.m_control, 1), torch.tensor(-100).reshape(1, 1)))
-        ub = torch.vstack((um.reshape(self.m_control, 1), torch.tensor(100).reshape(1, 1)))
+        lb = torch.vstack((ul.reshape(self.m_control, 1), torch.tensor(-1000000).reshape(1, 1)))
+        ub = torch.vstack((um.reshape(self.m_control, 1), torch.tensor(1000000).reshape(1, 1)))
         A_in = torch.vstack((torch.eye(m_control+1), -torch.eye(m_control + 1)))
         # A_in = torch.tensor(
         #     [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [-1, 0, 0, 0, 0],
@@ -462,7 +462,7 @@ class Utils(object):
 
         Q = csc_matrix(identity(size_Q))
         # Q[0,0] = 1 / um[0]
-        F = torch.hstack((torch.tensor(u_nominal).reshape(m_control), torch.tensor(1.0))).reshape(size_Q, 1)
+        F = torch.hstack((u_nominal.reshape(m_control), torch.tensor(1.0))).reshape(size_Q, 1)
 
         F = - np.array(F)
         # F[0] = F[0] / um[0]
@@ -492,8 +492,8 @@ class Utils(object):
         B = Lf.detach().cpu()
 
         
-        lb = torch.vstack((ul.reshape(self.m_control, 1), torch.tensor(-1000).reshape(1, 1)))
-        ub = torch.vstack((um.reshape(self.m_control, 1), torch.tensor(1000).reshape(1, 1)))
+        lb = torch.vstack((ul.reshape(self.m_control, 1), torch.tensor(-1000000).reshape(1, 1)))
+        ub = torch.vstack((um.reshape(self.m_control, 1), torch.tensor(1000000).reshape(1, 1)))
         A_in = torch.tensor(
             [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [-1, 0, 0, 0, 0],
              [0, -1, 0, 0, 0], [0, 0, -1, 0, 0], [0, 0, 0, -1, 0], [0, 0, 0, 0, -1]])
@@ -517,7 +517,7 @@ class Utils(object):
         if u is None:
             u_neural = u_nominal.reshape(m_control)
         else:
-            u_neural = torch.tensor([u[0:self.m_control]]).reshape(1, m_control)
+            u_neural = torch.tensor(np.array(u[0:self.m_control])).reshape(1, m_control)
 
         return u_neural
 

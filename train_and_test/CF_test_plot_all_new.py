@@ -115,9 +115,9 @@ def main():
 
     h_pl = torch.zeros(4, config.EVAL_STEPS)
 
-    rand_start = random.uniform(1.01, 50)
+    # rand_start = random.uniform(1.01, 50)
 
-    fault_start_epoch = 10 * math.floor(config.EVAL_STEPS / rand_start)
+    fault_start_epoch = math.floor(config.EVAL_STEPS / 1.8)
     
     fault_start = 0
     
@@ -131,7 +131,7 @@ def main():
         u_temp = torch.zeros(4, m_control)
         h_temp = torch.zeros(4, 1)
         for k in range(4):
-            u_nominal = dynamics.u_nominal(state[k, :].reshape(1, n_state))
+            u_nominal = dynamics.u_nominal(state[k, :].reshape(1, n_state), op_point=xg)
 
             for j in range(n_state):
                 if state[k, j] < sl[j]:
@@ -306,7 +306,7 @@ def main():
 
     colors = sns.color_palette()
 
-    fig = plt.figure(figsize=(31, 9))
+    fig = plt.figure(figsize=(31, 17))
     axs = fig.subplots(2, 3)
 
     # Plot the altitude and CBF value on one axis
@@ -326,29 +326,13 @@ def main():
         linestyle="--",
         linewidth=4.0,
     )
-    z_ax.text(time_pl.max() * 0.05, unsafe_z + 0.1, "Unsafe boundary")
-    z_ax.plot([], [], color=colors[1], linestyle="-", linewidth=4.0, label="CBF h(x)")
-    z_ax.set_ylabel("Height (m)", color=colors[0])
-    z_ax.set_xlabel("Time (s)")
+    z_ax.text(time_pl.max() * 0.05, unsafe_z + 0.1, "Unsafe boundary", fontsize = 40)
+    # z_ax.plot([], [], color=colors[1], linestyle="-", linewidth=4.0, label="CBF h(x)")
+    z_ax.set_ylabel("Height (m)", color=colors[0], fontsize = 40)
+    z_ax.set_xlabel("Time (s)", fontsize = 40)
     z_ax.set_xlim(time_pl[0], time_pl[-1] + 0.1)
-    z_ax.tick_params(axis="y", labelcolor=colors[0])
-    z_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.17), ncol=2, frameon=False)
-
-    h_ax = z_ax.twinx()
-
-    for k in range(4):
-        h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=4.0, color=colors[1])
-    
-    h_ax.plot(
-        time_pl,
-        0 * time_pl,
-        color="k",
-        linestyle="--",
-        linewidth=4.0,
-        label="Unsafe boundary",
-    )
-    h_ax.set_ylabel("CBF value", color=colors[1])
-    h_ax.tick_params(axis="y", labelcolor=colors[1])
+    z_ax.tick_params(axis="y", labelcolor=colors[0], labelsize = 30)
+    z_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.2), frameon=False, fontsize = 40)
 
     # Plot the control action on another axis
     mean_u = (u_pl.max() + u_pl.min()) / 2.0
@@ -362,28 +346,32 @@ def main():
 
     for k in range(4):
         u_ax = axs[0 + np.mod(k, 2), 1 + 1 * (k > 1)]
-        # if k == 0:
-        u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_2$ (faulty)", linestyle=linestyles[k])
-        u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_1$", linestyle=linestyles[k])
-        u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_3$", linestyle=linestyles[k])
-        u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, label="$u_4$", linestyle=linestyles[k])
-        # else:
-        #     u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
-        #     u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
-        #     u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
-        #     u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=2.0, linestyle=linestyles[k])
-        u_ax.set_xlabel("Time (s)")
-        u_ax.set_ylabel("Control effort")
+        if k == 0:
+            u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_2$ (faulty)", linestyle=linestyles[k])
+            u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_1$", linestyle=linestyles[k])
+            u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_3$", linestyle=linestyles[k])
+            u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_4$", linestyle=linestyles[k])
+            u_ax.legend(
+                loc="upper right",
+                bbox_to_anchor=(1.0, 1.2),
+                ncol=4,
+                frameon=False,
+                columnspacing=0.7,
+                handlelength=0.7,
+                handletextpad=0.3,
+                fontsize = 40,
+            )
+        else:
+            u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
+            u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
+            u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
+            u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
+        u_ax.set_xlabel("Time (s)", fontsize = 40)
+        u_ax.tick_params(axis="x", labelsize = 30)
+        u_ax.tick_params(axis="y", labelsize = 30)
+        u_ax.set_ylabel("Control effort", fontsize = 40)
         u_ax.set_xlim(time_pl[0], time_pl[-1] + 0.1)
-        u_ax.legend(
-            loc="upper center",
-            bbox_to_anchor=(0.5, 1.17),
-            ncol=4,
-            frameon=False,
-            columnspacing=0.7,
-            handlelength=0.7,
-            handletextpad=0.3,
-        )
+        
         lims = u_ax.get_ylim()
         u_ax.fill_between(
             [t_fault_start, t_fault_end],
@@ -391,7 +379,7 @@ def main():
             [1.0, 1.0],
             color="grey",
             alpha=0.5,
-            label="Fault",
+            # label="Fault",
         )
         
         u_ax.text(
@@ -401,84 +389,82 @@ def main():
             rotation="vertical",
             horizontalalignment="right",
             verticalalignment="center",
+            fontsize = 40,
         )
-        u_ax.text(
-            t_fault_end,
-            mean_u,
-            "Fault clears",
-            rotation="vertical",
-            horizontalalignment="right",
-            verticalalignment="center",
-        )
+
         u_ax.set_ylim(lims)
 
+        
     # Plot the fault detection on a third axis
     # w_ax = axs[2]
     dot_h_pl[0] = dot_h_pl[1]  # remove dummy value from start
-    w_ax = axs[1, 0]
+
+    h_ax = axs[1, 0]
+
     for k in range(4):
         if k == 0:
-            w_ax.plot(time_pl, dot_h_pl[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$\omega$", linestyle=linestyles[k], color = colors[2])
+            h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=4.0, color=colors[1], label='CBF h(x)')
         else:
-            w_ax.plot(time_pl, dot_h_pl[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k], color = colors[2])
-    
-    w_ax.plot(
-        time_pl,
-        0 * time_pl + epsilon - 10 * dt,
-        "--",
-        color="grey",
-        # label="detection threshold",
-    )
+            h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=4.0, color=colors[1])
 
-    w_ax.set_xlabel("Time (s)")
-    
+    h_ax.plot(
+        time_pl,
+        0 * time_pl,
+        color="k",
+        linestyle="--",
+        linewidth=4.0,
+    )
+    h_ax.text(time_pl.max() * 0.05, 0.01, "Unsafe boundary", fontsize = 40)
+    h_ax.set_ylabel("CBF value", color=colors[1], fontsize = 40)
+    h_ax.tick_params(axis="y", labelcolor=colors[1], labelsize = 30)
+    h_ax.tick_params(axis="x", labelsize = 30)
+    h_ax.set_xlabel("Time (s)", fontsize = 40)
+    h_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.2), frameon=False, fontsize = 40)
+
     lims = z_ax.get_ylim()
-    fault_handle = z_ax.fill_between(
+    mean_z = (z_pl.max() + z_pl.min()) / 2.0
+
+    z_ax.fill_between(
         [t_fault_start, t_fault_end],
         [-10.0, -10.0],
         [10.0, 10.0],
         color="grey",
         alpha=0.5,
-        label="Fault",
     )
+        
+    z_ax.text(
+        t_fault_start,
+        mean_z,
+        "Fault occurs",
+        rotation="vertical",
+        horizontalalignment="right",
+        verticalalignment="center",
+        fontsize = 40,
+    )
+
     z_ax.set_ylim(lims)
-    lims = w_ax.get_ylim()
-    w_ax.fill_between(
+
+    lims = h_ax.get_ylim()
+    mean_h = (h_pl.max() + h_pl.min()) / 2.0
+
+    h_ax.fill_between(
         [t_fault_start, t_fault_end],
-        [-100.0, -100.0],
-        [100.0, 100.0],
+        [-10.0, -10.0],
+        [10.0, 10.0],
         color="grey",
         alpha=0.5,
     )
-    w_ax.set_ylim(lims)
-    for k in range(4):
-        if k == 0:
-            w_ax.plot(
-                time_pl,
-                detect_activity[k, :].reshape(config.EVAL_STEPS, 1),
-                color=colors[3],
-                label="Fault detected",
-                linewidth=4.0,
-                linestyle = linestyles[k],
-            )
-        else:
-            w_ax.plot(
-                time_pl,
-                detect_activity[k, :].reshape(config.EVAL_STEPS, 1),
-                color=colors[3],
-                linewidth=4.0,
-                linestyle = linestyles[k]
-            )
-    
-    w_ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, 1.17),
-        ncol=3,
-        frameon=False,
-        # columnspacing=0.7,
-        # handlelength=0.7,
-        # handletextpad=0.3,
+    h_ax.text(
+        t_fault_start,
+        mean_h,
+        "Fault occurs",
+        rotation="vertical",
+        horizontalalignment="right",
+        verticalalignment="center",
+        fontsize = 40,
     )
+    
+    h_ax.set_ylim(lims)
 
     fig.tight_layout(pad=1.15)
     if fault_known == 1:

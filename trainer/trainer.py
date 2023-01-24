@@ -267,7 +267,7 @@ class Trainer(object):
             um = um.cuda(self.gpu_id)
             ul = ul.cuda(self.gpu_id)
         
-        opt_count = 20
+        opt_count = 100
         for _ in range(opt_count):
             for i in range(opt_iter):
                 # t.tic()
@@ -317,13 +317,11 @@ class Trainer(object):
 
                 loss = loss_h_safe + loss_h_dang + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid
 
-                self.cbf_optimizer.zero_grad()
-                # self.alpha_optimizer.zero_grad()
+                self.cbf_optimizer.zero_grad(set_to_none=True)
 
-                loss.backward(retain_graph=True)
+                loss.backward()
 
                 self.cbf_optimizer.step()
-                # self.alpha_optimizer.step()
 
                 # log statics
                 acc_np[0] += acc_h_safe.detach().cpu()
