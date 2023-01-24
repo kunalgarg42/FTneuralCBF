@@ -493,8 +493,8 @@ class Trainer(object):
             mid_mask  (bs, k_obstacle)
             dang_mask (bs, k_obstacle)
         """
-        safe_mask = self.dyn.safe_mask(state, self.fault).float()
-        dang_mask = self.dyn.unsafe_mask(state, self.fault).float()
+        safe_mask = self.dyn.safe_mask(state).float()
+        dang_mask = self.dyn.unsafe_mask(state).float()
         mid_mask = (1 - safe_mask) * (1 - dang_mask)
 
         return safe_mask, dang_mask, mid_mask
