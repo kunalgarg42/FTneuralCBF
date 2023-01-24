@@ -9,7 +9,7 @@ from osqp import OSQP
 from scipy.sparse import identity
 from scipy.sparse import vstack, csr_matrix, csc_matrix
 from pytictoc import TicToc
-from trainer.constraints_fw import LfLg_new
+from trainer.constraints_crazy import LfLg_new
 
 # from qpth.qp import QPFunction
 

@@ -1,10 +1,12 @@
-import numpy as np
-import math
 import torch
-from trainer.lie_der import lie_der
+from trainer.lie_der import Lie
 
 
-def LfLG_new(x, xr, fx, gx, sm, sl):
+def LfLg_new(x, xr, fx, gx, sm, sl):
+    # x = x.detach().cpu().numpy()
+    # fx = fx.detach().cpu().numpy()
+    # gx = gx.detach().cpu().numpy()
+
     fxs = fx
     gxs = gx
 
