@@ -28,6 +28,12 @@ example.py
 
 /myScript_data/
 
+/train_and_test/plot_from_log_all_faults.py
+
+/train_and_test/plot_from_text.py
+
+/train_and_test/plot_train_log.py
+
 sept*
 
 *.pt
