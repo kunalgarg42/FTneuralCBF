@@ -37,3 +37,33 @@ int main(int argc, const char* argv[]) {
 
   std::cout << "ok\n";
 }
+
+// Notes:
+/*
+Input: a 12-D state with structure [x, y, z, psi, theta, phi, u, v, w, r, q, p]
+Output: a 13-D vector [h grad_h]
+
+To read:
+For creation and compilation of this example-app.cpp file, refer to:
+https://pytorch.org/tutorials/advanced/cpp_export.html
+
+To be done:
+Get continuous state information for the input
+Call the function in line 35 and get the output
+Define a new function that creates f(x) and g(x) (refer to Crazyflie.py file in the dynamics folder)
+- This function takes same state vector and some params values:
+params = {
+    "m": 0.0299,
+    "Ixx": 1.395 * 10**(-5),
+    "Iyy": 1.395 * 10**(-5),
+    "Izz": 2.173 * 10**(-5),
+    "CT": 3.1582 * 10**(-10),
+    "CD": 7.9379 * 10**(-12),
+    "d": 0.03973,
+    "fault": fault,}
+- and generates f(x) and g(x)
+Create another function that takes (u_nominal, fx, gx, h, grad_h) as input
+- setup Q, F, A and B using the above data
+- setup a QPsolver (refer to https://github.com/google/osqp-cpp)
+- get the output u 
+*/
