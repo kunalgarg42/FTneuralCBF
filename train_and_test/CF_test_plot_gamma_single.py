@@ -22,7 +22,7 @@ from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, Gamma
 
-xg = torch.tensor([0.0, 0.0, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+goal = torch.tensor([0.0, 0.0, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 x0 = torch.tensor([[2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 dt = 0.001
@@ -30,7 +30,7 @@ n_state = 12
 m_control = 4
 fault = 0
 
-FT_tol = 0.1
+FT_tol = 0.01
 
 traj_len = config.TRAJ_LEN
 
@@ -41,10 +41,12 @@ fault_duration = config.FAULT_DURATION
 
 fault_known = 1
 
+fault_pred_buff = 5
+
 n_sample = 1
 
 def main():
-    dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
+    dynamics = CrazyFlies(x=x0, goal=goal, nominal_params=nominal_params, dt=dt)
     util = Utils(
         n_state=n_state,
         m_control=m_control,
@@ -99,7 +101,13 @@ def main():
 
     gamma.eval()
 
-    state = dynamics.sample_safe(1)
+    # state = dynamics.sample_safe(1)
+    state = x0.clone() # + torch.randn(1, n_state)
+
+    state_next_no_fault = state.clone()
+
+    state_diff = state_next_no_fault - state
+    # xg = dynamics.sample_safe(1)
 
     safety_rate = 0.0
     unsafety_rate = 0.0
@@ -149,6 +157,12 @@ def main():
     
     detect_start = -1
 
+    u_nominal = dynamics.u_nominal(state)
+
+    u_command = u_nominal.clone()
+
+    gamma_cum = 0.0
+
     for i in tqdm.trange(config.EVAL_STEPS):
 
         u_nominal = dynamics.u_nominal(state)
@@ -163,8 +177,10 @@ def main():
 
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
+
         if detect == 0:
             h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
+
             h_prev, _ = NN_cbf.V_with_jacobian(previous_state.reshape(1, n_state, 1))
             u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
 
@@ -178,17 +194,17 @@ def main():
 
             dx_no_fault = fx.reshape(1, n_state) + gxu_no_fault.reshape(1, n_state)
 
+            # for j in range(m_control):
+            #     if u[0, j] <= ul[0, j]:
+            #         u[0, j] = ul[0, j].clone()
+            #     if u[0, j] >= um[0, j]:
+            #         u[0, j] = um[0, j].clone()
+
             if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
                 u[0, fault_control_index] = 0 * ul[0, 0].clone() #  0 * (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone()
                 fault_start = 1.0
             else:
                 fault_start = 0.0
-
-            for j in range(m_control):
-                if u[0, j] < 0.0:
-                    u[0, j] = 0.0
-                if u[0, j] > um[0, j]:
-                    u[0, j] = um[0, j].clone()
 
             u = u.clone().type(torch.float32)
             
@@ -216,12 +232,8 @@ def main():
             else:
                 pred_acc = 1 - torch.abs(gamma_NN[:, fault_control_index] - 1)
             
-            if gamma_min >= FT_tol:
-                gamma_NN[0, fault_index_NN] = 1.0
-                gamma_min = 1.0
             # print(gamma_NN)
-            # print(gamma_NN)
-
+            
             # if fault_index_NN == fault_index_NN_prev:
             #     fault_count += 1
             #     gamma_cumulative = (gamma_cumulative + gamma_min) / 2
@@ -240,11 +252,21 @@ def main():
         if gamma_min > FT_tol:
             detect = 0
             fault_index_NN = -1
+            detect_start = -1
+            gamma_cum = 1
         else:
             if detect_start == -1:
                 detect_start = i
+                gamma_cum = 0
+        
+        if detect_start >= 0 and i - detect_start <= fault_pred_buff:
+            gamma_cum += gamma_min / fault_pred_buff
+            print(gamma_cum)
 
-        if (gamma_min < FT_tol and i - detect_start > 50): # or detect == 1:
+        if fault_start == 1:
+            detect = 1
+
+        if (gamma_cum < FT_tol and i - detect_start > fault_pred_buff and detect_start >= 0) or detect == 1:
 
             detect = 1
 
@@ -254,17 +276,17 @@ def main():
 
             u_new = u_new.clone().type(torch.float32).reshape(n_sample, m_control)
             
-            u_new[0, fault_control_index] = u[0, fault_control_index].clone()
+            u_new[0, fault_index_NN] = u[0, fault_index_NN].clone()
             
             u = u_new.clone()
 
             u_command = u.clone()
 
-            for j in range(m_control):
-                if u[0, j] <= ul[0, j]:
-                    u[0, j] = ul[0, j].clone()
-                if u[0, j] >= um[0, j]:
-                    u[0, j] = um[0, j].clone()
+            # for j in range(m_control):
+            #     if u[0, j] <= ul[0, j]:
+            #         u[0, j] = ul[0, j].clone()
+            #     if u[0, j] >= um[0, j]:
+            #         u[0, j] = um[0, j].clone()
 
             gxu_no_fault = torch.matmul(gx, u.reshape(m_control, 1))
 
@@ -272,10 +294,15 @@ def main():
 
             if fault_start_epoch <= i <= fault_start_epoch + fault_duration:
                 u[0, fault_control_index] = 0 * ul[0, 0].clone() #  0 * (torch.sin(torch.tensor(i / 100)) ** 2) * um[0, 0].clone() #  torch.rand(1) / 4
+                fault_start = 1.0
+            else:
+                fault_start = 0.0
 
             gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
             dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
+        else:
+            detect = 0
 
         detect_activity = np.vstack((detect_activity, detect))
         
@@ -297,6 +324,15 @@ def main():
         if fault_known == 1:
             dot_h_pl = np.vstack((dot_h_pl, dot_h.clone().detach().numpy()))
         
+        state_traj = torch.cat([state_traj, state.reshape(1, 1, n_state)], dim=-2)
+        state_traj = state_traj[:, -traj_len:, :]
+
+        state_traj_diff = torch.cat([state_traj_diff, state_diff.reshape(1, 1, n_state)], dim=-2)
+        state_traj_diff = state_traj_diff[:, -traj_len:, :]
+
+        u_traj = torch.cat([u_traj, u_command.reshape(1, 1, m_control)], dim=-2)
+        u_traj = u_traj[:, -traj_len:, :]
+
         state_next = state + dx * dt
 
         state_next_no_fault = state + dx_no_fault * dt
@@ -327,15 +363,7 @@ def main():
         state = state_next.clone()
 
         state_diff = state_next_no_fault - state
-        
-        state_traj = torch.cat([state_traj, state_next.reshape(1, 1, n_state)], dim=-2)
-        state_traj = state_traj[:, -traj_len:, :]
-
-        state_traj_diff = torch.cat([state_traj, state_diff.reshape(1, 1, n_state)], dim=-2)
-        state_traj_diff = state_traj_diff[:, -traj_len:, :]
-
-        u_traj = torch.cat([u_traj, u_command.reshape(1, 1, m_control)], dim=-2)
-        u_traj = u_traj[:, -traj_len:, :]
+    
 
     time_pl = np.arange(0.0, dt * config.EVAL_STEPS + dt, dt)
     
@@ -369,81 +397,100 @@ def main():
     z_ax.plot(
         time_pl,
         0 * time_pl + unsafe_z,
-        color="k",
+        color= colors[0],
         linestyle="--",
         linewidth=4.0,
     )
     z_ax.text(time_pl.max() * 0.05, unsafe_z + 0.1, "Unsafe boundary")
     z_ax.plot([], [], color=colors[1], linestyle="-", linewidth=4.0, label="CBF h(x)")
-    z_ax.set_ylabel("Height (m)", color=colors[0])
-    z_ax.set_xlabel("Time (s)")
+    z_ax.set_ylabel("Height (m)", color=colors[0], fontsize = 40)
+    z_ax.set_xlabel("Time (s)", fontsize=40)
     z_ax.set_xlim(time_pl[0], time_pl[-1])
-    z_ax.tick_params(axis="y", labelcolor=colors[0])
-    z_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.17), ncol=2, frameon=False)
+    z_ax.tick_params(axis="y", labelcolor=colors[0], labelsize = 30)
+    z_ax.tick_params(axis="x", labelsize = 30)
+    z_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.3), ncol=2, frameon=False, fontsize = 40)
 
     h_ax = z_ax.twinx()
     h_ax.plot(time_pl, h_pl, linestyle="-", linewidth=4.0, color=colors[1])
     h_ax.plot(
         time_pl,
         0 * time_pl,
-        color="k",
+        color=colors[1],
         linestyle="--",
         linewidth=4.0,
         label="Unsafe boundary",
     )
-    h_ax.set_ylabel("CBF value", color=colors[1])
-    h_ax.tick_params(axis="y", labelcolor=colors[1])
 
+    h_ax.text(time_pl.max() * 0.05, 0.1, "Unsafe boundary", color = colors[1])
+
+    h_ax.set_ylabel("CBF value", color=colors[1], fontsize = 40)
+    h_ax.tick_params(axis="y", labelcolor=colors[1], labelsize = 30)
+    h_ax.set_xlim(time_pl[0], time_pl[-1])
+    
     # Plot the control action on another axis
     u_ax = axs[0, 1]
-    u_ax.plot(time_pl, u2, linewidth=2.0, label="$u_2$ (faulty)")
-    u_ax.plot(time_pl, u1, linewidth=2.0, label="$u_1$")
-    u_ax.plot(time_pl, u3, linewidth=2.0, label="$u_3$")
-    u_ax.plot(time_pl, u4, linewidth=2.0, label="$u_4$")
-    u_ax.set_xlabel("Time (s)")
-    u_ax.set_ylabel("Control effort")
+    u_ax.plot(time_pl, u2, linewidth=4.0, label="$u_2$ (faulty)")
+    u_ax.plot(time_pl, u1, linewidth=4.0, label="$u_1$")
+    u_ax.plot(time_pl, u3, linewidth=4.0, label="$u_3$")
+    u_ax.plot(time_pl, u4, linewidth=4.0, label="$u_4$")
+    u_ax.set_xlabel("Time (s)", fontsize = 40)
+    u_ax.set_ylabel("Control effort", fontsize = 40)
     u_ax.set_xlim(time_pl[0], time_pl[-1])
     u_ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.5, 1.17),
+        bbox_to_anchor=(0.5, 1.3),
         ncol=4,
         frameon=False,
         columnspacing=0.7,
         handlelength=0.7,
         handletextpad=0.3,
+        fontsize = 40,
     )
+    u_ax.tick_params(axis = "x", labelsize = 30)
+    u_ax.tick_params(axis = "y", labelsize = 30)
+    u_ax.set_xlim(time_pl[0], time_pl[-1])
 
     w_ax = axs[1, 0]
     
     w_ax.plot(time_pl, actual_fault_index + 1.0, linewidth=4.0, label="Actual fault index")
     w_ax.plot(time_pl, NN_fault_index + 1.0, linewidth=4.0, label="Predicted fault index")
-    w_ax.set_xlabel("Time (s)")
-    w_ax.set_ylabel("Fault Index")
+    w_ax.set_xlabel("Time (s)", fontsize = 40)
+    w_ax.set_ylabel("Fault Index", fontsize = 40)
     w_ax.set_ylim(-0.5, 4.5)
     w_ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.5, 1.17),
+        bbox_to_anchor=(0.5, 1.3),
         ncol=3,
         frameon=False,
+        fontsize = 40,
         # columnspacing=0.7,
         # handlelength=0.7,
         # handletextpad=0.3,
     )
 
+    w_ax.tick_params(axis = "x", labelsize = 30)
+    w_ax.tick_params(axis = "y", labelsize = 30)
+    w_ax.set_xlim(time_pl[0], time_pl[-1])
+
     acc_ax = axs[1, 1]
     acc_ax.plot(time_pl, pred_pl, linewidth=4.0, label="Prediction accuracy")
-    acc_ax.set_xlabel("Time (s)")
-    acc_ax.set_ylabel("Accuracy")
+    acc_ax.set_xlabel("Time (s)", fontsize = 40)
+    acc_ax.set_ylabel("Accuracy", fontsize = 40)
     acc_ax.set_ylim(-0.2, 1.2)
     acc_ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.5, 1.17),
+        bbox_to_anchor=(0.5, 1.3),
         ncol=3,
         frameon=False,
+        fontsize = 40,
         # columnspacing=0.7,
         # handlelength=0.7,
         # handletextpad=0.3,
     )
+
+    acc_ax.tick_params(axis = "x", labelsize = 30)
+    acc_ax.tick_params(axis = "y", labelsize = 30)
+    acc_ax.set_xlim(time_pl[0], time_pl[-1])
 
     fig.tight_layout(pad=1.15)
     

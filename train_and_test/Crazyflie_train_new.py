@@ -3,6 +3,7 @@ import sys
 import torch
 import numpy as np
 import argparse
+import platform
 
 sys.path.insert(1, os.path.abspath('..'))
 sys.path.insert(1, os.path.abspath('.'))
@@ -68,6 +69,10 @@ fault_control_index = 1
 
 t = TicToc()
 
+gpu_id = 0 # torch.cuda.current_device()
+
+if platform.uname()[1] == 'realm2':
+    gpu_id = 0
 
 def main(args):
     fault = args.fault
@@ -84,12 +89,12 @@ def main(args):
     # nn_controller.eval()
     if init_param == 1:
         try:
-            if fault == 0:
-                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
+            # if fault == 0:
+            cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
                 # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
                 # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
-            else:
-                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth'))
+            # else:
+                # cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth'))
                 # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
                 # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
             cbf.eval()
@@ -112,10 +117,10 @@ def main(args):
             except:
                 print("No pre-train data available")
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u)
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u, buffer_size=n_sample * 100)
     trainer = Trainer(cbf, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
-                      fault=fault, gpu_id=0,
+                      fault=fault, gpu_id=gpu_id,
                       fault_control_index=fault_control_index)
     loss_np = 1.0
     safety_rate = 0.0

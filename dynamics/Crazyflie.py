@@ -344,10 +344,10 @@ class CrazyFlies(ControlAffineSystemNew):
             safe_w_l = -5
             # safe_angle = np.pi / 5.0
         else:
-            safe_z_l = 1.5
-            safe_z_u = 8.5
-            safe_w_u = 6
-            safe_w_l = -6
+            safe_z_l = 1.9
+            safe_z_u = 8.1
+            safe_w_u = 5.1
+            safe_w_l = -5.1
             # safe_angle = np.pi / 4.8
 
         upper_limit = 0.9 * sm
@@ -397,10 +397,10 @@ class CrazyFlies(ControlAffineSystemNew):
             safe_w_l = -5
             # safe_angle = np.pi / 5.0
         else:
-            safe_z_l = 1.5
-            safe_z_u = 8.5
-            safe_w_u = 6
-            safe_w_l = -6
+            safe_z_l = 1.9
+            safe_z_u = 8.1
+            safe_w_u = 5.1
+            safe_w_l = -5.1
             # safe_angle = np.pi / 4.8
 
         safe_mask = torch.logical_and(x[:, CrazyFlies.Z] >= safe_z_l, x[:, CrazyFlies.Z] <= safe_z_u)

@@ -86,8 +86,11 @@ def main():
 
     FT_cbf.eval()
 
-    state = x0.clone().reshape(1, n_state)
+    # state = x0.clone().reshape(1, n_state)
+    state = dynamics.sample_safe(1)
+
     state = state.repeat(4, 1)
+
     state_next = state.clone()
 
     safety_rate = np.array([0.0] * 4).reshape(4,)
@@ -117,7 +120,7 @@ def main():
 
     # rand_start = random.uniform(1.01, 50)
 
-    fault_start_epoch = math.floor(config.EVAL_STEPS / 1.8)
+    fault_start_epoch = math.floor(config.EVAL_STEPS / 4)
     
     fault_start = 0
     
@@ -161,13 +164,13 @@ def main():
                 else:
                     h, grad_h = FT_cbf.V_with_jacobian(state[k, :].reshape(1, n_state, 1))
 
-                u = util.neural_controller(u_nominal, fx, gx, h, grad_h, fault_start)
+                u = util.fault_controller(u_nominal, fx, gx, h, grad_h, np.array([fault_start]).reshape(1,1), np.array([1]).reshape(1,1))
                 
                 u = u.reshape(1, m_control)
 
                 if fault_start == 1:
                     if k == 0:
-                        u[0, fault_control_index] = ul[0, 0].clone() * 20 # torch.rand(1) / 4
+                        u[0, fault_control_index] = 0 * ul[0, 0].clone() # torch.rand(1) / 4
                     elif k == 1:
                         u[0, fault_control_index] = um[0, 0].clone()
                     elif k == 2:
@@ -176,8 +179,8 @@ def main():
                         u[0, fault_control_index] = torch.rand(1) / 4
                     
                 for j in range(m_control):
-                    if u[0, j] < ul[0, j]:
-                        u[0, j] = ul[0, j].clone()
+                    if u[0, j] < 0:
+                        u[0, j] = 0 * ul[0, j].clone()
                     if u[0, j] > um[0, j]:
                         u[0, j] = um[0, j].clone()
 
@@ -201,8 +204,8 @@ def main():
                     fault_start = 0.0
 
                 for j in range(m_control):
-                    if u[0, j] < ul[0, j]:
-                        u[0, j] = ul[0, j].clone()
+                    if u[0, j] < 0:
+                        u[0, j] = 0 * ul[0, j].clone()
                     if u[0, j] > um[0, j]:
                         u[0, j] = um[0, j].clone()
 
