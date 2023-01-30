@@ -30,7 +30,7 @@ n_state = 12
 m_control = 4
 fault = 0
 
-FT_tol = 0.01
+FT_tol = 0.1
 
 traj_len = config.TRAJ_LEN
 
@@ -101,8 +101,8 @@ def main():
 
     gamma.eval()
 
-    # state = dynamics.sample_safe(1)
-    state = x0.clone() # + torch.randn(1, n_state)
+    state = dynamics.sample_safe(1)
+    # state = x0.clone() # + torch.randn(1, n_state)
 
     state_next_no_fault = state.clone()
 
@@ -182,6 +182,7 @@ def main():
             h, grad_h = NN_cbf.V_with_jacobian(state.reshape(1, n_state, 1))
 
             h_prev, _ = NN_cbf.V_with_jacobian(previous_state.reshape(1, n_state, 1))
+
             u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
 
             u = u.clone().type(torch.float32)
@@ -261,10 +262,7 @@ def main():
         
         if detect_start >= 0 and i - detect_start <= fault_pred_buff:
             gamma_cum += gamma_min / fault_pred_buff
-            print(gamma_cum)
-
-        if fault_start == 1:
-            detect = 1
+            # print(gamma_cum)
 
         if (gamma_cum < FT_tol and i - detect_start > fault_pred_buff and detect_start >= 0) or detect == 1:
 

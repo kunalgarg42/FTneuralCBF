@@ -309,7 +309,7 @@ class CrazyFlies(ControlAffineSystemNew):
         upper_limit = torch.ones(self.n_dims)
         upper_limit[CrazyFlies.X] = 15.0
         upper_limit[CrazyFlies.Y] = 15.0
-        upper_limit[CrazyFlies.Z] = 15.0
+        upper_limit[CrazyFlies.Z] = 25.0
         upper_limit[CrazyFlies.U] = 10.0
         upper_limit[CrazyFlies.V] = 10.0
         upper_limit[CrazyFlies.W] = 10.0
@@ -339,15 +339,15 @@ class CrazyFlies(ControlAffineSystemNew):
 
         if fault == 0:
             safe_z_l = 2
-            safe_z_u = 8
-            safe_w_u = 5
-            safe_w_l = -5
+            safe_z_u = 24
+            safe_w_u = 8
+            safe_w_l = -8
             # safe_angle = np.pi / 5.0
         else:
             safe_z_l = 1.9
-            safe_z_u = 8.1
-            safe_w_u = 5.1
-            safe_w_l = -5.1
+            safe_z_u = 24.1
+            safe_w_u = 8.1
+            safe_w_l = -8.1
             # safe_angle = np.pi / 4.8
 
         upper_limit = 0.9 * sm
@@ -392,15 +392,15 @@ class CrazyFlies(ControlAffineSystemNew):
 
         if fault == 0:
             safe_z_l = 2
-            safe_z_u = 8
-            safe_w_u = 5
-            safe_w_l = -5
+            safe_z_u = 24
+            safe_w_u = 8
+            safe_w_l = -8
             # safe_angle = np.pi / 5.0
         else:
             safe_z_l = 1.9
-            safe_z_u = 8.1
-            safe_w_u = 5.1
-            safe_w_l = -5.1
+            safe_z_u = 24.1
+            safe_w_u = 8.1
+            safe_w_l = -8.1
             # safe_angle = np.pi / 4.8
 
         safe_mask = torch.logical_and(x[:, CrazyFlies.Z] >= safe_z_l, x[:, CrazyFlies.Z] <= safe_z_u)
@@ -424,10 +424,10 @@ class CrazyFlies(ControlAffineSystemNew):
         # unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
 
         # if fault == 0:
-        unsafe_z_l = 1
-        unsafe_z_u = 9.5
-        unsafe_w_l = -7.5
-        unsafe_w_u = 7.5
+        unsafe_z_l = 0.2
+        unsafe_z_u = 23.5
+        unsafe_w_l = -9.5
+        unsafe_w_u = 9.5
             # unsafe_angle = np.pi / 4.7
         # else:
         #     unsafe_z_l = 1.2

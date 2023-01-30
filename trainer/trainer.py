@@ -532,7 +532,14 @@ class Trainer(object):
 
         # ns = int(state.shape[0] / traj_len)
         ns = state.shape[0]
+        # f = self.dyn._f(state.reshape(ns * traj_len, self.n_state), self.params)
 
+        # g = self.dyn._g(state.reshape(ns * traj_len, self.n_state), self.params)
+
+        # dsdt = f + torch.matmul(g, u.reshape(ns * traj_len, self.m_control, 1))
+
+        # dsdt = dsdt.reshape(ns, traj_len, self.n_state)
+        # dsdt = self.nominal_dynamics(state.reshape(ns * traj_len, self.n_state), u.reshape(ns * traj_len, self.m_control))
         # if state.get_device() >= 0:
         #     state = state.cuda(self.gpu_id)
         #     state_diff = state_diff.cuda(self.gpu_id)

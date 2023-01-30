@@ -21,7 +21,7 @@ n_state = 12
 m_control = 4
 fault = 0
 fault_control_index = 1
-dt = 0.01
+dt = 0.001
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
@@ -119,7 +119,8 @@ colors = sns.color_palette()
 
 z_ax.plot(z, h_pre_store, linewidth=4.0, label="$h_{pre}$", color=colors[0])
 z_ax.plot(z, h_post_store, linewidth=4.0, label="$h_{post}$", color=colors[1])
-z_ax.tick_params(axis="y", labelcolor=colors[0])
+z_ax.tick_params(axis="y", labelcolor=colors[0], labelsize = 25)
+z_ax.tick_params(axis="x", labelsize = 25)
 
 z_ax.fill_between(
         [2, 8],
@@ -165,9 +166,13 @@ z_ax.plot(
         label="h = 0",
     )
 
-z_ax.legend()
-z_ax.set_xlim(0, 11)
+z_ax.legend(ncol = 3, fontsize = 30)
+z_ax.set_xlim(0, 6)
 
 # if fault == 0:
-z_ax.set_title('CBF plots over z')
+z_ax.set_title('CBF plots over z', fontsize = 45)
+
+plt.xlabel('CBF h(x)', fontsize = 40)
+plt.ylabel('Altitude z', fontsize = 40)
+
 plt.savefig('./plots/Cbf_cf_both.png')

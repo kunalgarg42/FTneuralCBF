@@ -69,8 +69,8 @@ gpu_id = 0
 def main(args):
     fault_control_index = args.fault_index
     use_nom = args.use_nom
-    str_data = './data/CF_gamma_NN_weightssingle1.pth'
-    str_good_data = './good_data/data/CF_gamma_NN_weightssingle1.pth'
+    str_data = './data/CF_gamma_NN_weights_only_res.pth'
+    str_good_data = './good_data/data/CF_gamma_NN_weights_only_res.pth'
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)
@@ -169,7 +169,7 @@ def main(args):
         
         if k >= traj_len - 1:
             
-            gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :], state_traj_diff[:, k - traj_len + 1:k + 1, :], u_traj[:, k - traj_len + 1:k + 1, :])
+            gamma_NN = gamma(0 * state_traj[:, k - traj_len + 1:k + 1, :], state_traj_diff[:, k - traj_len + 1:k + 1, :], 0 * u_traj[:, k - traj_len + 1:k + 1, :])
             
             gamma_pred = gamma_NN.reshape(n_sample, m_control).clone().detach()
             

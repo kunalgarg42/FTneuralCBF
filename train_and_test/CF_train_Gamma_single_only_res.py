@@ -18,8 +18,6 @@ from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, Gamma
 
-torch.backends.cudnn.benchmark = True
-
 xg = torch.tensor([[0.0,
                     0.0,
                     5.5,
@@ -58,9 +56,11 @@ init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
 n_sample = 500
 
+# n_sample_data = 500
+
 fault = nominal_params["fault"]
 
-fault_control_index = 1
+fault_control_index = 0
 
 t = TicToc()
 
@@ -74,8 +74,8 @@ def main(args):
     fault_control_index = args.fault_index
     traj_len = args.traj_len
     num_traj_factor = 1.5
-    str_data = './data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
-    str_good_data = './good_data/data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
+    str_data = './data/CF_gamma_NN_weights_only_res.pth'
+    str_good_data = './good_data/data/CF_gamma_NN_weights_only_res.pth'
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
@@ -110,25 +110,34 @@ def main(args):
     sm, sl = dynamics.state_limits()
     
     loss_current = 100.0
+    # C1 = np.eye(n_state)
+    # C2 = np.array([0]*n_state*m_control).reshape(n_state, m_control)
+    # C_EKF = np.hstack((C1, C2))
+    
+    # state_EKF = torch.ones(n_state + m_control, 1)
+    
+    # P = np.eye(n_state + m_control)
 
     for i in range(1000):
         
-        new_goal = dynamics.sample_safe(1)
-
-        new_goal = new_goal.reshape(n_state, 1)
+        new_goal = torch.randn(n_state, 1)
 
         gamma_actual_bs = torch.ones(n_sample, m_control)
-
+        # gamma_fault_rand = torch.rand() / 4
         for j in range(n_sample):
-            temp_var = np.mod(n_sample, 2)
+            temp_var = np.mod(j, 2)
             if temp_var < 1:
                 gamma_actual_bs[j, fault_control_index] = 0.0
-           
+            # else:
+                # gamma_actual_bs[j, fault_control_index]
+        # fault_control_index = int(np.mod(i, 8) / 2)
+        # gamma_actual_bs[:, fault_control_index] = torch.ones(n_sample,) * 0.2
         rand_ind = torch.randperm(n_sample)
-
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
+
+        # dataset.add_data(torch.tensor([]).reshape(0, traj_len, n_state), torch.tensor([]).reshape(0, traj_len, n_state), torch.tensor([]).reshape(0, traj_len, m_control), gamma_actual_bs)
         
-        state = dynamics.sample_safe(n_sample) + torch.randn(n_sample, n_state) * 2
+        state = dynamics.sample_safe(n_sample)
                 
         state_no_fault = state.clone()
 
@@ -138,6 +147,8 @@ def main(args):
         
         t.tic()
         
+        gamm_pred = torch.ones(n_sample, m_control)
+
         state_traj = torch.zeros(n_sample, int(num_traj_factor * traj_len), n_state)
     
         state_traj_diff = state_traj.clone()
@@ -162,23 +173,7 @@ def main(args):
             # state_traj_gamma[:, k, :] = state_gamma.clone()
             gxu_no_fault = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
             
-            # if k >= np.mod(i, traj_len):
-            #     param = k
-            # else:
-            #     param = -1
-            # gamma_applied = torch.ones(n_sample, m_control)
-
-            # if k <= traj_len:
-            #     # gamma_ind = np.arange(n_sample - k * traj_len, n_sample)
-            #     # if sum(gamma_ind) > 0:
-            #     gamma_applied[-k * 10:] = gamma_actual_bs[-k * 10:].clone()
-            # else:
-            #     gamma_applied = gamma_actual_bs.clone()
-
-            if k >= traj_len - 2:
-                u = u * gamma_actual_bs
-
-            # u = u * gamma_applied
+            u = u * gamma_actual_bs * gamm_pred
             
             gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
 
@@ -201,10 +196,16 @@ def main(args):
             is_safe = int(torch.sum(util.is_safe(state))) / n_sample
 
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
-                
-            if k >= traj_len - 1:
-                dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], gamma_actual_bs)
         
+        # print(state_EKF[-m_control:])
+        
+        # dataset.add_data(state_traj.reshape(n_sample * traj_len, n_state), 1 * state_traj_diff.reshape(n_sample * traj_len, n_state), u_traj.reshape(n_sample * traj_len, m_control), torch.tensor([]).reshape(0, m_control))
+            if k >= traj_len - 1:
+                dataset.add_data(0 * state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], 0 * u_traj[:, k-traj_len + 1:k + 1, :], gamma_actual_bs)
+                    # state_traj = state_traj[:, -traj_len:, :]
+                    # state_traj_diff = state_traj_diff[:, -traj_len:, :]
+                    # u_traj = u_traj[:, -traj_len:, :]
+
         loss_np, acc_np, acc_ind = trainer.train_gamma()
 
         time_iter = t.tocvalue()
@@ -219,8 +220,8 @@ def main(args):
             if loss_np < 0.01 or acc_np > 0.96:
                 torch.save(gamma.state_dict(), str_good_data)
         
-            if loss_np < 0.001 and i > 250:
-                break
+        if loss_np < 0.001 and i > 250:
+            break
 
 
 if __name__ == '__main__':
