@@ -56,7 +56,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 200
+n_sample = 500
 
 fault = nominal_params["fault"]
 
@@ -67,7 +67,7 @@ t = TicToc()
 gpu_id = 0 # torch.cuda.current_device()
 
 if platform.uname()[1] == 'realm2':
-    gpu_id = 3
+    gpu_id = 2
 
 def main(args):
     fault = 1

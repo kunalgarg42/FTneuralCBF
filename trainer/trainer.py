@@ -396,8 +396,6 @@ class Trainer(object):
                     index_num = torch.sum(index_fault)
                     acc_ind_temp[0, j] = 1 - torch.abs(torch.sum(gamma_actual[index_fault, j] - gamma_data[index_fault, j]) / (index_num + 1e-5))
                 
-                loss = 0.0
-
                 index_no_fault = torch.sum(gamma_actual, dim=1) == self.m_control
                 index_num = torch.sum(index_no_fault)
                 acc_ind_temp[0, -1] = torch.sum(gamma_data[index_no_fault, :]) / (index_num + 1e-5) / self.m_control
@@ -414,6 +412,8 @@ class Trainer(object):
                                 
                 acc_np += torch.sum(torch.linalg.norm(gamma_error.detach().cpu(), dim=1) < eps_deriv) / num_gamma
                 
+                loss = 0.0
+
                 for j in range(self.m_control):
                     loss += 10 * torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, j]).reshape(1, num_gamma)) / num_gamma / (acc_ind_temp[0, j] + 1e-5)
 
