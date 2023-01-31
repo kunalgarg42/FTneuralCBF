@@ -308,9 +308,7 @@ class CrazyFlies(ControlAffineSystemNew):
         upper_limit[CrazyFlies.P] = 2
 
         lower_limit = -1.0 * upper_limit
-        lower_limit[CrazyFlies.Z] = 0
-        # lower_limit = torch.tensor(lower_limit)
-        # upper_limit = torch.tensor(upper_limit)
+        lower_limit[CrazyFlies.Z] = -5
 
         return (upper_limit, lower_limit)
 
@@ -326,13 +324,13 @@ class CrazyFlies(ControlAffineSystemNew):
 
         if fault == 0:
             safe_z_l = 2
-            safe_z_u = 24
+            safe_z_u = 20
             safe_w_u = 8
             safe_w_l = -8
             # safe_angle = np.pi / 5.0
         else:
             safe_z_l = 1.9
-            safe_z_u = 24.1
+            safe_z_u = 20.1
             safe_w_u = 8.1
             safe_w_l = -8.1
             # safe_angle = np.pi / 4.8
@@ -343,10 +341,6 @@ class CrazyFlies(ControlAffineSystemNew):
         lower_limit[CrazyFlies.Z] = safe_z_l
         upper_limit[CrazyFlies.W] = safe_w_u
         lower_limit[CrazyFlies.W] = safe_w_l
-        # upper_limit[CrazyFlies.PHI] = safe_angle
-        # lower_limit[CrazyFlies.PHI] = - safe_angle
-        # upper_limit[CrazyFlies.THETA] = safe_angle
-        # lower_limit[CrazyFlies.THETA] = - safe_angle
 
         return (upper_limit, lower_limit)
 
@@ -360,8 +354,6 @@ class CrazyFlies(ControlAffineSystemNew):
         upper_limit = torch.tensor([1, 1, 1, 1]) * 0.15
         lower_limit = 0.01 * upper_limit
 
-        # lower_limit = torch.tensor(lower_limit)
-        # upper_limit = torch.tensor(upper_limit)
 
         return (upper_limit, lower_limit)
 
@@ -377,24 +369,19 @@ class CrazyFlies(ControlAffineSystemNew):
 
         if fault == 0:
             safe_z_l = 2
-            safe_z_u = 24
+            safe_z_u = 20
             safe_w_u = 8
             safe_w_l = -8
-            # safe_angle = np.pi / 5.0
         else:
             safe_z_l = 1.9
-            safe_z_u = 24.1
+            safe_z_u = 20.1
             safe_w_u = 8.1
             safe_w_l = -8.1
-            # safe_angle = np.pi / 4.8
 
         safe_mask = torch.logical_and(x[:, CrazyFlies.Z] >= safe_z_l, x[:, CrazyFlies.Z] <= safe_z_u)
         safe_mask.logical_and_(x[:, CrazyFlies.W] >= safe_w_l)
         safe_mask.logical_and_(x[:, CrazyFlies.W] <= safe_w_u)
-        # safe_mask.logical_and_(x[:, CrazyFlies.PHI] <= safe_angle)
-        # safe_mask.logical_and_(x[:, CrazyFlies.THETA] <= safe_angle)
-        # safe_mask.logical_and_(x[:, CrazyFlies.PHI] >= -safe_angle)
-        # safe_mask.logical_and_(x[:, CrazyFlies.THETA] >= -safe_angle)
+
         return safe_mask
 
     def unsafe_mask(self, x):
@@ -402,36 +389,14 @@ class CrazyFlies(ControlAffineSystemNew):
         args:
             x: a tensor of points in the state space
         """
-        # params = self.params
-        # fault = params["fault"]
-
-        # unsafe_mask = torch.zeros_like(x[:, 0], dtype=torch.bool)
-
-        # if fault == 0:
         unsafe_z_l = 0.2
-        unsafe_z_u = 23.5
-        unsafe_w_l = -9.5
-        unsafe_w_u = 9.5
-            # unsafe_angle = np.pi / 4.7
-        # else:
-        #     unsafe_z_l = 1.2
-        #     unsafe_z_u = 9.2
-        #     unsafe_w_l = -7
-        #     unsafe_w_u = 7
-            # unsafe_angle = np.pi / 4.7
+        unsafe_z_u = 21.5
+        unsafe_w_l = -9
+        unsafe_w_u = 9
 
         unsafe_mask = torch.logical_or(x[:, CrazyFlies.Z] <= unsafe_z_l, x[:, CrazyFlies.Z] >= unsafe_z_u)
-        # unsafe_mask.logical_or_(x[:,CrazyFlies.PHI] >= unsafe_angle)
-        # unsafe_mask.logical_or_(x[:,CrazyFlies.PHI] <= - unsafe_angle)
-        # unsafe_mask.logical_or_(x[:,CrazyFlies.THETA] >= unsafe_angle)
-        # unsafe_mask.logical_or_(x[:,CrazyFlies.THETA] >= - unsafe_angle)
         unsafe_mask.logical_or_(x[:, CrazyFlies.W] >= unsafe_w_u)
         unsafe_mask.logical_or_(x[:, CrazyFlies.W] <= unsafe_w_l)
-
-        # unsafe_mask.logical_or_(x[:, CrazyFlies.PHI] <= -unsafe_angle)
-        # unsafe_mask.logical_or_(x[:, CrazyFlies.PHI] >= unsafe_angle)
-        # unsafe_mask.logical_or_(x[:, CrazyFlies.THETA] <= -unsafe_angle)
-        # unsafe_mask.logical_or_(x[:, CrazyFlies.THETA] >= unsafe_angle)
 
         return unsafe_mask
 

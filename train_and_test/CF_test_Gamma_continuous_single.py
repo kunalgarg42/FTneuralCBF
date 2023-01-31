@@ -69,8 +69,8 @@ gpu_id = 0
 def main(args):
     fault_control_index = args.fault_index
     use_nom = args.use_nom
-    str_data = './data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
-    str_good_data = './good_data/data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
+    str_data = './data/CF_gamma_NN_weightssingle1.pth'.format(fault_control_index)
+    str_good_data = './good_data/data/CF_gamma_NN_weightssingle1.pth'.format(fault_control_index)
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)

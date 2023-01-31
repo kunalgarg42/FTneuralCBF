@@ -60,6 +60,7 @@ FT_cbf.eval()
 
 sm, sl = dynamics.state_limits()
 
+
 # h contour in 2D: z and w
 zl = -1
 zu = 11
@@ -122,8 +123,13 @@ z_ax.plot(z, h_post_store, linewidth=4.0, label="$h_{post}$", color=colors[1])
 z_ax.tick_params(axis="y", labelcolor=colors[0], labelsize = 25)
 z_ax.tick_params(axis="x", labelsize = 25)
 
+
+nofault_sm, nofault_sl = dynamics.safe_limits(sm, sl, fault=0)
+
+fault_sm, fault_sl = dynamics.safe_limits(sm ,sl, fault=1)
+
 z_ax.fill_between(
-        [2, 8],
+        [nofault_sl[2], nofault_sm[2]],
         [-2.0, -2.0],
         [2.0, 2.0],
         color="grey",
@@ -132,7 +138,7 @@ z_ax.fill_between(
     )
 
 z_ax.fill_between(
-        [1.5, 8.5],
+        [fault_sl[2], fault_sm[2]],
         [-2.0, -2.0],
         [2.0, 2.0],
         color="grey",
@@ -141,7 +147,7 @@ z_ax.fill_between(
     )
 
 z_ax.fill_between(
-        [0, 1],
+        [0, 0.2],
         [-2.0, -2.0],
         [2.0, 2.0],
         color="blue",
@@ -149,13 +155,13 @@ z_ax.fill_between(
         label="$X_{unsafe}$",
     )
 
-z_ax.fill_between(
-        [9.5, 11],
-        [-2.0, -2.0],
-        [2.0, 2.0],
-        color="blue",
-        alpha=0.5,
-    )
+# z_ax.fill_between(
+#         [9.5, 11],
+#         [-2.0, -2.0],
+#         [2.0, 2.0],
+#         color="blue",
+#         alpha=0.5,
+#     )
 
 z_ax.plot(
         z,
@@ -167,7 +173,7 @@ z_ax.plot(
     )
 
 z_ax.legend(ncol = 3, fontsize = 30)
-z_ax.set_xlim(0, 6)
+z_ax.set_xlim(0, 20)
 
 # if fault == 0:
 z_ax.set_title('CBF plots over z', fontsize = 45)
