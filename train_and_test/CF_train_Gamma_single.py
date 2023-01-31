@@ -54,7 +54,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 fault = nominal_params["fault"]
 
-init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
+init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
 n_sample = 200
 
@@ -74,8 +74,8 @@ def main(args):
     fault_control_index = args.fault_index
     traj_len = args.traj_len
     num_traj_factor = 1.5
-    str_data = './data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
-    str_good_data = './good_data/data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
+    str_data = './data/CF_gamma_NN_weightssingle1.pth'
+    str_good_data = './good_data/data/CF_gamma_NN_weightssingle1.pth'
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
@@ -120,10 +120,10 @@ def main(args):
         gamma_actual_bs = torch.ones(n_sample, m_control)
 
         for j in range(n_sample):
-            temp_var = np.mod(n_sample, 2)
+            temp_var = np.mod(j, 2)
             if temp_var < 1:
                 gamma_actual_bs[j, fault_control_index] = 0.0
-           
+
         rand_ind = torch.randperm(n_sample)
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]

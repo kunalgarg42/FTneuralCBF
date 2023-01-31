@@ -402,8 +402,6 @@ class Trainer(object):
                 index_num = torch.sum(index_no_fault)
                 acc_ind_temp[0, -1] = torch.sum(gamma_data[index_no_fault, :]) / (index_num + 1e-5) / self.m_control
 
-                loss += 10 * (1 - acc_ind_temp[0, -1]) / (acc_ind_temp[0, -1].detach() + 1e-5)
-
                 acc_ind += acc_ind_temp
                 # acc_ind_temp = acc_ind.clone()
                 acc_ind_temp = acc_ind_temp.detach()
