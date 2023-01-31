@@ -69,8 +69,8 @@ gpu_id = 0
 def main(args):
     fault_control_index = args.fault_index
     use_nom = args.use_nom
-    str_data = './data/CF_gamma_NN_weightssingle1.pth'
-    str_good_data = './good_data/data/CF_gamma_NN_weightssingle1.pth'
+    str_data = './data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
+    str_good_data = './good_data/data/CF_gamma_NN_weightssingle{}.pth'.format(fault_control_index)
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)
@@ -101,7 +101,6 @@ def main(args):
         temp_var = np.mod(j, 2)
         if temp_var < 1:
             gamma_actual_bs[j, fault_control_index] = 0.0
-    # gamma_actual_bs[:, 1] = torch.zeros(n_sample,)
 
     rand_ind = torch.randperm(n_sample)
     gamma_actual_bs = gamma_actual_bs[rand_ind, :]
@@ -157,7 +156,7 @@ def main(args):
         
         state_no_fault = state.clone() + dx_no_fault * dt 
 
-        state = state.clone() + dx * dt #  + torch.randn(n_sample, n_state) * dt
+        state = state.clone() + dx * dt + torch.randn(n_sample, n_state) * dt
 
         for j2 in range(n_state):
             ind_sm = state[:, j2] > sm[j2]
@@ -176,9 +175,9 @@ def main(args):
             acc_ind = torch.zeros(1, m_control+1)            
             
             for j in range(m_control):
-                # index_fault = gamma_actual_bs[:, j]>=0
-                # index_num = torch.sum(index_fault)
-                acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[:, j] - gamma_pred[:, j]) / n_sample)
+                index_fault = gamma_actual_bs[:, j]==0
+                index_num = torch.sum(index_fault)
+                acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred[index_fault, j]) / (index_num + 1e-5))
             
             index_no_fault = torch.sum(gamma_actual_bs, dim=1) == m_control
             
@@ -190,7 +189,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-fault_index', type=int, default=1)
+    parser.add_argument('-fault_index', type=int, default=0)
     parser.add_argument('-use_nom', type=int, default=1)
     args = parser.parse_args()
     main(args)

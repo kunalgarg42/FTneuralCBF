@@ -292,7 +292,7 @@ def main(args):
             acc_ind3 = torch.zeros(1, m_control+1)            
             
             for j in range(m_control):
-                index_fault = gamma_actual_bs[:, j]>=0
+                index_fault = gamma_actual_bs[:, j] == 1
                 index_num = torch.sum(index_fault)
                 acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred[index_fault, j]) / (index_num + 1e-5))
                 acc_ind1[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred1[index_fault, j]) / (index_num + 1e-5))

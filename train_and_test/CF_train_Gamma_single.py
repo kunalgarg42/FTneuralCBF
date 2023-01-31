@@ -128,7 +128,7 @@ def main(args):
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
-        state = dynamics.sample_safe(n_sample) + torch.randn(n_sample, n_state) * 2
+        state = dynamics.sample_safe(n_sample) # + torch.randn(n_sample, n_state) * 2
                 
         state_no_fault = state.clone()
 
@@ -188,7 +188,7 @@ def main(args):
             
             state_no_fault = state.clone() + dx_no_fault * dt 
 
-            state = state.clone() + dx * dt + torch.randn(n_sample, n_state) * dt
+            state = state.clone() + dx * dt
             
             for j2 in range(n_state):
                 ind_sm = state[:, j2] > sm[j2]

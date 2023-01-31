@@ -214,7 +214,7 @@ class Utils(object):
 
         return u_nominal
 
-    def fault_controller(self, u_nominal, fx, gx, h, grad_h, detect=np.array([]), fault_index=np.array([])):
+    def fault_controller(self, u_nominal, fx, gx, h, grad_h):
         """
         args:
             state (n_state,)
@@ -248,11 +248,6 @@ class Utils(object):
             F[-1] = -1
 
             Lg = torch.matmul(grad_h[i, :, :], gx[i, :, :]).detach()
-
-            if detect.size > 0:
-                if detect[0][i] == 1 and fault_index[0][i] >=0:
-                    Lg[0, fault_index[0][i]] = 0  
-
             Lf = torch.matmul(grad_h[i, :, :], fx[i, :, :]).detach()
 
             if h[i] == 0:
