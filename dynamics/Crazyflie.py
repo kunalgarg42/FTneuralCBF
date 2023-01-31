@@ -17,28 +17,21 @@ from .utils import (
 class CrazyFlies(ControlAffineSystemNew):
     """
     The system has state
-
         x = [x, y, z, psi, theta, phi, u, v, w, r, q, p]
-
     representing the position, orientation, linear velocities, and angular velocities of the drone, and it
     has control inputs as the individual motor thrusts:
-
         u = [f1, f2, f3, f4] = T^(-1) * [U_1, U_2, U_3, U_4]
-
     where the transformation matrix is:
-
         T = [ [1, 1, 1, 1]
               [-d*sqrt(2), -d*sqrt(2), d*sqrt(2), d*sqrt(2)]
               [-d*sqrt(2), d*sqrt(2), d*sqrt(2), -d*sqrt(2)]
               [-CD/CT, CD/CT, -CD/CT, CD/CT] ]
-
     The system is parameterized by
         m: mass
         Ixx, Iyy, Izz: moments of inertia
         CT: thrust coefficient
         CD: drag coefficient
         d: quadcopter arm length
-
     NOTE: Z is defined as positive downwards
     """
 
@@ -82,7 +75,6 @@ class CrazyFlies(ControlAffineSystemNew):
         self.params = nominal_params
         """
         Initialize the quadrotor.
-
         args:
             nominal_params: a dictionary giving the parameter values for the system.
                             Requires keys ["m", "Ixx", "Iyy", "Izz", "CT", "CD", "d"]
@@ -95,7 +87,6 @@ class CrazyFlies(ControlAffineSystemNew):
 
     def validate_params(self, params) -> bool:
         """Check if a given set of parameters is valid
-
         args:
             params: a dictionary giving the parameter values for the system.
                     Requires keys ["m", "Ixx", "Iyy", "Izz", "CT", "CD", "d"]
@@ -251,9 +242,7 @@ class CrazyFlies(ControlAffineSystemNew):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Return a tuple (f, g) representing the system dynamics in control-affine form:
-
             dx/dt = f(x) + g(x) u
-
         args:
             x: bs x self.n_dims tensor of state
             params: a dictionary giving the parameter values for the system. If None,
@@ -278,9 +267,7 @@ class CrazyFlies(ControlAffineSystemNew):
     ) -> torch.Tensor:
         """
         Return the state derivatives at state x and control input u
-
             dx/dt = f(x) + g(x) u
-
         args:
             x: bs x self.n_dims tensor of state
             u: bs x self.n_controls tensor of controls
@@ -344,10 +331,10 @@ class CrazyFlies(ControlAffineSystemNew):
             safe_w_l = -8
             # safe_angle = np.pi / 5.0
         else:
-            safe_z_l = 1.5
-            safe_z_u = 8.5
-            safe_w_u = 6
-            safe_w_l = -6
+            safe_z_l = 1.9
+            safe_z_u = 24.1
+            safe_w_u = 8.1
+            safe_w_l = -8.1
             # safe_angle = np.pi / 4.8
 
         upper_limit = 0.9 * sm
@@ -380,9 +367,7 @@ class CrazyFlies(ControlAffineSystemNew):
 
     def safe_mask(self, x, fault=None):
         """Return the mask of x indicating safe regions for the task
-
         We don't want to crash to the floor, so we need a safe height to avoid the floor
-
         args:
             x: a tensor of points in the state space
         """
@@ -397,10 +382,10 @@ class CrazyFlies(ControlAffineSystemNew):
             safe_w_l = -8
             # safe_angle = np.pi / 5.0
         else:
-            safe_z_l = 1.5
-            safe_z_u = 8.5
-            safe_w_u = 6
-            safe_w_l = -6
+            safe_z_l = 1.9
+            safe_z_u = 24.1
+            safe_w_u = 8.1
+            safe_w_l = -8.1
             # safe_angle = np.pi / 4.8
 
         safe_mask = torch.logical_and(x[:, CrazyFlies.Z] >= safe_z_l, x[:, CrazyFlies.Z] <= safe_z_u)
@@ -414,7 +399,6 @@ class CrazyFlies(ControlAffineSystemNew):
 
     def unsafe_mask(self, x):
         """Return the mask of x indicating unsafe regions for the task
-
         args:
             x: a tensor of points in the state space
         """
@@ -454,7 +438,6 @@ class CrazyFlies(ControlAffineSystemNew):
     def goal_mask(self, x):
         """Return the mask of x indicating points in the goal set (within 0.2 m of the
         goal).
-
         args:
             x: a tensor of points in the state space
         """
@@ -472,7 +455,6 @@ class CrazyFlies(ControlAffineSystemNew):
     def _f(self, x: torch.Tensor, params):
         """
         Return the control-independent part of the control-affine dynamics.
-
         args:
             x: bs x self.n_dims tensor of state
             params: a dictionary giving the parameter values for the system. If None,
@@ -543,7 +525,6 @@ class CrazyFlies(ControlAffineSystemNew):
     def _g(self, x: torch.Tensor, params):
         """
         Return the control-independent part of the control-affine dynamics.
-
         args:
             x: bs x self.n_dims tensor of state
             params: a dictionary giving the parameter values for the system. If None,
@@ -600,7 +581,6 @@ class CrazyFlies(ControlAffineSystemNew):
         """
         Compute the nominal control for the nominal parameters, using LQR unless
         overridden
-
         args:
             x: bs x self.n_dims tensor of state
         returns:
