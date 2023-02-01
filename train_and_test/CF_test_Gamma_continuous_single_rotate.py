@@ -87,13 +87,13 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 fault = nominal_params["fault"]
 
-use_good = 1
+use_good = 0
 
 n_sample = 1000
 
 traj_len = 100
 
-Eval_steps = 199
+Eval_steps = 299
 
 fault = nominal_params["fault"]
 
@@ -293,12 +293,12 @@ def main(args):
             
             for j in range(m_control):
                 index_fault = gamma_actual_bs[:, j] == 0
-                index_num = torch.sum(index_fault)
+                index_num = torch.sum(index_fault == True)
+
                 acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred[index_fault, j]) / (index_num + 1e-5))
                 acc_ind1[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred1[index_fault, j]) / (index_num + 1e-5))
                 acc_ind2[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred2[index_fault, j]) / (index_num + 1e-5))
                 acc_ind3[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred3[index_fault, j]) / (index_num + 1e-5))
-            
             
             index_no_fault = torch.sum(gamma_actual_bs, dim=1) == m_control
             

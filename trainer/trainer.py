@@ -393,11 +393,12 @@ class Trainer(object):
                 
                 for j in range(self.m_control):
                     index_fault = gamma_actual[:, j]==0
-                    index_num = torch.sum(index_fault)
+                    index_num = torch.sum(index_fault == True)
+
                     acc_ind_temp[0, j] = 1 - torch.abs(torch.sum(gamma_actual[index_fault, j] - gamma_data[index_fault, j]) / (index_num + 1e-5))
                 
                 index_no_fault = torch.sum(gamma_actual, dim=1) == self.m_control
-                index_num = torch.sum(index_no_fault)
+                index_num = torch.sum(index_no_fault == True)
                 acc_ind_temp[0, -1] = torch.sum(gamma_data[index_no_fault, :]) / (index_num + 1e-5) / self.m_control
 
                 acc_ind += acc_ind_temp
