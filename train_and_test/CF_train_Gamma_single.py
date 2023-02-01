@@ -56,7 +56,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 500
+n_sample = 1000
 
 fault = nominal_params["fault"]
 
@@ -161,19 +161,6 @@ def main(args):
 
             # state_traj_gamma[:, k, :] = state_gamma.clone()
             gxu_no_fault = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
-            
-            # if k >= np.mod(i, traj_len):
-            #     param = k
-            # else:
-            #     param = -1
-            # gamma_applied = torch.ones(n_sample, m_control)
-
-            # if k <= traj_len:
-            #     # gamma_ind = np.arange(n_sample - k * traj_len, n_sample)
-            #     # if sum(gamma_ind) > 0:
-            #     gamma_applied[-k * 10:] = gamma_actual_bs[-k * 10:].clone()
-            # else:
-            #     gamma_applied = gamma_actual_bs.clone()
 
             if k >= traj_len - 2:
                 u = u * gamma_actual_bs
