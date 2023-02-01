@@ -52,7 +52,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 fault = nominal_params["fault"]
 
-use_good = 1
+use_good = 0
 
 n_sample = 1000
 
@@ -69,8 +69,8 @@ gpu_id = 0
 def main(args):
     fault_control_index = args.fault_index
     use_nom = args.use_nom
-    str_data = './data/CF_gamma_NN_weightssingle1.pth'.format(fault_control_index)
-    str_good_data = './good_data/data/CF_gamma_NN_weightssingle1.pth'.format(fault_control_index)
+    str_data = './data/CF_gamma_NN_weightssingle1.pth'
+    str_good_data = './good_data/data/CF_gamma_NN_weightssingle1.pth'
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)
@@ -185,11 +185,11 @@ def main(args):
             
             acc_ind[0, -1] = torch.sum(gamma_pred[index_no_fault, :]) / (index_num + 1e-5) / m_control
             
-            print('{}, {}, {}'.format(np.min([k - (traj_len - 2), traj_len]), acc_ind[0][1], acc_ind[0][-1]))
+            print('{}, {}, {}'.format(np.min([k - (traj_len - 2), traj_len]), acc_ind[0][fault_control_index], acc_ind[0][-1]))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-fault_index', type=int, default=0)
+    parser.add_argument('-fault_index', type=int, default=1)
     parser.add_argument('-use_nom', type=int, default=1)
     args = parser.parse_args()
     main(args)

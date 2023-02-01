@@ -51,7 +51,7 @@ util = Utils(
 
 # if fault == 0:
 NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=0, fault_control_index=fault_control_index)
-NN_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_FxTS.pth'))
+NN_cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
 NN_cbf.eval()
 # else:
 FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control, fault=1, fault_control_index=fault_control_index)
@@ -62,7 +62,7 @@ sm, sl = dynamics.state_limits()
 
 
 # h contour in 2D: z and w
-zl = -1
+zl = -3
 zu = 11
 z_mesh = 200
 z = np.linspace(zl, zu, z_mesh)
@@ -105,7 +105,7 @@ len_h = len(h_pre_store)
 h_pre_store = h_pre_store.reshape(len_h, 1)
 h_post_store = h_post_store.reshape(len_h, 1)
 
-z = np.arange(-1, 11, 11 / len_h)
+z = np.arange(-3, 11, 11 / len_h)
 z = z[0:len_h]
 
 plt.rcParams.update({'font.size': 22})
@@ -130,8 +130,8 @@ fault_sm, fault_sl = dynamics.safe_limits(sm ,sl, fault=1)
 
 z_ax.fill_between(
         [nofault_sl[2], nofault_sm[2]],
-        [-2.0, -2.0],
-        [2.0, 2.0],
+        [-1.0, -1.0],
+        [1.0, 1.0],
         color="grey",
         alpha=0.5,
         label="Pre-Fault $X_{safe}$",
@@ -139,17 +139,17 @@ z_ax.fill_between(
 
 z_ax.fill_between(
         [fault_sl[2], fault_sm[2]],
-        [-2.0, -2.0],
-        [2.0, 2.0],
+        [-1.0, -1.0],
+        [1.0, 1.0],
         color="grey",
         alpha=0.2,
         label="Post-Fault $X_{safe}$",
     )
 
 z_ax.fill_between(
-        [0, 0.2],
-        [-2.0, -2.0],
-        [2.0, 2.0],
+        [-3, 0.2],
+        [-1.0, -1.0],
+        [1.0, 1.0],
         color="blue",
         alpha=0.5,
         label="$X_{unsafe}$",
@@ -173,12 +173,13 @@ z_ax.plot(
     )
 
 z_ax.legend(ncol = 3, fontsize = 30)
-z_ax.set_xlim(0, 20)
+z_ax.set_xlim(-2.9, 8)
+z_ax.set_ylim(-1.2, 1.5)
 
 # if fault == 0:
 z_ax.set_title('CBF plots over z', fontsize = 45)
 
-plt.xlabel('CBF h(x)', fontsize = 40)
-plt.ylabel('Altitude z', fontsize = 40)
+plt.ylabel('CBF h(x)', fontsize = 40)
+plt.xlabel('Altitude z', fontsize = 40)
 
 plt.savefig('./plots/Cbf_cf_both.png')
