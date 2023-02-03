@@ -120,13 +120,14 @@ def main(args):
 
     u_nominal = dynamics.u_nominal(state)
     
+    goal = dynamics.sample_safe(1)
     t.tic()
 
     print('length of failure, acc fail , acc no fail')
 
     for k in range(Eval_steps):
 
-        u_nominal = dynamics.u_nominal(state)
+        u_nominal = dynamics.u_nominal(state, op_point=goal)
 
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
@@ -156,7 +157,7 @@ def main(args):
         
         state_no_fault = state.clone() + dx_no_fault * dt 
 
-        state = state.clone() + dx * dt + torch.randn(n_sample, n_state) * dt
+        state = state.clone() + dx * dt
 
         for j2 in range(n_state):
             ind_sm = state[:, j2] > sm[j2]
@@ -175,17 +176,17 @@ def main(args):
             acc_ind = torch.zeros(1, m_control+1)            
             
             for j in range(m_control):
-                index_fault = gamma_actual_bs[:, j]>=0
-                index_num = torch.sum(index_fault)
+                index_fault = gamma_actual_bs[:, j]==0
+                index_num = torch.sum(index_fault==True)
                 acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred[index_fault, j]) / (index_num + 1e-5))
             
             index_no_fault = torch.sum(gamma_actual_bs, dim=1) == m_control
             
-            index_num = torch.sum(index_no_fault)
+            index_num = torch.sum(index_no_fault == True)
             
             acc_ind[0, -1] = torch.sum(gamma_pred[index_no_fault, :]) / (index_num + 1e-5) / m_control
             
-            print('{}, {}, {}'.format(np.min([k - (traj_len - 2), traj_len]), acc_ind[0][fault_control_index], acc_ind[0][-1]))
+            print('{}, {:.3f}, {:.3f}'.format(np.min([k - (traj_len - 2), traj_len]), acc_ind[0][fault_control_index], acc_ind[0][-1]))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

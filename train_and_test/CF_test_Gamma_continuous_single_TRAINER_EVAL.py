@@ -56,7 +56,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 100
+n_sample = 1000
 
 fault = nominal_params["fault"]
 
@@ -73,7 +73,7 @@ def main(args):
     fault = 1
     fault_control_index = args.fault_index
     traj_len = args.traj_len
-    num_traj_factor = 3
+    num_traj_factor = 1.99
     str_data = './data/CF_gamma_NN_weightssingle1.pth'
     str_good_data = './good_data/data/CF_gamma_NN_weightssingle1.pth'
     nominal_params["fault"] = fault
@@ -98,12 +98,7 @@ def main(args):
     
     cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
-
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*600, traj_len=traj_len)
-    trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
-                      dt=dt, action_loss_weight=0.001, params=nominal_params,
-                      fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
-                      fault_control_index=fault_control_index)
+    
     loss_np = 1.0
     safety_rate = 0.0
 
@@ -111,7 +106,9 @@ def main(args):
     
     loss_current = 0.1
 
-    for i in range(1000):
+    acc_ind = torch.zeros(1, m_control+1)
+
+    for i in range(1):
         
         new_goal = dynamics.sample_safe(1)
 
@@ -121,7 +118,7 @@ def main(args):
 
         for j in range(n_sample):
             temp_var = np.mod(j, 2)
-            if temp_var < 10:
+            if temp_var < 1:
                 gamma_actual_bs[j, fault_control_index] = 0.0
 
         rand_ind = torch.randperm(n_sample)
@@ -162,7 +159,7 @@ def main(args):
             # state_traj_gamma[:, k, :] = state_gamma.clone()
             gxu_no_fault = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
 
-            if k >= 1.5 * traj_len:
+            if k >= traj_len - 2:
                 u = u * gamma_actual_bs
 
             # u = u * gamma_applied
@@ -190,28 +187,25 @@ def main(args):
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
                 
             if k >= traj_len - 1:
-                if k < 1.5 * traj_len:
-                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], torch.ones(n_sample, m_control))
-                else:
-                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], gamma_actual_bs)
         
-        loss_np, acc_np, acc_ind = trainer.train_gamma()
-
-        time_iter = t.tocvalue()
-        print(
-            'step, {}, loss, {:.3f}, acc, {:.3f}, acc ind, {}, safety rate, {:.3f}, time, {:.3f} '.format(
-                i, loss_np, acc_np, acc_ind, safety_rate, time_iter))
-
-        if (loss_np <= loss_current or acc_np > 0.96) and i > 5:
-            loss_current = loss_np.copy()
-            torch.save(gamma.state_dict(), str_data)
-
-            if loss_np <= 0.01 or acc_np > 0.97:
-                torch.save(gamma.state_dict(), str_good_data)
-        
-            if loss_np <= 0.001 and i > 250:
-                break
-
+                gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :], state_traj_diff[:, k - traj_len + 1:k + 1, :], u_traj[:, k - traj_len + 1:k + 1, :])
+            
+                gamma_pred = gamma_NN.reshape(n_sample, m_control).clone().detach()         
+                
+                for j in range(m_control):
+                    index_fault = gamma_actual_bs[:, j] == 0
+                    index_num = torch.sum(index_fault == True)
+                    acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred[index_fault, j]) / (index_num + 1e-5))
+                
+                index_no_fault = torch.sum(gamma_actual_bs, dim=1) == m_control
+                index_num = torch.sum(index_no_fault == True)
+                acc_ind[0, -1] = torch.sum(gamma_pred[index_no_fault, :]) / (index_num + 1e-5) / m_control
+                
+                print('{}, {:.3f}, {:.3f}'.format(np.min([k - (traj_len - 2), traj_len]), acc_ind[0][1], acc_ind[0][-1]))
+                print(torch.sum(torch.abs(gamma_pred[:, 0]-gamma_actual_bs[:, 0])) / n_sample / acc_ind[0, 0])
+                print(torch.sum(torch.abs(gamma_pred[:, 1]-gamma_actual_bs[:, 1])) / n_sample / acc_ind[0, 1])
+                print(torch.sum(torch.abs(gamma_pred[:, 2]-gamma_actual_bs[:, 2])) / n_sample / acc_ind[0, 2])
+                print(torch.sum(torch.abs(gamma_pred[:, 3]-gamma_actual_bs[:, 3])) / n_sample / acc_ind[0, 3])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

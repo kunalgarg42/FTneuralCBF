@@ -22,17 +22,17 @@ from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, Gamma
 
-xg = torch.tensor([0.0, 0.0, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+xg = torch.tensor([0.0, 0.0, 6.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 x0 = torch.tensor([[2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 dt = 0.001
 n_state = 12
 m_control = 4
-fault = 0
+fault = 1
 
 FT_tol = 0.1
 
-fault_pred_buff = 20
+fault_pred_buff = 10
 
 traj_len = config.TRAJ_LEN
 
@@ -70,7 +70,7 @@ def main():
     )
     FT_cbf.load_state_dict(
         torch.load(
-            "./good_data/data/CF_cbf_FT_weightsCBF.pth",
+            "./data/CF_cbf_FT_weightsCBF.pth",
             map_location=torch.device("cpu"),
         )
     )
@@ -379,7 +379,7 @@ def main():
 
     # z_ax.plot(time_pl, dot_h_pl, linewidth=2.0, label="z (m)", color=colors[2])
 
-    unsafe_z = 1.0
+    unsafe_z = 0.2
     z_ax.plot(
         time_pl,
         0 * time_pl + unsafe_z,
@@ -387,13 +387,13 @@ def main():
         linestyle="--",
         linewidth=4.0,
     )
-    z_ax.text(time_pl.max() * 0.05, unsafe_z + 0.1, "Unsafe boundary")
+    z_ax.text(time_pl.max() * 0.05, unsafe_z + 0.1, "Unsafe boundary", fontsize=40)
     z_ax.plot([], [], color=colors[1], linestyle="-", linewidth=4.0, label="CBF h(x)")
-    z_ax.set_ylabel("Height (m)", color=colors[0])
-    z_ax.set_xlabel("Time (s)")
+    z_ax.set_ylabel("Height (m)", color=colors[0], fontsize=40)
+    z_ax.set_xlabel("Time (s)", fontsize=40)
     z_ax.set_xlim(time_pl[0], time_pl[-1])
     z_ax.tick_params(axis="y", labelcolor=colors[0])
-    z_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.17), ncol=2, frameon=False)
+    z_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.27), ncol=2, frameon=False, fontsize=40)
 
     h_ax = z_ax.twinx()
     h_ax.plot(time_pl, h_pl, linestyle="-", linewidth=4.0, color=colors[1])
@@ -405,7 +405,7 @@ def main():
         linewidth=4.0,
         label="Unsafe boundary",
     )
-    h_ax.set_ylabel("CBF value", color=colors[1])
+    h_ax.set_ylabel("CBF value", color=colors[1], fontsize=40)
     h_ax.tick_params(axis="y", labelcolor=colors[1])
 
     # Plot the control action on another axis
@@ -414,31 +414,33 @@ def main():
     u_ax.plot(time_pl, u1, linewidth=2.0, label="$u_1$")
     u_ax.plot(time_pl, u3, linewidth=2.0, label="$u_3$")
     u_ax.plot(time_pl, u4, linewidth=2.0, label="$u_4$")
-    u_ax.set_xlabel("Time (s)")
-    u_ax.set_ylabel("Control effort")
+    u_ax.set_xlabel("Time (s)", fontsize=40)
+    u_ax.set_ylabel("Control effort", fontsize=40)
     u_ax.set_xlim(time_pl[0], time_pl[-1])
     u_ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.5, 1.17),
+        bbox_to_anchor=(0.5, 1.27),
         ncol=4,
         frameon=False,
         columnspacing=0.7,
         handlelength=0.7,
         handletextpad=0.3,
+        fontsize=40,
     )
 
     w_ax = axs[1, 0]
     
-    w_ax.plot(time_pl, actual_fault_index + 1.0, linewidth=4.0, label="Actual fault index")
-    w_ax.plot(time_pl, NN_fault_index + 1.0, linewidth=4.0, label="Predicted fault index")
-    w_ax.set_xlabel("Time (s)")
-    w_ax.set_ylabel("Fault Index")
+    w_ax.plot(time_pl, actual_fault_index + 1.0, linewidth=4.0, label="Actual fault")
+    w_ax.plot(time_pl, NN_fault_index + 1.0, linewidth=4.0, label="Predicted fault")
+    w_ax.set_xlabel("Time (s)", fontsize=40)
+    w_ax.set_ylabel("Fault Index", fontsize=40)
     w_ax.set_ylim(-0.5, 4.5)
     w_ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.5, 1.17),
+        bbox_to_anchor=(0.5, 1.27),
         ncol=3,
         frameon=False,
+        fontsize=40,
         # columnspacing=0.7,
         # handlelength=0.7,
         # handletextpad=0.3,
@@ -446,14 +448,15 @@ def main():
 
     acc_ax = axs[1, 1]
     acc_ax.plot(time_pl, pred_pl, linewidth=4.0, label="Prediction accuracy")
-    acc_ax.set_xlabel("Time (s)")
-    acc_ax.set_ylabel("Accuracy")
+    acc_ax.set_xlabel("Time (s)", fontsize=40)
+    acc_ax.set_ylabel("Accuracy", fontsize=40)
     acc_ax.set_ylim(-0.2, 1.2)
     acc_ax.legend(
         loc="upper center",
-        bbox_to_anchor=(0.5, 1.17),
+        bbox_to_anchor=(0.5, 1.27),
         ncol=3,
         frameon=False,
+        fontsize = 40,
         # columnspacing=0.7,
         # handlelength=0.7,
         # handletextpad=0.3,

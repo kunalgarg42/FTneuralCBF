@@ -67,7 +67,7 @@ t = TicToc()
 gpu_id = 0 # torch.cuda.current_device()
 
 if platform.uname()[1] == 'realm2':
-    gpu_id = 2
+    gpu_id = 3
 
 def main(args):
     fault = 1

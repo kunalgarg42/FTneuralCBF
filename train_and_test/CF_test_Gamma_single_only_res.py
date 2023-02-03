@@ -52,13 +52,13 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 fault = nominal_params["fault"]
 
-use_good = 1
+use_good = 0
 
 n_sample = 1000
 
 traj_len = 100
 
-Eval_steps = 199
+Eval_steps = 299
 
 fault = nominal_params["fault"]
 
@@ -176,17 +176,17 @@ def main(args):
             acc_ind = torch.zeros(1, m_control+1)            
             
             for j in range(m_control):
-                # index_fault = gamma_actual_bs[:, j]>=0
-                # index_num = torch.sum(index_fault)
-                acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[:, j] - gamma_pred[:, j]) / n_sample)
+                index_fault = gamma_actual_bs[:, j]==0
+                index_num = torch.sum(index_fault == True)
+                acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred[index_fault, j]) / index_num)
             
             index_no_fault = torch.sum(gamma_actual_bs, dim=1) == m_control
             
-            index_num = torch.sum(index_no_fault)
+            index_num = torch.sum(index_no_fault == True)
             
             acc_ind[0, -1] = torch.sum(gamma_pred[index_no_fault, :]) / (index_num + 1e-5) / m_control
             
-            print('{}, {}, {}'.format(np.min([k - (traj_len - 2), traj_len]), acc_ind[0][1], acc_ind[0][-1]))
+            print('{}, {:.3f}, {:.3f}'.format(np.min([k - (traj_len - 2), traj_len]), acc_ind[0][1], acc_ind[0][-1]))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

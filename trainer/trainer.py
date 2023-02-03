@@ -403,7 +403,6 @@ class Trainer(object):
 
                 acc_ind += acc_ind_temp
                 # acc_ind_temp = acc_ind.clone()
-                acc_ind_temp = acc_ind_temp.detach()
 
                 num_gamma = gamma_data.shape[0]
 
@@ -413,10 +412,12 @@ class Trainer(object):
                                 
                 acc_np += torch.sum(torch.linalg.norm(gamma_error.detach().cpu(), dim=1) < eps_deriv) / num_gamma
                 
-                loss = 0.0
+                loss = 0 # * (1 - acc_ind_temp[0, -1])
+
+                acc_ind_temp = acc_ind_temp.detach()
 
                 for j in range(self.m_control):
-                    loss += 10 * torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, j]).reshape(1, num_gamma)) / num_gamma / (acc_ind_temp[0, j] + 1e-5)
+                    loss += torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, j])) / num_gamma / (acc_ind_temp[0, j] + 1e-5)
 
                 self.gamma_optimizer.zero_grad(set_to_none=True)
                 # self.alpha_optimizer.zero_grad()

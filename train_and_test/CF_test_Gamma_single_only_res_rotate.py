@@ -87,7 +87,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 fault = nominal_params["fault"]
 
-use_good = 0
+use_good = 1
 
 n_sample = 1000
 
@@ -104,8 +104,8 @@ gpu_id = 0
 def main(args):
     fault_control_index = args.fault_index
     use_nom = args.use_nom
-    str_data = './data/CF_gamma_NN_weightssingle1.pth'
-    str_good_data = './good_data/data/CF_gamma_NN_weightssingle1.pth'
+    str_data = './data/CF_gamma_NN_weights_only_res.pth'
+    str_good_data = './good_data/data/CF_gamma_NN_weights_only_res.pth'
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)
@@ -134,7 +134,7 @@ def main(args):
     for j in range(n_sample):
         temp_var = np.mod(j, 2)
         if temp_var < 1:
-            gamma_actual_bs[j, fault_control_index] = 0.0
+            gamma_actual_bs[j, np.mod(fault_control_index, m_control)] = 0.0
         # if temp_var < 4:
         #     gamma_actual_bs[j, temp_var] = 0.0
         
@@ -143,8 +143,7 @@ def main(args):
 
     # state0 = (safe_m, safe_l, n_sample)
     state0 = dynamics.sample_safe(n_sample)
-    # state0 = x0 + torch.randn(n_sample, n_state) * 10
-
+    
     state_traj = torch.zeros(n_sample, Eval_steps, n_state)
     
     state_traj_diff = state_traj.clone()
@@ -189,13 +188,9 @@ def main(args):
 
     print('length of failure, acc fail , acc no fail')
 
-    new_goal = dynamics.sample_safe(1)
-
-    new_goal = new_goal.reshape(n_state, 1)
-
     for k in range(Eval_steps):
 
-        u_nominal = dynamics.u_nominal(state, op_point=new_goal)
+        u_nominal = dynamics.u_nominal(state)
 
         fx = dynamics._f(state, params=nominal_params)
         gx = dynamics._g(state, params=nominal_params)
@@ -254,7 +249,7 @@ def main(args):
         state_no_fault3 = state3.clone() + torch.matmul(dx_no_fault, Rot_mat[3, :, :]) * dt
 
         state = state.clone() + dx * dt
-    
+
         for j2 in range(n_state):
             ind_sm = state[:, j2] > sm[j2]
             if torch.sum(ind_sm) > 0:
@@ -262,26 +257,26 @@ def main(args):
             ind_sl = state[:, j2] < sl[j2]
             if torch.sum(ind_sl) > 0:
                 state[ind_sl, j2] = sl[j2].repeat(torch.sum(ind_sl),)
-
+    
         state1 = torch.matmul(state, Rot_mat[1, :, :])
         state2 = torch.matmul(state, Rot_mat[2, :, :])
         state3 = torch.matmul(state, Rot_mat[3, :, :])
 
         if k >= traj_len - 1:
             
-            gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :], state_traj_diff[:, k - traj_len + 1:k + 1, :], u_traj[:, k - traj_len + 1:k + 1, :])
+            gamma_NN = gamma(0 * state_traj[:, k - traj_len + 1:k + 1, :], state_traj_diff[:, k - traj_len + 1:k + 1, :], 0 * u_traj[:, k - traj_len + 1:k + 1, :])
             
             gamma_pred = gamma_NN.reshape(n_sample, m_control).clone().detach()
 
-            gamma_NN1 = gamma(state_traj1[:, k - traj_len + 1:k + 1, :], state_traj_diff1[:, k - traj_len + 1:k + 1, :], u_traj1[:, k - traj_len + 1:k + 1, :])
+            gamma_NN1 = gamma(0 * state_traj1[:, k - traj_len + 1:k + 1, :], state_traj_diff1[:, k - traj_len + 1:k + 1, :], 0 * u_traj1[:, k - traj_len + 1:k + 1, :])
             
             gamma_pred1 = torch.matmul(gamma_NN1, Rot_u_inv).reshape(n_sample, m_control).clone().detach()
 
-            gamma_NN2 = gamma(state_traj2[:, k - traj_len + 1:k + 1, :], state_traj_diff2[:, k - traj_len + 1:k + 1, :], u_traj2[:, k - traj_len + 1:k + 1, :])
+            gamma_NN2 = gamma(0 * state_traj2[:, k - traj_len + 1:k + 1, :], state_traj_diff2[:, k - traj_len + 1:k + 1, :], 0 * u_traj2[:, k - traj_len + 1:k + 1, :])
             
             gamma_pred2 = torch.matmul(torch.matmul(gamma_NN2, Rot_u_inv), Rot_u_inv).reshape(n_sample, m_control).clone().detach()
 
-            gamma_NN3 = gamma(state_traj3[:, k - traj_len + 1:k + 1, :], state_traj_diff3[:, k - traj_len + 1:k + 1, :], u_traj3[:, k - traj_len + 1:k + 1, :])
+            gamma_NN3 = gamma(0 * state_traj3[:, k - traj_len + 1:k + 1, :], state_traj_diff3[:, k - traj_len + 1:k + 1, :], 0 * u_traj3[:, k - traj_len + 1:k + 1, :])
             
             gamma_pred3 = torch.matmul(torch.matmul(torch.matmul(gamma_NN3, Rot_u_inv), Rot_u_inv), Rot_u_inv).reshape(n_sample, m_control).clone().detach()
 
@@ -316,7 +311,7 @@ def main(args):
             
             np.set_printoptions(precision=3, suppress=True)
 
-            print('{}, {}, {}, {}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy(), acc_ind1[0].numpy(), acc_ind2[0].numpy(), acc_ind3[0].numpy()))
+            print('{}, {}, {}, {}, {}'.format(np.min([k - (traj_len - 2), traj_len]), acc_ind[0].numpy(), acc_ind1[0].numpy(), acc_ind2[0].numpy(), acc_ind3[0].numpy()))
             
 
 if __name__ == '__main__':

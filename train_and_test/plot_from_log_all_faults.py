@@ -53,7 +53,7 @@ for j in range(4):
         acc3.append(a[j])
         acc3_no_fail.append(a[-1])
 
-    fig = plt.figure(figsize=(10, 7))
+    fig = plt.figure(figsize=(11, 4))
     axes = fig.subplots(1, 2)
     
     ax = axes[0]
@@ -68,12 +68,12 @@ for j in range(4):
 
     ax.set_xlim(step[0], 100)
 
-    ax.set_ylim(0.2, 1)
+    ax.set_ylim(-0.1, 1)
     ax.set_ylabel('Accuracy', fontsize = 30, color = 'g')
 
-    ax.set_xlabel('                                  Duration of failed actuator', fontsize = 30)
+    # ax.set_xlabel('                                  Duration of failed actuator', fontsize = 30)
 
-    ax.legend(ncol = 2, fontsize = 15)
+    # ax.legend(ncol = 2, fontsize = 15)
 
     h_ax = axes[1]
 
@@ -153,7 +153,7 @@ for j in range(4):
     
     # h_ax.legend(ncol = 2,  loc = 'lower center')
 
-    h_ax.set_ylim(0.2, 1)
+    h_ax.set_ylim(-0.1, 1)
     
     h_ax.tick_params(axis="y", labelsize = 20)
 
@@ -165,8 +165,8 @@ for j in range(4):
 
     # h_ax.set_title('No-failure prediction', fontsize = 20, loc= 'center')
 
-    ax.legend(ncol = 2, loc = 'lower right', bbox_to_anchor=(2.2, 0), fontsize = 20)
-    h_ax.legend(ncol = 2, loc = 'lower right', bbox_to_anchor=(1.0, 0), fontsize = 20)
+    # ax.legend(ncol = 2, loc = 'lower right', bbox_to_anchor=(2.2, 0), fontsize = 20)
+    # h_ax.legend(ncol = 2, loc = 'lower right', bbox_to_anchor=(1.0, 0), fontsize = 20)
 
     plt.savefig(plot_name)
 

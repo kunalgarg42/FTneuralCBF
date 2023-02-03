@@ -296,7 +296,7 @@ class CrazyFlies(ControlAffineSystemNew):
         upper_limit = torch.ones(self.n_dims)
         upper_limit[CrazyFlies.X] = 15.0
         upper_limit[CrazyFlies.Y] = 15.0
-        upper_limit[CrazyFlies.Z] = 25.0
+        upper_limit[CrazyFlies.Z] = 15.0
         upper_limit[CrazyFlies.U] = 10.0
         upper_limit[CrazyFlies.V] = 10.0
         upper_limit[CrazyFlies.W] = 10.0
@@ -324,13 +324,13 @@ class CrazyFlies(ControlAffineSystemNew):
 
         if fault == 0:
             safe_z_l = 2
-            safe_z_u = 20
+            safe_z_u = 12
             safe_w_u = 8
             safe_w_l = -8
             # safe_angle = np.pi / 5.0
         else:
             safe_z_l = 1.9
-            safe_z_u = 20.1
+            safe_z_u = 12.1
             safe_w_u = 8.1
             safe_w_l = -8.1
             # safe_angle = np.pi / 4.8
@@ -369,12 +369,12 @@ class CrazyFlies(ControlAffineSystemNew):
 
         if fault == 0:
             safe_z_l = 2
-            safe_z_u = 20
+            safe_z_u = 12
             safe_w_u = 8
             safe_w_l = -8
         else:
             safe_z_l = 1.9
-            safe_z_u = 20.1
+            safe_z_u = 12.1
             safe_w_u = 8.1
             safe_w_l = -8.1
 
@@ -390,7 +390,7 @@ class CrazyFlies(ControlAffineSystemNew):
             x: a tensor of points in the state space
         """
         unsafe_z_l = 0.2
-        unsafe_z_u = 21.5
+        unsafe_z_u = 12.5
         unsafe_w_l = -9
         unsafe_w_u = 9
 

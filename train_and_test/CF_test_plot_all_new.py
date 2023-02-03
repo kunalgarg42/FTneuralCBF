@@ -27,7 +27,7 @@ x0 = torch.tensor([[2.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
 dt = 0.001
 n_state = 12
 m_control = 4
-fault = 0
+fault = 1
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
@@ -306,16 +306,16 @@ def main():
 
     colors = sns.color_palette()
 
-    fig = plt.figure(figsize=(31, 17))
-    axs = fig.subplots(2, 3)
-
+    fig = plt.figure(figsize=(40, 30))
+    axs = fig.subplots(3, 2)
+    z_labels = ["$u_2 = 0$", "$u_2 = u_M$", "$u_2 = u_M sin(t)$", "$u_2 = rand(u_m, u_M)$"]
     # Plot the altitude and CBF value on one axis
     z_ax = axs[0, 0]
     for k in range(4):
         if k == 0:
-            z_ax.plot(time_pl, z_pl[:, k], linewidth=4.0, label="z (m)", color=colors[0], linestyle=linestyles[k])
+            z_ax.plot(time_pl, z_pl[:, k], linewidth=4.0, label=z_labels[k], color=colors[0], linestyle=linestyles[k])
         else:
-            z_ax.plot(time_pl, z_pl[:, k], linewidth=4.0, color=colors[0], linestyle=linestyles[k])
+            z_ax.plot(time_pl, z_pl[:, k], linewidth=4.0, label=z_labels[k], color=colors[0], linestyle=linestyles[k])
     # z_ax.plot(time_pl, dot_h_pl, linewidth=2.0, label="z (m)", color=colors[2])
 
     unsafe_z = 1.0
@@ -326,13 +326,14 @@ def main():
         linestyle="--",
         linewidth=4.0,
     )
-    z_ax.text(time_pl.max() * 0.05, unsafe_z + 0.1, "Unsafe boundary", fontsize = 40)
+    z_ax.text(time_pl.max() * 0.05, unsafe_z + 0.1, "Unsafe boundary", fontsize = 50)
     # z_ax.plot([], [], color=colors[1], linestyle="-", linewidth=4.0, label="CBF h(x)")
-    z_ax.set_ylabel("Height (m)", color=colors[0], fontsize = 40)
-    z_ax.set_xlabel("Time (s)", fontsize = 40)
+    z_ax.set_ylabel("Height (m)", color=colors[0], fontsize = 55)
+    z_ax.set_xlabel("Time (s)", fontsize = 50)
     z_ax.set_xlim(time_pl[0], time_pl[-1] + 0.1)
-    z_ax.tick_params(axis="y", labelcolor=colors[0], labelsize = 30)
-    z_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.2), frameon=False, fontsize = 40)
+    z_ax.tick_params(axis="y", labelcolor=colors[0], labelsize = 50)
+    z_ax.tick_params(axis="x", labelsize = 50)
+    z_ax.legend(loc="upper center", ncol = 2, bbox_to_anchor=(0.45, 1.55), fontsize = 55)
 
     # Plot the control action on another axis
     mean_u = (u_pl.max() + u_pl.min()) / 2.0
@@ -343,36 +344,36 @@ def main():
     (t_fault_start, t_fault_end) = time_pl[
         np.diff(fault_activity.squeeze()).nonzero()[0]
     ]
-
+    # u2_label = ["$u_2 = 0", ]
     for k in range(4):
-        u_ax = axs[0 + np.mod(k, 2), 1 + 1 * (k > 1)]
-        if k == 0:
-            u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_2$ (faulty)", linestyle=linestyles[k])
-            u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_1$", linestyle=linestyles[k])
-            u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_3$", linestyle=linestyles[k])
-            u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_4$", linestyle=linestyles[k])
-            u_ax.legend(
-                loc="upper right",
-                bbox_to_anchor=(1.0, 1.2),
-                ncol=4,
-                frameon=False,
-                columnspacing=0.7,
-                handlelength=0.7,
-                handletextpad=0.3,
-                fontsize = 40,
+        u_ax = axs[1 + 1 * (k > 1), 0 + np.mod(k, 2)]
+        # if k == 0:
+        u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label=z_labels[k], linestyle=linestyles[k])
+        u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_1$", linestyle=linestyles[k])
+        u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_3$", linestyle=linestyles[k])
+        u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_4$", linestyle=linestyles[k])
+        u_ax.legend(
+            loc="upper right",
+            bbox_to_anchor=(0.8, 1.25),
+            ncol=4,
+            frameon=False,
+            columnspacing=0.7,
+            handlelength=0.7,
+            handletextpad=0.3,
+            fontsize = 55,
             )
-        else:
-            u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
-            u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
-            u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
-            u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
-        u_ax.set_xlabel("Time (s)", fontsize = 40)
-        u_ax.tick_params(axis="x", labelsize = 30)
-        u_ax.tick_params(axis="y", labelsize = 30)
-        u_ax.set_ylabel("Control effort", fontsize = 40)
+        # else:
+            # u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
+            # u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
+            # u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
+            # u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
+        u_ax.set_xlabel("Time (s)", fontsize = 55)
+        u_ax.tick_params(axis="x", labelsize = 40)
+        u_ax.tick_params(axis="y", labelsize = 40)
+        u_ax.set_ylabel("Control effort", fontsize = 55)
         u_ax.set_xlim(time_pl[0], time_pl[-1] + 0.1)
         
-        lims = u_ax.get_ylim()
+        # lims = u_ax.get_ylim()
         u_ax.fill_between(
             [t_fault_start, t_fault_end],
             [-1.0, -1.0],
@@ -389,23 +390,23 @@ def main():
             rotation="vertical",
             horizontalalignment="right",
             verticalalignment="center",
-            fontsize = 40,
+            fontsize = 55,
         )
 
-        u_ax.set_ylim(lims)
+        u_ax.set_ylim(0, 0.151)
 
         
     # Plot the fault detection on a third axis
     # w_ax = axs[2]
     dot_h_pl[0] = dot_h_pl[1]  # remove dummy value from start
 
-    h_ax = axs[1, 0]
+    h_ax = axs[0, 1]
 
     for k in range(4):
-        if k == 0:
-            h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=4.0, color=colors[1], label='CBF h(x)')
-        else:
-            h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=4.0, color=colors[1])
+        # if k == 0:
+        h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=4.0, color=colors[0], label=z_labels[k])
+        # else:
+        #     h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=4.0, color=colors[0])
 
     h_ax.plot(
         time_pl,
@@ -414,12 +415,13 @@ def main():
         linestyle="--",
         linewidth=4.0,
     )
-    h_ax.text(time_pl.max() * 0.05, 0.01, "Unsafe boundary", fontsize = 40)
-    h_ax.set_ylabel("CBF value", color=colors[1], fontsize = 40)
-    h_ax.tick_params(axis="y", labelcolor=colors[1], labelsize = 30)
-    h_ax.tick_params(axis="x", labelsize = 30)
-    h_ax.set_xlabel("Time (s)", fontsize = 40)
-    h_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.2), frameon=False, fontsize = 40)
+    h_ax.text(time_pl.max() * 0.05, 0.01, "Unsafe boundary", fontsize = 50)
+    h_ax.set_ylabel("CBF value", color=colors[0], fontsize = 55)
+    h_ax.tick_params(axis="y", labelcolor=colors[0], labelsize = 50)
+    h_ax.tick_params(axis="x", labelsize = 50)
+    h_ax.set_xlabel("Time (s)", fontsize = 55)
+    h_ax.legend(loc="upper center", ncol = 2, bbox_to_anchor=(0.45, 1.55), fontsize = 55)
+    # h_ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.2), frameon=False, fontsize = 40)
 
     lims = z_ax.get_ylim()
     mean_z = (z_pl.max() + z_pl.min()) / 2.0
@@ -439,7 +441,7 @@ def main():
         rotation="vertical",
         horizontalalignment="right",
         verticalalignment="center",
-        fontsize = 40,
+        fontsize = 50,
     )
 
     z_ax.set_ylim(lims)
@@ -456,12 +458,12 @@ def main():
     )
     h_ax.text(
         t_fault_start,
-        mean_h,
+        mean_h-0.2,
         "Fault occurs",
         rotation="vertical",
         horizontalalignment="right",
         verticalalignment="center",
-        fontsize = 40,
+        fontsize = 50,
     )
     
     h_ax.set_ylim(lims)
