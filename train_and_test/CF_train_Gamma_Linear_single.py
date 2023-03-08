@@ -121,8 +121,8 @@ def main(args):
         gamma_actual_bs = torch.ones(n_sample, m_control)
 
         for j in range(n_sample):
-            temp_var = np.mod(j, 20)
-            if temp_var < 10:
+            temp_var = np.mod(j, 5)
+            if temp_var < 4:
                 gamma_actual_bs[j, fault_control_index] = 0.0
 
         rand_ind = torch.randperm(n_sample)
@@ -163,7 +163,7 @@ def main(args):
             # state_traj_gamma[:, k, :] = state_gamma.clone()
             gxu_no_fault = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
 
-            if k >= 2 * traj_len - 1:
+            if k >= traj_len - 1:
                 u = u * gamma_actual_bs
 
             # u = u * gamma_applied
@@ -191,7 +191,7 @@ def main(args):
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
                 
             if k >= traj_len - 1:
-                if k < 2 * traj_len - 1:
+                if k < traj_len - 1:
                     dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], 0.5 * torch.ones(n_sample, m_control))
                 else:
                     dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], gamma_actual_bs - 0.5)
