@@ -377,7 +377,7 @@ def main():
     z_ax = axs[0, 0]
     z_ax.plot(time_pl, z_pl, linewidth=4.0, label="z (m)", color=colors[0])
 
-    # z_ax.plot(time_pl, dot_h_pl, linewidth=2.0, label="z (m)", color=colors[2])
+    # z_ax.plot(time_pl, dot_h_pl, linewidth=4.0, label="z (m)", color=colors[2])
 
     unsafe_z = 0.2
     z_ax.plot(
@@ -410,10 +410,10 @@ def main():
 
     # Plot the control action on another axis
     u_ax = axs[0, 1]
-    u_ax.plot(time_pl, u2, linewidth=2.0, label="$u_2$ (faulty)")
-    u_ax.plot(time_pl, u1, linewidth=2.0, label="$u_1$")
-    u_ax.plot(time_pl, u3, linewidth=2.0, label="$u_3$")
-    u_ax.plot(time_pl, u4, linewidth=2.0, label="$u_4$")
+    u_ax.plot(time_pl, u2, linewidth=4.0, label="$u_2$ (faulty)")
+    u_ax.plot(time_pl, u1, linewidth=4.0, label="$u_1$")
+    u_ax.plot(time_pl, u3, linewidth=4.0, label="$u_3$")
+    u_ax.plot(time_pl, u4, linewidth=4.0, label="$u_4$")
     u_ax.set_xlabel("Time (s)", fontsize=40)
     u_ax.set_ylabel("Control effort", fontsize=40)
     u_ax.set_xlim(time_pl[0], time_pl[-1])

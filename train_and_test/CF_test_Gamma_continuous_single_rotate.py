@@ -294,7 +294,7 @@ def main(args):
             acc_ind3 = torch.zeros(1, m_control+1)            
             
             for j in range(m_control):
-                index_fault = gamma_actual_bs[:, j] == 0
+                index_fault = gamma_actual_bs[:, j] >= 0
                 index_num = torch.sum(index_fault == True)
 
                 acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred[index_fault, j]) / (index_num + 1e-5))
@@ -316,8 +316,26 @@ def main(args):
             
             np.set_printoptions(precision=3, suppress=True)
 
-            print('{}, {}, {}, {}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy(), acc_ind1[0].numpy(), acc_ind2[0].numpy(), acc_ind3[0].numpy()))
+            # print('{}, {}, {}, {}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy(), acc_ind1[0].numpy(), acc_ind2[0].numpy(), acc_ind3[0].numpy()))
             
+            argmin_gamma = torch.min(torch.cat([gamma_pred.reshape(n_sample, 1, m_control), gamma_pred1.reshape(n_sample, 1, m_control), gamma_pred2.reshape(n_sample, 1, m_control), gamma_pred3.reshape(n_sample, 1, m_control)], dim=1).reshape(n_sample, 4, 4), dim=1)
+            
+            gamma_overall = argmin_gamma.values   
+            
+            for j in range(m_control):
+                index_fault = gamma_actual_bs[:, j] >= 0
+                index_num = torch.sum(index_fault == True)
+
+                acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_overall[index_fault, j]) / (index_num + 1e-5))
+
+            index_no_fault = torch.sum(gamma_actual_bs, dim=1) == m_control
+            
+            index_num = torch.sum(index_no_fault == True)
+            
+            acc_ind[0, -1] = torch.sum(gamma_overall[index_no_fault, :]) / (index_num + 1e-5) / m_control
+
+            print('{}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy()))
+  
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

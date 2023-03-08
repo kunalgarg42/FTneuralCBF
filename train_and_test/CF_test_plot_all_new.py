@@ -313,9 +313,9 @@ def main():
     z_ax = axs[0, 0]
     for k in range(4):
         if k == 0:
-            z_ax.plot(time_pl, z_pl[:, k], linewidth=4.0, label=z_labels[k], color=colors[0], linestyle=linestyles[k])
+            z_ax.plot(time_pl, z_pl[:, k], linewidth=7.0, label=z_labels[k], color=colors[0], linestyle=linestyles[k])
         else:
-            z_ax.plot(time_pl, z_pl[:, k], linewidth=4.0, label=z_labels[k], color=colors[0], linestyle=linestyles[k])
+            z_ax.plot(time_pl, z_pl[:, k], linewidth=7.0, label=z_labels[k], color=colors[0], linestyle=linestyles[k])
     # z_ax.plot(time_pl, dot_h_pl, linewidth=2.0, label="z (m)", color=colors[2])
 
     unsafe_z = 1.0
@@ -324,10 +324,10 @@ def main():
         0 * time_pl + unsafe_z,
         color="k",
         linestyle="--",
-        linewidth=4.0,
+        linewidth=7.0,
     )
     z_ax.text(time_pl.max() * 0.05, unsafe_z + 0.1, "Unsafe boundary", fontsize = 50)
-    # z_ax.plot([], [], color=colors[1], linestyle="-", linewidth=4.0, label="CBF h(x)")
+    # z_ax.plot([], [], color=colors[1], linestyle="-", linewidth=7.0, label="CBF h(x)")
     z_ax.set_ylabel("Height (m)", color=colors[0], fontsize = 55)
     z_ax.set_xlabel("Time (s)", fontsize = 50)
     z_ax.set_xlim(time_pl[0], time_pl[-1] + 0.1)
@@ -348,13 +348,13 @@ def main():
     for k in range(4):
         u_ax = axs[1 + 1 * (k > 1), 0 + np.mod(k, 2)]
         # if k == 0:
-        u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label=z_labels[k], linestyle=linestyles[k])
-        u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_1$", linestyle=linestyles[k])
-        u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_3$", linestyle=linestyles[k])
-        u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, label="$u_4$", linestyle=linestyles[k])
+        u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=7.0, label=z_labels[k], linestyle=linestyles[k])
+        u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=7.0, label="$u_1$", linestyle=linestyles[k])
+        u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=7.0, label="$u_3$", linestyle=linestyles[k])
+        u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=7.0, label="$u_4$", linestyle=linestyles[k])
         u_ax.legend(
-            loc="upper right",
-            bbox_to_anchor=(0.8, 1.25),
+            loc="upper left",
+            bbox_to_anchor=(0.1, 1.3),
             ncol=4,
             frameon=False,
             columnspacing=0.7,
@@ -363,10 +363,10 @@ def main():
             fontsize = 55,
             )
         # else:
-            # u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
-            # u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
-            # u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
-            # u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=4.0, linestyle=linestyles[k])
+            # u_ax.plot(time_pl, u2[k, :].reshape(config.EVAL_STEPS, 1), linewidth=7.0, linestyle=linestyles[k])
+            # u_ax.plot(time_pl, u1[k, :].reshape(config.EVAL_STEPS, 1), linewidth=7.0, linestyle=linestyles[k])
+            # u_ax.plot(time_pl, u3[k, :].reshape(config.EVAL_STEPS, 1), linewidth=7.0, linestyle=linestyles[k])
+            # u_ax.plot(time_pl, u4[k, :].reshape(config.EVAL_STEPS, 1), linewidth=7.0, linestyle=linestyles[k])
         u_ax.set_xlabel("Time (s)", fontsize = 55)
         u_ax.tick_params(axis="x", labelsize = 40)
         u_ax.tick_params(axis="y", labelsize = 40)
@@ -404,16 +404,16 @@ def main():
 
     for k in range(4):
         # if k == 0:
-        h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=4.0, color=colors[0], label=z_labels[k])
+        h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=7.0, color=colors[0], label=z_labels[k])
         # else:
-        #     h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=4.0, color=colors[0])
+        #     h_ax.plot(time_pl, h_pl[k, :].reshape(config.EVAL_STEPS, 1), linestyle=linestyles[k], linewidth=7.0, color=colors[0])
 
     h_ax.plot(
         time_pl,
         0 * time_pl,
         color="k",
         linestyle="--",
-        linewidth=4.0,
+        linewidth=7.0,
     )
     h_ax.text(time_pl.max() * 0.05, 0.01, "Unsafe boundary", fontsize = 50)
     h_ax.set_ylabel("CBF value", color=colors[0], fontsize = 55)
