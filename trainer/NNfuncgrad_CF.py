@@ -345,7 +345,7 @@ class Gamma_linear(nn.Module):
         self.conv2 = nn.Linear(128, 128, 1)
         self.fc0 = nn.Linear(128, 128)
         self.fc1 = nn.Linear(128, 64)
-        self.fc2 = nn.Linear(64, m_control)
+        self.fc2 = nn.Linear(64, 1)
         self.activation = nn.ReLU()
         self.output_activation = nn.Tanh()
 

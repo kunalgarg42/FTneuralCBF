@@ -192,9 +192,9 @@ def main(args):
                 
             if k >= traj_len - 1:
                 if k < traj_len - 1:
-                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], 0.5 * torch.ones(n_sample, m_control))
+                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], 0.5 * torch.ones(n_sample, 1))
                 else:
-                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], gamma_actual_bs - 0.5)
+                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], (gamma_actual_bs[:, fault_control_index] - 0.5).reshape(n_sample, 1))
         
         loss_np, acc_np = trainer.train_gamma()
 

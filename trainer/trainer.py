@@ -354,7 +354,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, batch_size=20000, opt_iter=10, eps=0.5, eps_deriv=0.01):
+    def train_gamma(self, batch_size=50000, opt_iter=10, eps=0.5, eps_deriv=0.01):
         loss_np = 0.0
         
         traj_len = self.traj_len
@@ -367,8 +367,8 @@ class Trainer(object):
         opt_count = 500
         
         # acc = 0.0
-        acc_np = torch.zeros(1, 2 * self.m_control)
-        acc_ind_temp = torch.zeros(1, 2 * self.m_control)
+        acc_np = torch.zeros(1, 2)
+        acc_ind_temp = torch.zeros(1, 2)
         
         if self.gpu_id >= 0:
             self.gamma.to(torch.device(self.gpu_id))
@@ -395,23 +395,23 @@ class Trainer(object):
 
                 gamma_data = self.gamma_gen(state, state_diff, u, traj_len)
 
-                for j in range(self.m_control):
+                # for j in range(self.m_control):
                     
-                    index_fault = gamma_actual[:, j] < 0
-                    
-                    index_num = torch.sum(index_fault.float())
+                index_fault = gamma_actual < 0
+                
+                index_num = torch.sum(index_fault.float())
 
-                    acc_ind_temp[0, j] = torch.sum((gamma_data[index_fault, j] < 0).float()) / (index_num + 1e-5)
+                acc_ind_temp[0, 0] = torch.sum((gamma_data[index_fault] < 0).float()) / (index_num + 1e-5)
 
-                    loss += 10 * torch.sum(nn.ReLU()(gamma_data[index_fault, j] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)
-                    
-                    index_no_fault = gamma_actual[:, j] > 0
+                loss += 10 * torch.sum(nn.ReLU()(gamma_data[index_fault] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, 0].detach() + 1e-5)
+                
+                index_no_fault = gamma_actual > 0
 
-                    index_num = torch.sum(index_no_fault.float())
+                index_num = torch.sum(index_no_fault.float())
 
-                    acc_ind_temp[0, j + self.m_control] = torch.sum((gamma_data[index_no_fault, j]> 0).float()) / (index_num + 1e-5)
+                acc_ind_temp[0, 1] = torch.sum((gamma_data[index_no_fault]> 0).float()) / (index_num + 1e-5)
 
-                    loss += 10 * torch.sum(nn.ReLU()(-gamma_data[index_no_fault, j] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j + self.m_control].detach() + 1e-5)
+                loss += 10 * torch.sum(nn.ReLU()(-gamma_data[index_no_fault] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, 1].detach() + 1e-5)
 
                 self.gamma_optimizer.zero_grad(set_to_none=True)
 
@@ -548,6 +548,6 @@ class Trainer(object):
         # state_diff = state_diff.reshape(ns, traj_len, self.n_state)
         # for i in range(self.num_traj):
         gamma_data = self.gamma(state, state_diff, u)
-        gamma_data = gamma_data.reshape(ns, self.m_control)
+        gamma_data = gamma_data.reshape(ns, 1)
         
         return gamma_data

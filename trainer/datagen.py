@@ -15,7 +15,7 @@ class Dataset_with_Grad(object):
         self.buffer_data_s = torch.tensor([]).reshape(0, n_state)
         self.buffer_data_s_diff = torch.tensor([]).reshape(0, n_state)
         self.buffer_data_u_NN = torch.tensor([]).reshape(0, m_control)
-        self.buffer_data_u = torch.tensor([]).reshape(0, m_control)
+        self.buffer_data_u = torch.tensor([]).reshape(0, 1)
         self.dang_count = 0
         self.safe_count = 0
         self.mid_count = 0
@@ -168,6 +168,6 @@ class Dataset_with_Grad(object):
             s_diff = self.buffer_data_s_diff[indices, :]
             u = self.buffer_data_u_NN[indices, :]
 
-            gamma = self.buffer_data_u[indices, :]
+            gamma = self.buffer_data_u[indices]
 
             return s, s_diff, u, gamma
