@@ -67,7 +67,7 @@ t = TicToc()
 gpu_id = 0 # torch.cuda.current_device()
 
 if platform.uname()[1] == 'realm2':
-    gpu_id = 2
+    gpu_id = 0
 
 def main(args):
     fault = 1
@@ -122,7 +122,7 @@ def main(args):
 
         for j in range(n_sample):
             temp_var = np.mod(j, 5)
-            if temp_var < 4:
+            if temp_var < 3:
                 gamma_actual_bs[j, fault_control_index] = 0.0
 
         rand_ind = torch.randperm(n_sample)

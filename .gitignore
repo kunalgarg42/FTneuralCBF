@@ -28,6 +28,8 @@ example.py
 
 /myScript_data/
 
+/log_files/
+
 /train_and_test/plot_from_log_all_faults.py
 
 /train_and_test/plot_from_text.py
