@@ -403,7 +403,7 @@ class Trainer(object):
 
                     acc_ind_temp[0, j] = torch.sum((gamma_data[index_fault, j] < 0).float()) / (index_num + 1e-5)
 
-                    loss += 100 * torch.sum(nn.ReLU()(gamma_data[index_fault, j] + eps)) / (index_num + 1e-5) * (acc_ind_temp[0, j].detach() + 1e-5)
+                    loss += 100 * torch.sum(nn.ReLU()(gamma_data[index_fault, j] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)
                     
                     index_no_fault = gamma_actual[:, j] > 0
 
@@ -411,7 +411,7 @@ class Trainer(object):
 
                     acc_ind_temp[0, j + self.m_control] = torch.sum((gamma_data[index_no_fault, j]> 0).float()) / (index_num + 1e-5)
 
-                    loss += 100 * torch.sum(nn.ReLU()(-gamma_data[index_no_fault, j] + eps)) / (index_num + 1e-5) * (acc_ind_temp[0, j + self.m_control].detach() + 1e-5)
+                    loss += 100 * torch.sum(nn.ReLU()(-gamma_data[index_no_fault, j] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j + self.m_control].detach() + 1e-5)
 
                 self.gamma_optimizer.zero_grad(set_to_none=True)
 
