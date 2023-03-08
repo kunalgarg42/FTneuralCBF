@@ -207,7 +207,7 @@ def main(args):
             loss_current = loss_np.copy()
             torch.save(gamma.state_dict(), str_data)
 
-            if loss_np <= 0.01 or acc_np > 0.97:
+            if loss_np <= 0.01 or np.sum(acc_np) / int(acc_np.size) > 0.97:
                 torch.save(gamma.state_dict(), str_good_data)
         
             if loss_np <= 0.001 and i > 250:
