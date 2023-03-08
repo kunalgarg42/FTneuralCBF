@@ -354,7 +354,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, batch_size=5000, opt_iter=10, eps=0.1, eps_deriv=0.01):
+    def train_gamma(self, batch_size=20000, opt_iter=10, eps=0.5, eps_deriv=0.01):
         loss_np = 0.0
         
         traj_len = self.traj_len
@@ -367,76 +367,71 @@ class Trainer(object):
         opt_count = 500
         
         # acc = 0.0
-        acc_np = 0.0
-        acc_ind = torch.zeros(1, self.m_control + 1)
-        acc_ind_temp = torch.zeros(1, self.m_control + 1)
+        acc_np = torch.zeros(1, 2 * self.m_control)
+        acc_ind_temp = torch.zeros(1, 2 * self.m_control)
         
+        if self.gpu_id >= 0:
+            self.gamma.to(torch.device(self.gpu_id))
+            acc_np = acc_np.cuda(self.gpu_id)
+            acc_ind_temp = acc_ind_temp.cuda(self.gpu_id)
+
         for _ in range(opt_count):
             # self.gpu_id = np.mod(iter, 4)
+    
             for i in range(opt_iter):
+                
+                loss = torch.tensor(0.0)
+
                 # t.tic()
                 # print(i)
                 state, state_diff, u, gamma_actual = self.dataset.sample_data_all(batch_size, i)
                 
                 if self.gpu_id >= 0:
-                    # state_gamma = state_gamma.cuda(self.gpu_id)
                     state_diff = state_diff.cuda(self.gpu_id)
                     state = state.cuda(self.gpu_id)
                     u = u.cuda(self.gpu_id)
                     gamma_actual = gamma_actual.cuda(self.gpu_id)
-                    # gamma_data = gamma_data.cuda(self.gpu_id)
-                    self.gamma.to(torch.device(self.gpu_id))
-                    acc_ind_temp = acc_ind_temp.cuda(self.gpu_id)
-                    acc_ind = acc_ind.cuda(self.gpu_id)
-                # for _ in range(5):
+                    loss = loss.cuda(self.gpu_id)
+
                 gamma_data = self.gamma_gen(state, state_diff, u, traj_len)
-                
-                for j in range(self.m_control):
-                    index_fault = gamma_actual[:, j]==0
-                    index_num = torch.sum(index_fault == True)
-
-                    acc_ind_temp[0, j] = 1 - torch.abs(torch.sum(gamma_actual[index_fault, j] - gamma_data[index_fault, j]) / (index_num + 1e-5))
-                
-                index_no_fault = torch.sum(gamma_actual, dim=1) == self.m_control
-                index_num = torch.sum(index_no_fault == True)
-                acc_ind_temp[0, -1] = torch.sum(gamma_data[index_no_fault, :]) / (index_num + 1e-5) / self.m_control
-
-                acc_ind += acc_ind_temp
-                # acc_ind_temp = acc_ind.clone()
-
-                num_gamma = gamma_data.shape[0]
-
-                gamma_error = gamma_data - gamma_actual
-
-                gamma_error = torch.abs(gamma_error)
-                                
-                acc_np += torch.sum(torch.linalg.norm(gamma_error.detach().cpu(), dim=1) < eps_deriv) / num_gamma
-                
-                loss = 0 # * (1 - acc_ind_temp[0, -1])
-
-                acc_ind_temp = acc_ind_temp.detach()
 
                 for j in range(self.m_control):
-                    loss += torch.sum(nn.ReLU()(-eps_deriv + gamma_error[:, j])) / num_gamma / (acc_ind_temp[0, j] + 1e-5)
+                    
+                    index_fault = gamma_actual[:, j] < 0
+                    
+                    index_num = torch.sum(index_fault.float())
+
+                    acc_ind_temp[0, j] = torch.sum((gamma_data[index_fault, j] < 0).float()) / (index_num + 1e-5)
+
+                    loss += 100 * torch.sum(nn.ReLU()(gamma_data[index_fault, j] + eps)) / (index_num + 1e-5) * (acc_ind_temp[0, j].detach() + 1e-5)
+                    
+                    index_no_fault = gamma_actual[:, j] > 0
+
+                    index_num = torch.sum(index_no_fault.float())
+
+                    acc_ind_temp[0, j + self.m_control] = torch.sum((gamma_data[index_no_fault, j]> 0).float()) / (index_num + 1e-5)
+
+                    loss += 100 * torch.sum(nn.ReLU()(-gamma_data[index_no_fault, j] + eps)) / (index_num + 1e-5) * (acc_ind_temp[0, j + self.m_control].detach() + 1e-5)
 
                 self.gamma_optimizer.zero_grad(set_to_none=True)
-                # self.alpha_optimizer.zero_grad()
 
                 loss.backward()
 
                 self.gamma_optimizer.step()
-                # self.alpha_optimizer.step()
 
-                # log statics
-                loss_np += loss
+                acc_np += acc_ind_temp.detach()
+
+                loss_np += loss.detach()
                 
-        loss_np = loss_np.detach().cpu().numpy()
-        acc_np = acc_np.detach().cpu().numpy()
-        acc_ind = acc_ind[0].detach().cpu().numpy()
+        loss_np = loss_np.cpu().numpy()
+        
+        acc_np = acc_np.cpu().numpy()
+        
         loss_np /= opt_iter * opt_count
+        
         acc_np /= opt_count * opt_iter
-        acc_ind /= opt_count * opt_iter
-        return loss_np, acc_np, acc_ind
+
+        return loss_np, acc_np
 
 
     def doth_max(self, h, state, grad_h, um, ul):
