@@ -121,7 +121,7 @@ def main(args):
         gamma_actual_bs = torch.ones(n_sample, m_control)
 
         for j in range(n_sample):
-            temp_var = np.mod(j, 2)
+            temp_var = np.mod(j, 20)
             if temp_var < 10:
                 gamma_actual_bs[j, fault_control_index] = 0.0
 
