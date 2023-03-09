@@ -74,8 +74,8 @@ def main(args):
     fault_control_index = args.fault_index
     traj_len = args.traj_len
     num_traj_factor = 3
-    str_data = './data/CF_gamma_NN_class_linear.pth'
-    str_good_data = './good_data/data/CF_gamma_NN_class_linear.pth'
+    str_data = './data/CF_gamma_NN_class_linear_ALL.pth'
+    str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL.pth'
 
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
@@ -192,9 +192,9 @@ def main(args):
                 
             if k >= traj_len - 1:
                 if k < traj_len - 1:
-                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], 0.5 * torch.ones(n_sample, 1))
+                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], 0.5 * torch.ones(n_sample, m_control))
                 else:
-                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], (gamma_actual_bs[:, fault_control_index] - 0.5).reshape(n_sample, 1))
+                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], (gamma_actual_bs - 0.5))
         
         loss_np, acc_np = trainer.train_gamma()
 
