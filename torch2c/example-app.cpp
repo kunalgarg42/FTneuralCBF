@@ -24,12 +24,12 @@ int main(int argc, const char* argv[]) {
 
   // Create a vector of inputs.
   std::vector<torch::jit::IValue> inputs;
-  float user_in[9] = {};
-  for (int i = 0; i<9; i++){
+  float user_in[12] = {};
+  for (int i = 0; i<12; i++){
     cin >> user_in[i];
   }
   // inputs.push_back(torch::user_in);
-  inputs.push_back(torch::from_blob(&user_in, {1, 9}, torch::kFloat32));
+  inputs.push_back(torch::from_blob(&user_in, {1, 12}, torch::kFloat32));
 
   // Execute the model and turn its output into a tensor.
   at::Tensor output = module.forward(inputs).toTensor();
