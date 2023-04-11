@@ -56,7 +56,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 1000
+n_sample = 5000
 
 fault = nominal_params["fault"]
 
@@ -64,10 +64,7 @@ fault_control_index = 1
 
 t = TicToc()
 
-gpu_id = 0 # torch.cuda.current_device()
-
-if platform.uname()[1] == 'realm2':
-    gpu_id = 0
+gpu_id = -1
 
 def main(args):
     fault = 1
@@ -143,6 +140,8 @@ def main(args):
 
         u_traj = torch.zeros(n_sample, int(num_traj_factor * traj_len), m_control)
 
+        acc_ind_temp = torch.zeros(1, 2 * m_control)
+
         for k in range(int(traj_len * num_traj_factor)):
             
             u_nominal = dynamics.u_nominal(state, op_point=new_goal)
@@ -184,30 +183,32 @@ def main(args):
             is_safe = int(torch.sum(util.is_safe(state))) / n_sample
 
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
-                
+            
             if k >= traj_len - 1:
-                if k < traj_len - 1:
-                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], 0.5 * torch.ones(n_sample, m_control))
-                else:
-                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], (gamma_actual_bs - 0.5))
-        
-        loss_np, acc_np = trainer.train_gamma()
+                gamma_data = gamma(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :])
 
-        time_iter = t.tocvalue()
-        print(
-            'step, {}, loss, {:.3f}, acc, {}, safety rate, {:.3f}, time, {:.3f} '.format(
-                i, loss_np, acc_np, safety_rate, time_iter))
+                gamma_data = gamma_data.detach()
 
-        if (loss_np <= loss_current or np.sum(acc_np) / int(acc_np.size) > 0.96) and i > 5:
-            loss_current = loss_np.copy()
-            torch.save(gamma.state_dict(), str_data)
+                for j in range(m_control):
+                        
+                    index_fault = (gamma_actual_bs[:, j]- 0.5) < 0
+                    
+                    index_num = torch.sum(index_fault.float())
 
-            if loss_np <= 0.01 or np.sum(acc_np) / int(acc_np.size) > 0.97:
-                torch.save(gamma.state_dict(), str_good_data)
-        
-            if loss_np <= 0.001 and i > 250:
-                break
+                    acc_ind_temp[0, j] = torch.sum((gamma_data[index_fault, j] < 0).float()) / (index_num + 1e-5)
+                    
+                    index_no_fault = gamma_actual_bs[:, j] - 0.5 > 0
 
+                    index_num = torch.sum(index_no_fault.float())
+
+                    acc_ind_temp[0, m_control + j] = torch.sum((gamma_data[index_no_fault, j]> 0).float()) / (index_num + 1e-5)
+                
+                print(acc_ind_temp[0])
+
+        print(Asas)
+        # acc_ind_temp = acc_ind_temp / (traj_len * 2)
+
+        # print(acc_ind_temp[0])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
