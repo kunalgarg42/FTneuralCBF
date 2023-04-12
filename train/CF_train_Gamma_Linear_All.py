@@ -16,7 +16,7 @@ from trainer.constraints_crazy import constraints
 from trainer.datagen import Dataset_with_Grad
 from trainer.trainer import Trainer
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma_linear
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_nonconv
 
 torch.backends.cudnn.benchmark = True
 
@@ -67,15 +67,15 @@ t = TicToc()
 gpu_id = 0 # torch.cuda.current_device()
 
 if platform.uname()[1] == 'realm2':
-    gpu_id = 0
+    gpu_id = 1
 
 def main(args):
     fault = 1
     fault_control_index = args.fault_index
     traj_len = args.traj_len
     num_traj_factor = 3
-    str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res.pth'
-    str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res.pth'
+    str_data = './data/CF_gamma_NN_class_linear_0_faults_no_res.pth'
+    str_good_data = './good_data/data/CF_gamma_NN_class_linear_0_faults_no_res.pth'
 
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
@@ -83,7 +83,7 @@ def main(args):
                  fault_control_index=fault_control_index)
     cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
               fault_control_index=fault_control_index)
-    gamma = Gamma_linear(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    gamma = Gamma_linear_nonconv(n_state=n_state, m_control=m_control, traj_len=traj_len)
 
     if init_param == 1:
         try:
@@ -121,8 +121,8 @@ def main(args):
         gamma_actual_bs = torch.ones(n_sample, m_control)
 
         for j in range(n_sample):
-            temp_var = np.mod(j, 5)
-            if temp_var < 4:
+            temp_var = np.mod(j, 1)
+            if temp_var < 1:
                 gamma_actual_bs[j, temp_var] = 0.0
 
         rand_ind = torch.randperm(n_sample)
@@ -160,7 +160,7 @@ def main(args):
 
             gxu_no_fault = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
 
-            if k >= traj_len - 1:
+            if k >= traj_len - 1 and torch.randn(1) < 0.1:
                 u = u * gamma_actual_bs
             
             gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
@@ -185,8 +185,8 @@ def main(args):
 
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
                 
-            if k >= traj_len - 1:
-                if k < traj_len - 1:
+            if k >= traj_len -1:
+                if k == traj_len - 1:
                     dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], 0 * state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], 0.5 * torch.ones(n_sample, m_control))
                 else:
                     dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], 0 * state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], (gamma_actual_bs - 0.5))

@@ -56,7 +56,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 5000
+n_sample = 1000
 
 fault = nominal_params["fault"]
 
@@ -64,15 +64,23 @@ fault_control_index = 1
 
 t = TicToc()
 
+use_nom = 0
+
 gpu_id = -1
 
 def main(args):
     fault = 1
+    
     fault_control_index = args.fault_index
+    
     traj_len = args.traj_len
+    
+    use_nom = args.use_nom
+
     num_traj_factor = 3
-    str_data = './data/CF_gamma_NN_class_linear_ALL_faults.pth'
-    str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults.pth'
+    
+    str_data = './data/CF_gamma_NN_class_linear_0_faults_no_res.pth'
+    str_good_data = './good_data/data/CF_gamma_NN_class_linear_0_faults_no_res.pth'
 
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
@@ -94,7 +102,7 @@ def main(args):
             except:
                 print("No pre-train data available")
     
-    cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
+    cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
     dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*500, traj_len=traj_len)
@@ -119,7 +127,7 @@ def main(args):
 
         for j in range(n_sample):
             temp_var = np.mod(j, 5)
-            if temp_var < 4:
+            if temp_var < 1:
                 gamma_actual_bs[j, temp_var] = 0.0
 
         rand_ind = torch.randperm(n_sample)
@@ -149,7 +157,11 @@ def main(args):
             fx = dynamics._f(state, params=nominal_params)
             gx = dynamics._g(state, params=nominal_params)
 
-            u = u_nominal.clone()
+            if use_nom == 0:
+                h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
+                u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+            else:
+                u = u_nominal.clone()
 
             state_traj[:, k, :] = state.clone()
             
@@ -213,6 +225,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-fault_index', type=int, default=1)
+    parser.add_argument('-use_nom', type=int, default=1)
     parser.add_argument('-traj_len', type=int, default=100)
     args = parser.parse_args()
     main(args)

@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from train_and_test.CBF import B, V, LfB, LfV
+from train.CBF import B, V, LfB, LfV
 
 n = 10
 
