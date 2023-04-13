@@ -273,11 +273,11 @@ class Utils(object):
 
             # print(A)
             A = scipy.sparse.csc.csc_matrix(A)
+
             try:
                 u = solve_qp(Q, F, A, B, solver="osqp")
             except:
                 u = None
-        # , lb = lb.reshape(self.m_control + 1, 1, 1), ub = ub.reshape(self.m_control + 1, 1, 1),
 
             if u is None:
                 u_neural[i, :] = u_nominal[i, :].reshape(m_control)
@@ -353,8 +353,10 @@ class Utils(object):
     
         B = np.array(B)
 
-        # print(A)
+        print(A.shape)
+        
         A = scipy.sparse.csc.csc_matrix(A)
+
 
         try:
             u = solve_qp(Q, F, A, B, solver="osqp")

@@ -429,6 +429,8 @@ class Trainer(object):
                 acc_np += acc_ind_temp.detach()
 
                 loss_np += loss.detach()
+
+            # torch.cuda.empty_cache()
                 
         loss_np = loss_np.cpu().numpy()
         
