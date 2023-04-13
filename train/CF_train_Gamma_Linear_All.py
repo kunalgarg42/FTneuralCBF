@@ -15,7 +15,7 @@ from trainer import config
 from trainer.datagen import Dataset_with_Grad
 from trainer.trainer import Trainer
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma_linear_deep_nonconv
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM
 
 torch.backends.cudnn.benchmark = True
 
@@ -66,15 +66,15 @@ t = TicToc()
 gpu_id = 0 # torch.cuda.current_device()
 
 if platform.uname()[1] == 'realm2':
-    gpu_id = 2
+    gpu_id = 1
 
 def main(args):
     fault = 1
     fault_control_index = args.fault_index
     traj_len = args.traj_len
     num_traj_factor = 2
-    str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_non_conv_deep.pth'
-    str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_non_conv_deep.pth'
+    str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM.pth'
+    str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM.pth'
 
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
@@ -82,7 +82,7 @@ def main(args):
                  fault_control_index=fault_control_index)
     cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
               fault_control_index=fault_control_index)
-    gamma = Gamma_linear_deep_nonconv(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    gamma = Gamma_linear_LSTM(n_state=n_state, m_control=m_control, traj_len=traj_len)
 
     if init_param == 1:
         try:
@@ -99,7 +99,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*2000, traj_len=traj_len)
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*500, traj_len=traj_len)
     trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
@@ -159,7 +159,7 @@ def main(args):
 
             gxu_no_fault = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
 
-            if k >= traj_len - 1 and torch.randn(1) < 0.1:
+            if k >= traj_len - 1:
                 u = u * gamma_actual_bs
             
             gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))

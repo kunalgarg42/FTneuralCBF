@@ -354,7 +354,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, batch_size=500000, opt_iter=10, eps=0.5, eps_deriv=0.01):
+    def train_gamma(self, batch_size=50000, opt_iter=10, eps=0.5, eps_deriv=0.01):
         loss_np = 0.0
         
         traj_len = self.traj_len
@@ -364,7 +364,7 @@ class Trainer(object):
         
         opt_iter = int(self.dataset.n_pts / batch_size)
         
-        opt_count = 200
+        opt_count = 500
         
         # acc = 0.0
         acc_np = torch.zeros(1, 2 * self.m_control)
