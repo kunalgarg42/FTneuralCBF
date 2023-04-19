@@ -15,7 +15,7 @@ from trainer import config
 from trainer.datagen import Dataset_with_Grad
 from trainer.trainer import Trainer
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM, Gamma_linear_conv, Gamma_linear_deep_nonconv, Gamma_linear_nonconv, Gamma_linear_LSTM_old, Gamma_linear_LSTM_small
 
 torch.backends.cudnn.benchmark = True
 
@@ -72,9 +72,28 @@ def main(args):
     fault = 1
     fault_control_index = args.fault_index
     traj_len = args.traj_len
+    gamma_type = args.gamma_type
+    # gamma_type = 'LSTM small'
     num_traj_factor = 2
-    str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM.pth'
-    str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM.pth'
+
+    if gamma_type == 'LSTM':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth'
+    elif gamma_type == 'LSTM old':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM.pth'
+    elif gamma_type == 'LSTM small':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_small.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_small.pth'
+    elif gamma_type == 'linear nonconv':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res.pth'
+    elif gamma_type == 'deep':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_non_conv_deep.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_non_conv_deep.pth'
+    elif gamma_type == 'linear conv':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults.pth'
 
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
@@ -82,24 +101,40 @@ def main(args):
                  fault_control_index=fault_control_index)
     cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
               fault_control_index=fault_control_index)
-    gamma = Gamma_linear_LSTM(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    
+    if gamma_type == 'linear nonconv':
+        gamma = Gamma_linear_nonconv(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    elif gamma_type == 'deep':
+        gamma = Gamma_linear_deep_nonconv(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    elif gamma_type == 'LSTM':
+        gamma = Gamma_linear_LSTM(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    elif gamma_type == 'LSTM small':
+        gamma = Gamma_linear_LSTM_small(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    elif gamma_type == 'LSTM old':
+        gamma = Gamma_linear_LSTM_old(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    elif gamma_type == 'linear conv':
+        gamma = Gamma_linear_conv(n_state=n_state, m_control=m_control, traj_len=traj_len)
 
     if init_param == 1:
         try:
             gamma.load_state_dict(torch.load(str_good_data))
             gamma.eval()
+            if gamma_type == 'LSTM' or gamma_type == 'LSTM old' or gamma_type == 'LSTM small':
+                gamma.train()
         except:
             print("No good data available")
             try:
                 gamma.load_state_dict(torch.load(str_data))
                 gamma.eval()
+                if gamma_type == 'LSTM' or gamma_type == 'LSTM old' or gamma_type == 'LSTM small':
+                    gamma.train()
             except:
                 print("No pre-train data available")
     
     cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*500, traj_len=traj_len)
+    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*300, traj_len=traj_len)
     trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
@@ -129,6 +164,10 @@ def main(args):
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
         state = dynamics.sample_safe(n_sample) # + torch.randn(n_sample, n_state) * 2
+
+        for k in range(n_state):
+            if k > 5:
+                state[:, k] = torch.clamp(state[:, k], sm[k] / 10, sl[k] / 10)
                 
         state_no_fault = state.clone()
 
@@ -212,5 +251,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-fault_index', type=int, default=1)
     parser.add_argument('-traj_len', type=int, default=100)
+    parser.add_argument('-gamma_type', type=str, default='linear')
     args = parser.parse_args()
     main(args)

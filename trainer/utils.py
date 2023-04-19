@@ -232,17 +232,21 @@ class Utils(object):
 
         size_Q = m_control + 1
 
+        num_constraints = (m_control + 1) * 2 + 1
+
         Q = csc_matrix(identity(size_Q))
 
         Q = Q / 100
 
+        A_all = torch.tensor([]).reshape(0, 0)
+        B_all = torch.tensor([]).reshape(0, 1)
+        F_all = torch.tensor([]).reshape(0, 1)
+
         for i in range(bs):
             u_nom = u_nominal[i, :].reshape(m_control)
-            F = torch.hstack((u_nom, torch.tensor(1.0))).reshape(size_Q, 1)
 
-            F = - np.array(F)
-        # F[0] = F[0] / um[0]
-
+            F = - torch.hstack((u_nom, torch.tensor(1.0))).reshape(size_Q, 1)
+            
             F = F / 100
 
             F[-1] = -1
@@ -263,32 +267,67 @@ class Utils(object):
                 [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [-1, 0, 0, 0, 0],
                 [0, -1, 0, 0, 0], [0, 0, -1, 0, 0], [0, 0, 0, -1, 0], [0, 0, 0, 0, -1]])
 
-            A = torch.vstack((A.clone().detach(), A_in))
+            A_mat = torch.vstack((A.clone().detach(), A_in))
 
             B_in = torch.vstack((ub, -lb))
-            B = torch.vstack((B, B_in.reshape(2 * self.m_control + 2, 1)))
 
+            B_mat = torch.vstack((B, B_in.reshape(2 * self.m_control + 2, 1)))
+
+            num_constraints = A_mat.shape[0]
+
+            num_vars = A_mat.shape[1]
+
+            current_row = A_all.shape[0]
+
+            current_col = A_all.shape[1]
+
+            A_all = torch.hstack((A_all, torch.zeros(current_row, num_vars)))
+
+            A_mat = torch.hstack((torch.zeros(num_constraints, current_col), A_mat.clone()))
+
+            A_all = torch.vstack((A_all, A_mat))
             
-            B = np.array(B)
+            B_all = torch.vstack((B_all, B_mat))
 
-            # print(A)
-            A = scipy.sparse.csc.csc_matrix(A)
+            F_all = torch.vstack((F_all, F))
+            
+        A_mat = scipy.sparse.csc.csc_matrix(A_mat)
+        
+        B_mat = np.array(B_mat)
 
-            try:
-                u = solve_qp(Q, F, A, B, solver="osqp")
-            except:
-                u = None
+        q_size = F_all.shape[0]
+                
+        Q_all = torch.eye(q_size)
 
-            if u is None:
-                u_neural[i, :] = u_nominal[i, :].reshape(m_control)
-            else:
-                for j in range(m_control):
-                    if u[j] < ul[j]:
-                        u[j] = ul[j].clone()
-                    if u[j] > um[j]:
-                        u[j] = um[j].clone()
-                u = torch.tensor(u)
-                u_neural[i, :] = u[0:self.m_control].reshape(1, m_control)
+        Q_mat = csc_matrix(Q_all)
+        
+        F_mat = np.array(F_all)
+
+        A_mat = scipy.sparse.csc.csc_matrix(A_mat)
+
+        B_mat = np.array(B_mat)
+        
+            # B = np.array(B)
+
+            # # print(A)
+            # A = scipy.sparse.csc.csc_matrix(A)
+        try:
+            u = solve_qp(Q_mat, F_mat, A_mat, B_mat, solver="osqp")
+            u = torch.tensor(u)
+            u_neural[i, :] = u[0:self.m_control].reshape(1, m_control)
+        except:
+            u_neural = u_nominal.clone()
+
+            # if u is None:
+            #     u_neural[i, :] = u_nominal[i, :].reshape(m_control)
+            # else:
+            #     for j in range(m_control):
+            #         if u[j] < ul[j]:
+            #             u[j] = ul[j].clone()
+            #         if u[j] > um[j]:
+            #             u[j] = um[j].clone()
+            #     u = torch.tensor(u)
+            #     u_neural[i, :] = u[0:self.m_control].reshape(1, m_control)
             
         return u_neural.reshape(bs, m_control)
     

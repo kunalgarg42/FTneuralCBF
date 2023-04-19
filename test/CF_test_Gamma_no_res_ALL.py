@@ -13,7 +13,8 @@ from pytictoc import TicToc
 from dynamics.Crazyflie import CrazyFlies
 from trainer import config
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma_linear
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM, Gamma_linear, Gamma_linear_deep_nonconv, Gamma_linear_nonconv, Gamma_linear_LSTM_old, Gamma_linear_LSTM_small
+
 
 xg = torch.tensor([[0.0,
                     0.0,
@@ -49,7 +50,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 
 fault = nominal_params["fault"]
 
-use_good = 0
+use_good = 1
 
 traj_len = 100
 
@@ -61,30 +62,81 @@ t = TicToc()
 
 gpu_id = 1
 
+gamma_type = 'LSTM small'
+
+sys.stdout = open('./log_files/log_gamma_train_' + gamma_type + '.txt', 'w')
+
 def main(args):
     fault_control_index = args.fault_index
     use_nom = args.use_nom
 
     if use_nom == 1:
-        n_sample = 5000
+        n_sample = 10000
     else:
         n_sample = 1000
-    str_data = './data_from_supercloud/CF_gamma_NN_class_linear_ALL_faults_no_res.pth'
-    str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res.pth'
+
+    if gamma_type == 'LSTM':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth'
+        str_supercloud_data = './supercloud_data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth'
+    elif gamma_type == 'LSTM old':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM.pth'
+        str_supercloud_data = './supercloud_data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM.pth'
+    elif gamma_type == 'LSTM small':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_small.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_small.pth'
+        str_supercloud_data = './supercloud_data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_small.pth'
+    elif gamma_type == 'linear nonconv':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res.pth'
+        str_supercloud_data = './supercloud_data/CF_gamma_NN_class_linear_ALL_faults_no_res.pth'
+    elif gamma_type == 'deep':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_non_conv_deep.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_non_conv_deep.pth'
+        str_supercloud_data = './supercloud_data/CF_gamma_NN_class_linear_ALL_faults_no_res_non_conv_deep.pth'
+    elif gamma_type == 'linear conv':
+        str_data = './data/CF_gamma_NN_class_linear_ALL_faults.pth'
+        str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults.pth'
+        str_supercloud_data = './supercloud_data/CF_gamma_NN_class_linear_ALL_faults.pth'
     
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)
     cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
               fault_control_index=fault_control_index)
-    gamma = Gamma_linear(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    
+    if gamma_type == 'linear nonconv':
+        gamma = Gamma_linear_nonconv(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    elif gamma_type == 'deep':
+        gamma = Gamma_linear_deep_nonconv(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    elif gamma_type == 'LSTM':
+        gamma = Gamma_linear_LSTM(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    elif gamma_type == 'LSTM old':
+        gamma = Gamma_linear_LSTM_old(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    elif gamma_type == 'linear conv':
+        gamma = Gamma_linear(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    elif gamma_type == 'LSTM small':
+        gamma = Gamma_linear_LSTM_small(n_state=n_state, m_control=m_control, traj_len=traj_len)
 
     if use_good == 1:
         try:
-            gamma.load_state_dict(torch.load(str_good_data))
+            if gpu_id == -1:
+                gamma.load_state_dict(torch.load(str_supercloud_data, map_location=torch.device('cpu')))
+            else:
+                gamma.load_state_dict(torch.load(str_supercloud_data))
         except:
-            gamma.load_state_dict(torch.load(str_data))
-            print("No good data available")
+            try:
+                if gpu_id == -1:
+                    gamma.load_state_dict(torch.load(str_good_data, map_location=torch.device('cpu')))
+                else:
+                    gamma.load_state_dict(torch.load(str_good_data))
+            except:
+                if gpu_id == -1:
+                    gamma.load_state_dict(torch.load(str_data, map_location=torch.device('cpu')))
+                else:
+                    gamma.load_state_dict(torch.load(str_data))
+                print("No good data available")
     else:
         gamma.load_state_dict(torch.load(str_data))
     
@@ -95,104 +147,119 @@ def main(args):
 
     sm, sl = dynamics.state_limits()
     
-    gamma_actual_bs = torch.ones(n_sample, m_control)
+    nsample_factor = 1
 
-    for j in range(n_sample):
-            temp_var = np.mod(j, 5)
-            if temp_var < 4:
-                gamma_actual_bs[j, temp_var] = 0.0
+    n_sample_iter = int(n_sample / nsample_factor)
 
-    rand_ind = torch.randperm(n_sample)
-    gamma_actual_bs = gamma_actual_bs[rand_ind, :]
+    gamma_actual_bs = torch.ones(n_sample_iter, m_control)
 
-    state0 = dynamics.sample_safe(n_sample)
+    for j in range(n_sample_iter):
+        temp_var = np.mod(j, 5)
+        if temp_var < 4:
+            gamma_actual_bs[j, temp_var] = 0.0
 
-    state_traj = torch.zeros(n_sample, Eval_steps, n_state)    
+    for i in range(nsample_factor):
 
-    u_traj = torch.zeros(n_sample, Eval_steps, m_control)
-    
-    state = state0.clone()
-    
-    u_nominal = dynamics.u_nominal(state)
-    
-    t.tic()
+        rand_ind = torch.randperm(n_sample_iter)
 
-    print('length of failure, acc fail , acc no fail')
+        gamma_actual_bs = gamma_actual_bs[rand_ind, :]
 
-    new_goal = dynamics.sample_safe(1)
+        state0 = dynamics.sample_safe(n_sample_iter)
 
-    new_goal = new_goal.reshape(n_state, 1)
+        state_traj = torch.zeros(n_sample_iter, Eval_steps, n_state)    
 
-    for k in range(Eval_steps):
-
-        u_nominal = dynamics.u_nominal(state, op_point=new_goal)
-
-        fx = dynamics._f(state, params=nominal_params)
-        gx = dynamics._g(state, params=nominal_params)
-
-        if use_nom == 0:
-            h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
-            u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
-        else:
-            u = u_nominal.clone()
-
-        state_traj[:, k, :] = state.clone()
-                
-        u_traj[:, k, :] = u.clone()
+        u_traj = torch.zeros(n_sample_iter, Eval_steps, m_control)
         
-        if k >= traj_len - 1:
-            u = u * gamma_actual_bs
+        state = state0.clone()
+
+        for k in range(n_state):
+            if k > 5:
+                state[:, k] = torch.clamp(state[:, k], sm[k] / 10, sl[k] / 10)
         
-        gxu = torch.matmul(gx, u.reshape(n_sample, m_control, 1))
+        u_nominal = dynamics.u_nominal(state)
+        
+        t.tic()
 
-        dx = fx.reshape(n_sample, n_state) + gxu.reshape(n_sample, n_state)
+        # print('length of failure, acc fail , acc no fail')
 
-        state = state.clone() + dx * dt
-    
-        for j2 in range(n_state):
-            ind_sm = state[:, j2] > sm[j2]
-            if torch.sum(ind_sm) > 0:
-                state[ind_sm, j2] = sm[j2].repeat(torch.sum(ind_sm),)
-            ind_sl = state[:, j2] < sl[j2]
-            if torch.sum(ind_sl) > 0:
-                state[ind_sl, j2] = sl[j2].repeat(torch.sum(ind_sl),)
+        new_goal = dynamics.sample_safe(1)
 
-        if k >= traj_len - 1:
-            
-            gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :], 0 * state_traj[:, k - traj_len + 1:k + 1, :], u_traj[:, k - traj_len + 1:k + 1, :])
+        new_goal = new_goal.reshape(n_state, 1)
 
-            gamma_pred = gamma_NN.reshape(n_sample, m_control).clone().detach()
+        for k in range(Eval_steps):
 
-            acc_ind = torch.zeros(1, m_control * 2)
+            u_nominal = dynamics.u_nominal(state, op_point=new_goal)
 
-            for j in range(m_control):
-                
-                index_fault = gamma_actual_bs[:, j] < 0.5
+            fx = dynamics._f(state, params=nominal_params)
+            gx = dynamics._g(state, params=nominal_params)
 
-                index_num = torch.sum(index_fault.float())
+            if use_nom == 0:
+                h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample_iter, n_state, 1))
+                u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+            else:
+                u = u_nominal.clone()
 
-                if index_num > 0:
-                    acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0).float()) / (index_num + 1e-5)
-                else:
-                    acc_ind[0, j] = 1
+            state_traj[:, k, :] = state.clone()
                     
-                # if k == traj_len - 1:
-                #     index_no_fault = torch.ones(n_sample,) > 0.5
-                # else:
-                index_no_fault = gamma_actual_bs[:, j] > 0.5
-                
-                index_num = torch.sum(index_no_fault.float())
-
-                if index_num > 0:
-                    acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0).float()) / (index_num + 1e-5)
-                else:
-                    acc_ind[0, j + m_control] = 1
-                
+            u_traj[:, k, :] = u.clone()
             
-            np.set_printoptions(precision=3, suppress=True)
-
-            print('{}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy()))
+            if k >= traj_len - 1:
+                u = u * gamma_actual_bs
             
+            gxu = torch.matmul(gx, u.reshape(n_sample_iter, m_control, 1))
+
+            dx = fx.reshape(n_sample_iter, n_state) + gxu.reshape(n_sample_iter, n_state)
+
+            state = state.clone() + dx * dt
+        
+            for j2 in range(n_state):
+                ind_sm = state[:, j2] > sm[j2]
+                if torch.sum(ind_sm) > 0:
+                    state[ind_sm, j2] = sm[j2].repeat(torch.sum(ind_sm),)
+                ind_sl = state[:, j2] < sl[j2]
+                if torch.sum(ind_sl) > 0:
+                    state[ind_sl, j2] = sl[j2].repeat(torch.sum(ind_sl),)
+
+            if k >= traj_len - 1:
+                if gamma_type == 'linear conv':
+                    gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :], 0 * state_traj[:, k - traj_len + 1:k + 1, :], u_traj[:, k - traj_len + 1:k + 1, :])
+                else:    
+                    gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :], u_traj[:, k - traj_len + 1:k + 1, :])
+
+                gamma_pred = gamma_NN.reshape(n_sample_iter, m_control).clone().detach()
+
+                acc_ind = torch.zeros(1, m_control * 2)
+
+                for j in range(m_control):
+                    
+                    index_fault = gamma_actual_bs[:, j] < 0.5
+
+                    index_num = torch.sum(index_fault.float())
+
+                    if index_num > 0:
+                        acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0).float()) / (index_num + 1e-5)
+                    else:
+                        acc_ind[0, j] = 1
+                    
+                    index_no_fault = gamma_actual_bs[:, j] > 0.5
+                    
+                    index_num = torch.sum(index_no_fault.float())
+
+                    if index_num > 0:
+                        acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0).float()) / (index_num + 1e-5)
+                    else:
+                        acc_ind[0, j + m_control] = 1
+                    
+                np.set_printoptions(precision=3, suppress=True)
+                
+                text_print = '{}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy())
+
+                sys.stdout.write(text_print + '\n')
+                sys.stdout.flush()
+
+            # print('{}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy()))
+
+    sys.stdout.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

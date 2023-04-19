@@ -45,7 +45,7 @@ class Trainer(object):
             self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
         if gamma is not None:
             self.gamma_optimizer = torch.optim.Adam(
-                self.gamma.parameters(), lr=1e-4, weight_decay=1e-5)
+                self.gamma.parameters(), lr=5e-4, weight_decay=1e-5)
             # self.gamma_optimizer = FxTS_Momentum(
             #     self.gamma.parameters(), lr=1e-4, momentum=0.2)
         # # self.controller_optimizer = FxTS_Momentum(
@@ -354,7 +354,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, batch_size=50000, opt_iter=10, eps=0.5, eps_deriv=0.01):
+    def train_gamma(self, batch_size=10000, opt_iter=10, eps=0.5, eps_deriv=0.01):
         loss_np = 0.0
         
         traj_len = self.traj_len
@@ -379,11 +379,8 @@ class Trainer(object):
             # self.gpu_id = np.mod(iter, 4)
     
             for i in range(opt_iter):
-                
                 loss = torch.tensor(0.0)
-
-                # t.tic()
-                # print(i)
+                
                 state, _, u, gamma_actual = self.dataset.sample_data_all(batch_size, i)
                 
                 if self.gpu_id >= 0:
@@ -556,6 +553,7 @@ class Trainer(object):
         # u = u.reshape(ns, traj_len, self.m_control)
         # state_diff = state_diff.reshape(ns, traj_len, self.n_state)
         # for i in range(self.num_traj):
+
         gamma_data = self.gamma(state, u)
         gamma_data = gamma_data.reshape(ns, self.m_control)
         
