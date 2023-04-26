@@ -383,7 +383,7 @@ class Trainer(object):
             batch_size = self.dataset.n_pts
         
         opt_iter = int(self.dataset.n_pts / batch_size)
-        
+
         opt_count = 100
         for _ in range(opt_count):
             for i in range(opt_iter):
@@ -639,8 +639,10 @@ class Trainer(object):
         doth = doth + torch.matmul(torch.abs(LhG).reshape(bs, 1, self.m_control + 1),
                                    uin.reshape(bs, self.m_control + 1, 1))
         if self.fault == 1:
-            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[self.fault_control_index,:].reshape(
-                bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * um[self.fault_control_index,:].reshape(
+            
+            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[:, self.fault_control_index].reshape(
+                bs, 1) 
+            doth = doth - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * um[:, self.fault_control_index].reshape(
                 bs, 1)
 
         return doth.reshape(1, bs)
@@ -693,24 +695,6 @@ class Trainer(object):
 
         # ns = int(state.shape[0] / traj_len)
         ns = state.shape[0]
-        # f = self.dyn._f(state.reshape(ns * traj_len, self.n_state), self.params)
-
-        # g = self.dyn._g(state.reshape(ns * traj_len, self.n_state), self.params)
-
-        # dsdt = f + torch.matmul(g, u.reshape(ns * traj_len, self.m_control, 1))
-
-        # dsdt = dsdt.reshape(ns, traj_len, self.n_state)
-        # dsdt = self.nominal_dynamics(state.reshape(ns * traj_len, self.n_state), u.reshape(ns * traj_len, self.m_control))
-        # if state.get_device() >= 0:
-        #     state = state.cuda(self.gpu_id)
-        #     state_diff = state_diff.cuda(self.gpu_id)
-        #     u = u.cuda(self.gpu_id)
-        #     self.gamma.to(torch.device(self.gpu_id))
-
-        # state = state.reshape(ns, traj_len, self.n_state)
-        # u = u.reshape(ns, traj_len, self.m_control)
-        # state_diff = state_diff.reshape(ns, traj_len, self.n_state)
-        # for i in range(self.num_traj):
 
         gamma_data = self.gamma(state, u)
         gamma_data = gamma_data.reshape(ns, self.m_control)
