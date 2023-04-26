@@ -60,7 +60,7 @@ fault = nominal_params["fault"]
 
 t = TicToc()
 
-gpu_id = 1
+gpu_id = 3
 
 gamma_type = 'LSTM small'
 
@@ -71,7 +71,7 @@ def main(args):
     use_nom = args.use_nom
 
     if use_nom == 1:
-        n_sample = 10000
+        n_sample = 1000
     else:
         n_sample = 1000
 

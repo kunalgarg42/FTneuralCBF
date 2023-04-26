@@ -23,7 +23,7 @@ from trainer.constraints_crazy import constraints
 from trainer.datagen import Dataset_with_Grad
 from trainer.trainer import Trainer
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM
 
 xg = torch.tensor([0.0, 0.0, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
@@ -40,7 +40,7 @@ nominal_params = config.CRAZYFLIE_PARAMS
 fault_control_index = 1
 fault_duration = config.FAULT_DURATION
 
-fault_known = 1
+fault_known = 0
 
 n_sample = 1
 
@@ -58,7 +58,7 @@ def main():
 
     # NN_controller = NNController_new(n_state=n_state, m_control=m_control)
     NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
-    gamma = Gamma(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    gamma = Gamma_linear_LSTM(n_state=n_state, m_control=m_control, traj_len=traj_len)
     # NN_alpha = alpha_param(n_state=n_state)
     FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
     try:
@@ -75,12 +75,12 @@ def main():
                 map_location=torch.device("cpu"),
             )
         )
-        gamma.load_state_dict(
-            torch.load(
-                "./good_data/data/CF_gamma_NN_weights0.pth",
-                map_location=torch.device("cpu"),
-            )
-        )
+        # gamma.load_state_dict(
+        #     torch.load(
+        #         "./good_data/data/CF_gamma_NN_weights0.pth",
+        #         map_location=torch.device("cpu"),
+        #     )
+        # )
         # NN_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
     except:
         # NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
@@ -94,13 +94,14 @@ def main():
                 "./data/CF_cbf_FT_weightsCBF.pth", map_location=torch.device("cpu")
             )
         )
-        gamma.load_state_dict(
-            torch.load(
-                "./data/CF_gamma_NN_weights0.pth",
-                map_location=torch.device("cpu"),
-            )
-        )
+        # gamma.load_state_dict(
+        #     torch.load(
+        #         "./data/CF_gamma_NN_weights0.pth",
+        #         map_location=torch.device("cpu"),
+        #     )
+        # )
         # NN_alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
+    gamma.load_state_dict(torch.load('./supercloud_data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth', map_location=torch.device("cpu")))
 
     NN_cbf.eval()
 
@@ -207,7 +208,7 @@ def main():
         traj_size = state_traj.shape[1]
         
         if traj_size >= traj_len:
-            gamma_NN = gamma(state_traj.reshape(n_sample, traj_len, n_state), state_traj_diff.reshape(n_sample, traj_len, n_state), u_traj.reshape(n_sample, traj_len, m_control))
+            gamma_NN = gamma(state_traj.reshape(n_sample, traj_len, n_state), u_traj.reshape(n_sample, traj_len, m_control))
             gamma_NN = gamma_NN.detach()
             gamma_min = torch.min(gamma_NN)
             fault_index_NN = torch.argmin(gamma_NN).numpy()
@@ -508,7 +509,7 @@ def main():
     if fault_known == 1:
         plt.savefig("./plots/plot_CF_known_F_gamma.png")
     else:
-        plt.savefig("./plots/plot_CF_gamma.png")
+        plt.savefig("./plots/plot_CF_gamma_LSTM.png")
 
     fig2 = plt.figure(figsize=(21, 9))
     axs2 = fig2.subplots(1, 1)
@@ -533,7 +534,7 @@ def main():
     if fault_known == 1:
         plt.savefig("./plots/plot_CF_known_F_gamma_index.png")
     else:
-        plt.savefig("./plots/plot_CF_gamma_index.png")
+        plt.savefig("./plots/plot_CF_gamma_index_LSTM.png")
     
 if __name__ == "__main__":
     main()

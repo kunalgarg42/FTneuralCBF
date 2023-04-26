@@ -13,6 +13,7 @@ class Trainer(object):
 
     def __init__(self,
                  cbf,
+                 controller,
                  dataset,
                  dyn,
                  params,
@@ -36,6 +37,7 @@ class Trainer(object):
         self.traj_len = traj_len
         self.dyn = dyn
         self.cbf = cbf
+        self.controller = controller
         self.gamma = gamma
         self.dataset = dataset
         self.fault = fault
@@ -48,8 +50,8 @@ class Trainer(object):
                 self.gamma.parameters(), lr=5e-4, weight_decay=1e-5)
             # self.gamma_optimizer = FxTS_Momentum(
             #     self.gamma.parameters(), lr=1e-4, momentum=0.2)
-        # # self.controller_optimizer = FxTS_Momentum(
-        #     self.controller.parameters(), lr=1e-5, momentum=0.2)
+        self.controller_optimizer = torch.optim.Adam(
+            self.controller.parameters(), lr=1e-5, weight_decay=1e-5)
         # self.cbf_optimizer = FxTS_Momentum(
         #     self.cbf.parameters(), lr=5e-5, momentum=0.2)
         # self.alpha_optimizer = FxTS_Momentum(
@@ -353,6 +355,129 @@ class Trainer(object):
             # self.controller_lr_scheduler.step()
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
+    
+    def train_cbf_and_u(self, goal, batch_size=15000, opt_iter=20, eps=0.1, eps_deriv=0.03):
+        loss_np = 0.0
+        loss_h_safe_np = 0.0
+        loss_h_dang_np = 0.0
+        # loss_u = 0.0
+        loss_deriv_safe_np = 0.0
+        loss_deriv_mid_np = 0.0
+        loss_deriv_dang_np = 0.0
+        # loss_u_np = 0.0
+        loss_alpha_np = 0.0
+        acc_np = np.zeros((5,), dtype=np.float32)
+        # print("training only CBF")
+        # t.tic()
+        um, _ = self.dyn.control_limits()
+        um = um.reshape(1, self.m_control).repeat(batch_size, 1)
+        # ul = ul.reshape(1, self.m_control).repeat(batch_size, 1)
+
+        um = um.type(torch.FloatTensor)
+        # ul = ul.type(torch.FloatTensor)
+        if self.gpu_id >= 0:
+            um = um.cuda(self.gpu_id)
+            # ul = ul.cuda(self.gpu_id)
+        
+        if batch_size > self.dataset.n_pts:
+            batch_size = self.dataset.n_pts
+        
+        opt_iter = int(self.dataset.n_pts / batch_size)
+        
+        opt_count = 100
+        for _ in range(opt_count):
+            for i in range(opt_iter):
+
+                state, _, _ = self.dataset.sample_data(batch_size, i)
+
+                u_nominal = self.dyn.u_nominal(state, op_point=goal)
+
+                if self.gpu_id >= 0:
+                    state = state.cuda(self.gpu_id)
+                    self.cbf.to(torch.device(self.gpu_id))
+                    self.controller.to(torch.device(self.gpu_id))
+                    u_nominal = u_nominal.cuda(self.gpu_id).type_as(state)
+
+                safe_mask, dang_mask, mid_mask = self.get_mask(state)
+
+                h, grad_h = self.cbf.V_with_jacobian(state)
+                
+                unn = self.controller(state, u_nominal)
+
+                dot_h = self.doth_u(h, state, grad_h, unn, um)
+
+                deriv_cond = dot_h.clone()  # + alpha.reshape(1, batch_size) * h.reshape(1, batch_size)
+
+                num_safe = torch.sum(safe_mask)
+                num_dang = torch.sum(dang_mask)
+                num_mid = torch.sum(mid_mask)
+
+                acc_h_safe = torch.sum(
+                    (h >= 0).reshape(1, batch_size).float() * safe_mask.reshape(1, batch_size)) / (1e-5 + num_safe)
+                acc_h_dang = torch.sum(
+                    (h < 0).reshape(1, batch_size).float() * dang_mask.reshape(1, batch_size)) / (1e-5 + num_dang)
+
+                loss_h_safe = torch.sum(
+                    nn.ReLU()(eps - h).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
+                                      1e-5 + num_safe) / (acc_h_safe.clone().detach() + 1e-5)
+
+                loss_h_dang = torch.sum(
+                    nn.ReLU()(h + eps).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
+                                      1e-5 + num_dang) / (acc_h_dang.clone().detach() + 1e-5)
+
+                acc_deriv_safe = torch.sum((deriv_cond > 0).float() * safe_mask) / (1e-5 + num_safe)
+                acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
+                acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
+
+                loss_deriv_safe = torch.sum(
+                    nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * safe_mask.reshape(1, batch_size)) / (
+                                          1e-5 + num_safe) / (acc_deriv_safe.detach() + 1e-5)
+                loss_deriv_dang = torch.sum(
+                    nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * dang_mask.reshape(1, batch_size)) / (
+                                          1e-5 + num_dang) / (acc_deriv_dang.detach() + 1e-5)
+                loss_deriv_mid = torch.sum(
+                    nn.ReLU()(eps_deriv - deriv_cond).reshape(1, batch_size) * mid_mask.reshape(1, batch_size)) / (
+                                         1e-5 + num_mid) / (acc_deriv_mid.detach() + 1e-5)
+                
+                loss = loss_h_safe + loss_h_dang + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid
+
+                self.cbf_optimizer.zero_grad(set_to_none=True)
+
+                loss.backward()
+
+                self.cbf_optimizer.step()
+
+                # log statics
+                acc_np[0] += acc_h_safe.detach().cpu()
+                acc_np[1] += acc_h_dang.detach().cpu()
+
+                acc_np[2] += acc_deriv_safe.detach()
+                acc_np[3] += acc_deriv_dang.detach()
+                acc_np[4] += acc_deriv_mid.detach()
+
+                loss_np += loss.detach().cpu().numpy()
+                loss_h_safe_np += loss_h_safe.detach().cpu().numpy()
+                loss_h_dang_np += loss_h_dang.detach().cpu().numpy()
+                # loss_u_np += loss_u.detach().cpu().numpy()
+                loss_deriv_safe_np += loss_deriv_safe.detach().cpu().numpy()
+                loss_deriv_mid_np += loss_deriv_mid.detach().cpu().numpy()
+                loss_deriv_dang_np += loss_deriv_dang.detach().cpu().numpy()
+
+        acc_np /= opt_iter * opt_count
+        loss_np /= opt_iter * opt_count
+        loss_h_safe_np /= opt_iter * opt_count
+        loss_h_dang_np /= opt_iter * opt_count
+        loss_deriv_safe_np /= opt_iter * opt_count
+        loss_deriv_mid_np /= opt_iter * opt_count
+        loss_deriv_dang_np /= opt_iter * opt_count
+        loss_alpha_np /= opt_iter * opt_count
+
+        if self.lr_decay_stepsize >= 0:
+            # learning rate decay
+            self.cbf_lr_scheduler.step()
+            # self.controller_lr_scheduler.step()
+
+        return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
     def train_gamma(self, batch_size=10000, opt_iter=10, eps=0.5, eps_deriv=0.01):
         loss_np = 0.0
@@ -484,6 +609,39 @@ class Trainer(object):
         #             doth = doth.reshape(bs, 1) + torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1)
         #         else:
         #             doth = doth.reshape(bs, 1) + torch.abs(LhG[:, i]).reshape(bs, 1) * uin[i, :].reshape(bs, 1)
+
+        return doth.reshape(1, bs)
+    
+    def doth_u(self, h, state, grad_h, unn, um):
+        bs = grad_h.shape[0]
+
+        fx = self.dyn._f(state, self.params)
+        gx = self.dyn._g(state, self.params)
+        vec_ones = 10 * torch.ones(bs, 1)
+        if self.gpu_id >= 0:
+            fx = fx.cuda(self.gpu_id)
+            gx = gx.cuda(self.gpu_id)
+            vec_ones = vec_ones.cuda(self.gpu_id)
+
+        doth = torch.matmul(grad_h, fx)
+
+        LhG = torch.matmul(grad_h, gx).reshape(bs, self.m_control)
+        LhG = torch.hstack((LhG, h))
+
+
+        # uin = um.reshape(self.m_control + 1, bs) * \
+        #       (sign_grad_h > 0).reshape(self.m_control + 1, bs) - ul.reshape(self.m_control + 1, bs) * (
+        #               sign_grad_h <= 0).reshape(self.m_control + 1, bs)
+    
+
+        uin = torch.cat((unn, vec_ones), dim=1).reshape(bs, self.m_control + 1)
+        
+        doth = doth + torch.matmul(torch.abs(LhG).reshape(bs, 1, self.m_control + 1),
+                                   uin.reshape(bs, self.m_control + 1, 1))
+        if self.fault == 1:
+            doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[self.fault_control_index,:].reshape(
+                bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * um[self.fault_control_index,:].reshape(
+                bs, 1)
 
         return doth.reshape(1, bs)
 

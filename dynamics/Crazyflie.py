@@ -318,21 +318,21 @@ class CrazyFlies(ControlAffineSystemNew):
         system
         """
         # define upper and lower limits based around the nominal equilibrium input
-        if fault is None:
-            params = self.params
-            fault = params["fault"]
+        # if fault is None:
+        #     params = self.params
+        #     fault = params["fault"]
 
-        if fault == 0:
-            safe_z_l = 2
-            safe_z_u = 12
-            safe_w_u = 8
-            safe_w_l = -8
+        # if fault == 0:
+        safe_z_l = 0.5
+        safe_z_u = 12.0
+        safe_w_u = 8.0
+        safe_w_l = -8.0
             # safe_angle = np.pi / 5.0
-        else:
-            safe_z_l = 1.9
-            safe_z_u = 12.1
-            safe_w_u = 8.1
-            safe_w_l = -8.1
+        # else:
+        #     safe_z_l = 1.9
+        #     safe_z_u = 12.1
+        #     safe_w_u = 8.1
+        #     safe_w_l = -8.1
             # safe_angle = np.pi / 4.8
 
         upper_limit = 0.9 * sm
@@ -363,20 +363,20 @@ class CrazyFlies(ControlAffineSystemNew):
         args:
             x: a tensor of points in the state space
         """
-        if fault is None:
-            params = self.params
-            fault = params["fault"]
+        # if fault is None:
+        #     params = self.params
+        #     fault = params["fault"]
 
-        if fault == 0:
-            safe_z_l = 2
-            safe_z_u = 12
-            safe_w_u = 8
-            safe_w_l = -8
-        else:
-            safe_z_l = 1.9
-            safe_z_u = 12.1
-            safe_w_u = 8.1
-            safe_w_l = -8.1
+        # if fault == 0:
+        safe_z_l = 0.5
+        safe_z_u = 12.0
+        safe_w_u = 8.0
+        safe_w_l = -8.0
+        # else:
+        #     safe_z_l = 1.9
+        #     safe_z_u = 12.1
+        #     safe_w_u = 8.1
+        #     safe_w_l = -8.1
 
         safe_mask = torch.logical_and(x[:, CrazyFlies.Z] >= safe_z_l, x[:, CrazyFlies.Z] <= safe_z_u)
         safe_mask.logical_and_(x[:, CrazyFlies.W] >= safe_w_l)
@@ -389,10 +389,10 @@ class CrazyFlies(ControlAffineSystemNew):
         args:
             x: a tensor of points in the state space
         """
-        unsafe_z_l = 0.2
+        unsafe_z_l = 0.1
         unsafe_z_u = 12.5
-        unsafe_w_l = -9
-        unsafe_w_u = 9
+        unsafe_w_l = -9.0
+        unsafe_w_u = 9.0
 
         unsafe_mask = torch.logical_or(x[:, CrazyFlies.Z] <= unsafe_z_l, x[:, CrazyFlies.Z] >= unsafe_z_u)
         unsafe_mask.logical_or_(x[:, CrazyFlies.W] >= unsafe_w_u)
