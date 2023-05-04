@@ -48,7 +48,7 @@ dt = 0.001
 n_state = 12
 m_control = 4
 
-nominal_params = config.CRAZYFLIE_PARAMS
+nominal_params = config.CRAZYFLIE_PARAMS_PERT
 
 fault = nominal_params["fault"]
 

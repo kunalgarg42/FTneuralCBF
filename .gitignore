@@ -54,3 +54,5 @@ git_run.sh
 .git_run
 
 .gitignore
+
+/test/CF_NN_model_tracing.py

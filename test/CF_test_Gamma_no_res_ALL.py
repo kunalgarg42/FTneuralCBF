@@ -62,18 +62,18 @@ t = TicToc()
 
 gpu_id = 3
 
-gamma_type = 'LSTM small'
-
-sys.stdout = open('./log_files/log_gamma_train_' + gamma_type + '.txt', 'w')
+gamma_type = 'LSTM old'
 
 def main(args):
     fault_control_index = args.fault_index
     use_nom = args.use_nom
 
     if use_nom == 1:
-        n_sample = 1000
+        n_sample = 10000
+        sys.stdout = open('./log_files/log_gamma_train_LQR_' + gamma_type + '.txt', 'w')
     else:
         n_sample = 1000
+        sys.stdout = open('./log_files/log_gamma_train_CBF_' + gamma_type + '.txt', 'w')
 
     if gamma_type == 'LSTM':
         str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth'
@@ -142,14 +142,20 @@ def main(args):
     
     gamma.eval()
         
-    cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF.pth'))
+    cbf.load_state_dict(torch.load('./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth'))
     cbf.eval()
 
     sm, sl = dynamics.state_limits()
     
-    nsample_factor = 1
+    if use_nom == 1:
+        nsample_factor = 1
+    else:
+        nsample_factor = 1
 
     n_sample_iter = int(n_sample / nsample_factor)
+
+    acc0 = torch.zeros(traj_len + 1, 1)
+    acc1 = torch.zeros(traj_len + 1, 1)
 
     gamma_actual_bs = torch.ones(n_sample_iter, m_control)
 
@@ -159,6 +165,8 @@ def main(args):
             gamma_actual_bs[j, temp_var] = 0.0
 
     for i in range(nsample_factor):
+        # if i < m_control:
+        #     gamma_actual_bs[i, :] = 0.0
 
         rand_ind = torch.randperm(n_sample_iter)
 
@@ -249,15 +257,29 @@ def main(args):
                         acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0).float()) / (index_num + 1e-5)
                     else:
                         acc_ind[0, j + m_control] = 1
-                    
-                np.set_printoptions(precision=3, suppress=True)
                 
-                text_print = '{}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy())
+                np.set_printoptions(precision=3, suppress=True)
 
+                text_print = '{}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy())
+                
                 sys.stdout.write(text_print + '\n')
                 sys.stdout.flush()
 
-            # print('{}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy()))
+    #             acc0[np.max([np.min([k - (traj_len - 2), traj_len]), 0])] += torch.min(acc_ind[0, 0:m_control])
+    #             acc1[np.max([np.min([k - (traj_len - 2), traj_len]), 0])] += torch.min(acc_ind[0, m_control:2 * m_control])
+    
+    # acc0 = acc0 / nsample_factor
+    # acc1 = acc1 / nsample_factor
+    
+    # np.set_printoptions(precision=3, suppress=True)
+
+    # for i in range(traj_len + 1):
+    #     text_print = '{}, {}, {}'.format(i, acc0[i].numpy(), acc1[i].numpy())
+
+    #     sys.stdout.write(text_print + '\n')
+    #     sys.stdout.flush()
+
+                
 
     sys.stdout.close()
 

@@ -20,7 +20,7 @@ from trainer.constraints_crazy import constraints
 from trainer.datagen import Dataset_with_Grad
 from trainer.trainer import Trainer
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM_old
 
 goal = torch.tensor([0.0, 0.0, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
@@ -30,7 +30,7 @@ n_state = 12
 m_control = 4
 fault = 0
 
-FT_tol = 0.1
+FT_tol = -0.5
 
 traj_len = config.TRAJ_LEN
 
@@ -41,7 +41,7 @@ fault_duration = config.FAULT_DURATION
 
 fault_known = 1
 
-n_sample = 10
+n_sample = 100
 
 def main():
     dynamics = CrazyFlies(x=x0, goal=goal, nominal_params=nominal_params, dt=dt)
@@ -57,18 +57,20 @@ def main():
 
     # NN_controller = NNController_new(n_state=n_state, m_control=m_control)
     NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
-    gamma = Gamma(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    gamma = Gamma_linear_LSTM_old(n_state=n_state, m_control=m_control, traj_len=traj_len)
     # NN_alpha = alpha_param(n_state=n_state)
     FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
     NN_cbf.load_state_dict(
         torch.load(
-            "./good_data/data/CF_cbf_NN_weightsCBF.pth",
+            # "./good_data/data/CF_cbf_NN_weightsCBF.pth",
+            "./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth",
             map_location=torch.device("cpu"),
         )
     )
     FT_cbf.load_state_dict(
         torch.load(
-            "./good_data/data/CF_cbf_FT_weightsCBF.pth",
+            # "./good_data/data/CF_cbf_FT_weightsCBF.pth",
+            "./supercloud_data/CF_cbf_FT_weightsCBF_with_u.pth",
             map_location=torch.device("cpu"),
         )
     )
@@ -77,7 +79,8 @@ def main():
         
         gamma.load_state_dict(
             torch.load(
-                "./good_data/data/CF_gamma_NN_weightssingle1.pth",
+                # "./good_data/data/CF_gamma_NN_weightssingle1.pth",
+                './supercloud_data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM.pth',
                 map_location=torch.device("cpu"),
             )
         )
@@ -172,6 +175,7 @@ def main():
         h_prev, _ = NN_cbf.V_with_jacobian(previous_state.reshape(n_sample, n_state, 1))
 
         u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+        # u = util.neural_controller(u_nominal, fx, gx, h, grad_h, detect)
 
         u = u.clone().type(torch.float32)
 
@@ -198,7 +202,7 @@ def main():
         dot_h = (h - h_prev) / dt + 0.01 * h
         
         if i >= fault_start_epoch + traj_len:
-            gamma_NN = gamma(state_traj.reshape(n_sample, traj_len, n_state), state_traj_diff.reshape(n_sample, traj_len, n_state), u_traj.reshape(n_sample, traj_len, m_control))
+            gamma_NN = gamma(state_traj.reshape(n_sample, traj_len, n_state), u_traj.reshape(n_sample, traj_len, m_control))
             
             gamma_NN = gamma_NN.detach()
 
@@ -206,11 +210,22 @@ def main():
 
             fault_index_NN = torch.argmin(gamma_NN, dim=1).numpy().reshape(1, n_sample)
             
-            if fault_start == 1:
-                pred_acc = 1 - torch.abs(gamma_NN[:, fault_control_index])
-            else:
-                pred_acc = 1 - torch.abs(gamma_NN[:, fault_control_index] - 1)
-            
+            # if fault_start == 1:
+            #     pred_acc = 1 - torch.abs(gamma_NN[:, fault_control_index])
+            # else:
+            #     pred_acc = 1 - torch.abs(gamma_NN[:, fault_control_index] - 1)
+            pred_acc = 0.0
+            for control_iter in range(m_control):
+                if fault_start == 1:
+                    if control_iter == fault_control_index:
+                        pred_acc += (gamma_NN[:, control_iter] < 0).float()
+                    else:
+                        pred_acc += (gamma_NN[:, control_iter] > 0).float()
+                else:
+                    pred_acc += torch.sum((gamma_NN[:, control_iter] > 0).float())
+
+            pred_acc = pred_acc / m_control
+
             gamma_min_tol_ind = gamma_min.values > FT_tol
             gamma_min_below_tol_ind = gamma_min.values <= FT_tol
 
@@ -218,8 +233,8 @@ def main():
 
             # if gamma_min >= FT_tol:
 
-            print(torch.sum(pred_acc) / n_sample)
-            print(gamma_min)
+            # print(torch.sum(pred_acc) / n_sample)
+            # print(gamma_min)
             # gamma_NN[gamma_min_tol_ind, fault_index_NN] = torch.ones(torch.sum(gamma_min_tol_ind),)
             # gamma_min[gamma_min_tol_ind] = torch.ones(torch.sum(gamma_min_tol_ind),)
 
@@ -264,8 +279,9 @@ def main():
 
         h, grad_h = FT_cbf.V_with_jacobian(state.reshape(n_sample, n_state, 1))
 
-        u_new = util.fault_controller(u_nominal, fx, gx, h, grad_h, detect, fault_index_NN)
+        u_new = util.fault_controller(u_nominal, fx, gx, h, grad_h)
 
+        # u_new = util.neural_controller(u_nominal, fx, gx, h, grad_h, detect)
         u_new = u_new.clone().type(torch.float32).reshape(n_sample, m_control)
         
         u_new[:, fault_control_index] = u[:, fault_control_index].clone()
@@ -355,7 +371,6 @@ def main():
         u_traj = u_traj[:, -traj_len:, :]
 
         
-
     print(safety_rate)
     print(unsafety_rate)
     print(h_correct)

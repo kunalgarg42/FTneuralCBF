@@ -19,9 +19,9 @@ sys.path.insert(1, os.path.abspath("."))
 # from dynamics.fixed_wing_dyn import fw_dyn_ext, fw_dyn
 from dynamics.Crazyflie import CrazyFlies
 from trainer import config
-from trainer.constraints_crazy import constraints
-from trainer.datagen import Dataset_with_Grad
-from trainer.trainer import Trainer
+# from trainer.constraints_crazy import constraints
+# from trainer.datagen import Dataset_with_Grad
+# from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM
 
@@ -37,7 +37,8 @@ traj_len = config.TRAJ_LEN
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
-fault_control_index = 1
+fault_control_index = 0
+
 fault_duration = config.FAULT_DURATION
 
 fault_known = 0
@@ -65,13 +66,13 @@ def main():
         # NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weightsCBF.pth'))
         NN_cbf.load_state_dict(
             torch.load(
-                "./good_data/data/CF_cbf_NN_weightsCBF.pth",
+                "./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth",
                 map_location=torch.device("cpu"),
             )
         )
         FT_cbf.load_state_dict(
             torch.load(
-                "./good_data/data/CF_cbf_FT_weightsCBF.pth",
+                "./supercloud_data/CF_cbf_FT_weightsCBF_with_u.pth",
                 map_location=torch.device("cpu"),
             )
         )
@@ -83,6 +84,7 @@ def main():
         # )
         # NN_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
     except:
+        print('super cloud data not available')
         # NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
         NN_cbf.load_state_dict(
             torch.load(
@@ -509,7 +511,7 @@ def main():
     if fault_known == 1:
         plt.savefig("./plots/plot_CF_known_F_gamma.png")
     else:
-        plt.savefig("./plots/plot_CF_gamma_LSTM.png")
+        plt.savefig("./plots/plot_CF_gamma_LSTM_new.png")
 
     fig2 = plt.figure(figsize=(21, 9))
     axs2 = fig2.subplots(1, 1)
@@ -534,7 +536,7 @@ def main():
     if fault_known == 1:
         plt.savefig("./plots/plot_CF_known_F_gamma_index.png")
     else:
-        plt.savefig("./plots/plot_CF_gamma_index_LSTM.png")
+        plt.savefig("./plots/plot_CF_gamma_index_LSTM_new.png")
     
 if __name__ == "__main__":
     main()

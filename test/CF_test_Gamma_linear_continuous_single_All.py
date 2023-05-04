@@ -12,11 +12,11 @@ sys.path.insert(1, os.path.abspath('.'))
 from pytictoc import TicToc
 from dynamics.Crazyflie import CrazyFlies
 from trainer import config
-from trainer.constraints_crazy import constraints
-from trainer.datagen import Dataset_with_Grad
-from trainer.trainer import Trainer
+# from trainer.constraints_crazy import constraints
+# from trainer.datagen import Dataset_with_Grad
+# from trainer.trainer import Trainer
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma_linear
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM, Gamma
 
 torch.backends.cudnn.benchmark = True
 
@@ -79,8 +79,12 @@ def main(args):
 
     num_traj_factor = 3
     
-    str_data = './data/CF_gamma_NN_class_linear_0_faults_no_res.pth'
-    str_good_data = './good_data/data/CF_gamma_NN_class_linear_0_faults_no_res.pth'
+    # str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth'
+    # str_good_data = './good_data/data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth'
+    # str_supercloud_data = './supercloud_data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth'
+    str_data = './data/CF_gamma_NN_weightssingle1.pth'
+    str_good_data = './good_data/data/CF_gamma_NN_weightssingle1.pth'
+
 
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
@@ -88,34 +92,33 @@ def main(args):
                  fault_control_index=fault_control_index)
     cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
               fault_control_index=fault_control_index)
-    gamma = Gamma_linear(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    gamma = Gamma(n_state=n_state, m_control=m_control, traj_len=traj_len)
 
     if init_param == 1:
         try:
+            # try:
+            #     gamma.load_state_dict(torch.load(str_supercloud_data))
+            #     # gamma.eval()
+            # except:
             gamma.load_state_dict(torch.load(str_good_data))
-            gamma.eval()
+                # gamma.eval()
         except:
             print("No good data available")
-            try:
-                gamma.load_state_dict(torch.load(str_data))
-                gamma.eval()
-            except:
-                print("No pre-train data available")
-    
+            # try:
+            gamma.load_state_dict(torch.load(str_data))
+                # gamma.eval()
+            # except:
+            #     print("No pre-train data available")
+    gamma.eval()
+
     cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*500, traj_len=traj_len)
-    trainer = Trainer(cbf, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
-                      dt=dt, action_loss_weight=0.001, params=nominal_params,
-                      fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
-                      fault_control_index=fault_control_index)
-    loss_np = 1.0
     safety_rate = 0.0
 
     sm, sl = dynamics.state_limits()
     
-    loss_current = 0.1
+    # loss_current = 0.1
 
     for i in range(1000):
         
@@ -197,7 +200,7 @@ def main(args):
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
             
             if k >= traj_len - 1:
-                gamma_data = gamma(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :])
+                gamma_data = gamma(state_traj[:, k-traj_len + 1:k + 1, :], state_traj_diff[:, k-traj_len + 1:k+1, :], u_traj[:, k-traj_len + 1:k + 1, :])
 
                 gamma_data = gamma_data.detach()
 
@@ -216,11 +219,6 @@ def main(args):
                     acc_ind_temp[0, m_control + j] = torch.sum((gamma_data[index_no_fault, j]> 0).float()) / (index_num + 1e-5)
                 
                 print(acc_ind_temp[0])
-
-        print(Asas)
-        # acc_ind_temp = acc_ind_temp / (traj_len * 2)
-
-        # print(acc_ind_temp[0])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -5,10 +5,10 @@ from ast import literal_eval
 
 
 for j in range(1):
-    str1 = './log_files/log_gamma_train_'
-    str2 = 'LSTM'
+    str1 = './log_files/log_gamma_train_LQR_'
+    str2 = 'LSTM old'
     file_name = str1 + str2 + '.txt'
-    plot_name = './plots/log_gamma_train_' + str2 + '.png'
+    plot_name = './plots/log_gamma_train_LQR_CBF_' + str2 + '.png'
     f = open(file_name,'r')
 
     step = []
@@ -94,70 +94,81 @@ for j in range(1):
     # file_name = str1 + '_cbf_u_rotate_FI_' + str(j) + '.txt'
     # f = open(file_name,'r')
 
-    # step = []
-    # loss = []
-    # acc0 = []
-    # acc1 = []
-    # acc2 = []
-    # acc3 = []
+    str1 = './log_files/log_gamma_train_CBF_'
+    str2 = 'LSTM'
+    file_name = str1 + str2 + '.txt'
+    # plot_name = './plots/log_gamma_train_' + str2 + '.png'
+    f = open(file_name,'r')
+
+    step = []
+    loss = []
+    acc0 = []
+    acc1 = []
+    acc2 = []
+    acc3 = []
     
-    # acc0_no_fail = []
-    # acc1_no_fail = []
-    # acc2_no_fail = []
-    # acc3_no_fail = []
+    acc0_no_fail = []
+    acc1_no_fail = []
+    acc2_no_fail = []
+    acc3_no_fail = []
     
-    # for row in f:
-    #     row = row.split(', ')
-    #     if not row[0].isdigit():
-    #         continue
-    #     step.append(int(row[0]))
-    #     a = row[1]
-    #     a = re.sub(r"([^[])\s+([^]])", r"\1, \2", a)
-    #     a = np.array(literal_eval(a))
-    #     acc0.append(a[j])
-    #     acc0_no_fail.append(a[-1])
+    for row in f:
+        row = row.split(', ')
+        if not row[0].isdigit():
+            continue
+        step.append(int(row[0]))
 
-    #     a = row[2]
-    #     a = re.sub(r"([^[])\s+([^]])", r"\1, \2", a)
-    #     a = np.array(literal_eval(a))
-    #     acc1.append(a[j])
-    #     acc1_no_fail.append(a[-1])
+        a = row[1]
+        a = re.sub(r"([^[])\s+([^]])", r"\1, \2", a)
+        a = np.array(literal_eval(a))
 
-    #     a = row[3]
-    #     a = re.sub(r"([^[])\s+([^]])", r"\1, \2", a)
-    #     a = np.array(literal_eval(a))
-    #     acc2.append(a[j])
-    #     acc2_no_fail.append(a[-1])
+        # print(a)
 
-    #     a = row[4]
-    #     a = re.sub(r"([^[])\s+([^]])", r"\1, \2", a)
-    #     a = np.array(literal_eval(a))
-    #     acc3.append(a[j])
-    #     acc3_no_fail.append(a[-1])
+        acc0.append(a[0])
+        acc0_no_fail.append(a[4])
 
-    # ax.plot(step, acc0, color = 'g', linestyle='--',  label = 'CBF input (Case 1)', marker="o", markevery=markers_on,markersize=10)
+        # a = row[2]
+        # a = re.sub(r"([^[])\s+([^]])", r"\1, \2", a)
+        # a = np.array(literal_eval(a))
+        acc1.append(a[1])
+        acc1_no_fail.append(a[5])
 
-    # ax.plot(step, acc1, color = 'r', linestyle='--',  label = 'CBF input (Case 2)', marker="^", markevery=markers_on,markersize=10)
+        # a = row[3]
+        # a = re.sub(r"([^[])\s+([^]])", r"\1, \2", a)
+        # a = np.array(literal_eval(a))
+        acc2.append(a[2])
+        acc2_no_fail.append(a[6])
 
-    # ax.plot(step, acc2, color = 'b', linestyle='--', label = 'CBF input (Case 3)', marker="v", markevery=markers_on,markersize=10)
+        # a = row[4]
+        # a = re.sub(r"([^[])\s+([^]])", r"\1, \2", a)
+        # a = np.array(literal_eval(a))
+        acc3.append(a[3])
+        acc3_no_fail.append(a[7])
 
-    # ax.plot(step, acc3, color = 'k', linestyle='--', label = 'CBF input (Case 4)', marker="<", markevery=markers_on,markersize=10)
 
-    # ax.set_title('Failure prediction for Actuator-' + str(j + 1), fontsize = 20, loc= 'center')
+    ax.plot(step, acc0, color = 'g', linestyle='--',  label = 'CBF input (Case 1)', marker="o", markevery=markers_on,markersize=10)
+
+    ax.plot(step, acc1, color = 'r', linestyle='--',  label = 'CBF input (Case 2)', marker="^", markevery=markers_on,markersize=10)
+
+    ax.plot(step, acc2, color = 'b', linestyle='--', label = 'CBF input (Case 3)', marker="v", markevery=markers_on,markersize=10)
+
+    ax.plot(step, acc3, color = 'k', linestyle='--', label = 'CBF input (Case 4)', marker="<", markevery=markers_on,markersize=10)
+
+    ax.set_title('Failure prediction for Actuator-' + str(j + 1), fontsize = 20, loc= 'center')
 
     
 
-    # h_ax.plot(step, acc0_no_fail, color = 'g', linestyle='--', label = 'CBF input (Case 1)')
+    h_ax.plot(step, acc0_no_fail, color = 'g', linestyle='--', label = 'CBF input (Case 1)')
 
-    # h_ax.plot(step, acc1_no_fail, color = 'r', linestyle='--', label = 'CBF input (Case 2)')
+    h_ax.plot(step, acc1_no_fail, color = 'r', linestyle='--', label = 'CBF input (Case 2)')
 
-    # h_ax.plot(step, acc2_no_fail, color = 'b', linestyle='--', label = 'CBF input (Case 3)')
+    h_ax.plot(step, acc2_no_fail, color = 'b', linestyle='--', label = 'CBF input (Case 3)')
 
-    # h_ax.plot(step, acc3_no_fail, color = 'k', linestyle='--', label = 'CBF input (Case 4)')
+    h_ax.plot(step, acc3_no_fail, color = 'k', linestyle='--', label = 'CBF input (Case 4)')
 
-    # # h_ax.set_xlabel('Duration of failed actuator', fontsize = 20)
+    # h_ax.set_xlabel('Duration of failed actuator', fontsize = 20)
     
-    # # h_ax.legend(ncol = 2,  loc = 'lower center')
+    # h_ax.legend(ncol = 2,  loc = 'lower center')
 
     h_ax.set_ylim(0.6, 1.1)
     
