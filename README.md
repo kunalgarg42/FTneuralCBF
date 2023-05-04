@@ -7,7 +7,9 @@ FTneuralCBF is a toolbox for designing NN-based fault-tolerant control as well a
 git clone github.com/kunalgarg42/FTneuralCBF
 
 conda create --name <CONDA ENV NAME> python=3.9
+
 conda activate <CONDA ENV NAME>
+
 pip install -r . requirements.txt
 
 ## Training
