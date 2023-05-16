@@ -73,7 +73,7 @@ def main(args):
     use_nom = args.use_nom
 
     if use_nom == 1:
-        n_sample = 10000
+        n_sample = 1000
         # sys.stdout = open('./log_files/log_gamma_train_LQR_' + gamma_type + '.txt', 'w')
     else:
         n_sample = 1000
@@ -278,9 +278,7 @@ def main(args):
                     state[ind_sl, j2] = sl[j2].repeat(torch.sum(ind_sl),)
 
             if k >= traj_len - 1:
-                # if gamma_type == 'linear conv':
-                #     gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :], 0 * state_traj[:, k - traj_len + 1:k + 1, :], u_traj[:, k - traj_len + 1:k + 1, :])
-                # else:    
+                
                 if gamma_type != 'old':
                     gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :], u_traj[:, k - traj_len + 1:k + 1, :])
                 else:
@@ -310,26 +308,28 @@ def main(args):
                             acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0).float()) / (index_num + 1e-5)
                         else:
                             acc_ind[0, j + m_control] = 1
-                    acc_final[gamma_iter, 0, k-traj_len+1] = torch.min(acc_ind[0, 0:m_control])
+                    # acc_final[gamma_iter, 0, k-traj_len+1] = torch.min(acc_ind[0, 0:m_control])
+                    # acc_final[gamma_iter, 0, k-traj_len+1] = acc_ind[0, fault_control_index]
+                    acc_final[gamma_iter, 0, k-traj_len+1] = torch.sum(acc_ind[0, 0:m_control]) / m_control
                     acc_final[gamma_iter, 1, k-traj_len+1] = torch.min(acc_ind[0, m_control:])
                 else:
                     acc_ind = torch.zeros(1, m_control+1)            
             
                     for j in range(m_control):
                         index_fault = gamma_actual_bs[:, j]==0
-                        index_num = torch.sum(index_fault==True)
+                        index_num = torch.sum(index_fault.float())
                         acc_ind[0, j] = 1 - torch.abs(torch.sum(gamma_actual_bs[index_fault, j] - gamma_pred[index_fault, j]) / (index_num + 1e-5))
                     
                     index_no_fault = torch.sum(gamma_actual_bs, dim=1) == m_control
                     
-                    index_num = torch.sum(index_no_fault == True)
+                    index_num = torch.sum(index_no_fault.float())
                     
                     acc_ind[0, -1] = torch.sum(gamma_pred[index_no_fault, :]) / (index_num + 1e-5) / m_control
                 
                     acc_final[gamma_iter, 0, k-traj_len+1] = acc_ind[0, fault_control_index]
                     acc_final[gamma_iter, 1, k-traj_len+1] = acc_ind[0, -1]
 
-    fig = plt.figure(figsize=(10, 6))
+    fig = plt.figure(figsize=(12, 6))
     ax = fig.subplots(1, 1)
     
     plot_name = './plots/' + 'CF_gamma_compare_all_NN_pert' + '.png'
@@ -344,13 +344,13 @@ def main(args):
 
     for gamma_iter in range(4):
         if gamma_iter == 0:
-            gamma_type = 'LSTM (nominal)'
+            gamma_type = 'Model-free (nominal)'
         elif gamma_iter == 1:
-            gamma_type = 'All data (nominal)'
+            gamma_type = 'Model-based (nominal)'
         elif gamma_iter == 2:
-            gamma_type = 'LSTM (perturbed)'
+            gamma_type = 'Model-free (perturbed)'
         else:
-            gamma_type = 'All data (perturbed)'
+            gamma_type = 'Model-based (perturbed)'
 
         acc_fail = acc_final[gamma_iter, 0, :]
         acc_no_fail = acc_final[gamma_iter, 1, :]

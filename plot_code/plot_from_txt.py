@@ -141,11 +141,12 @@ colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k', 'w']
 
 # print("saved file:", plot_name)
 
-plot_name = './plots/gamma_test_ALL_NN_new.png'
-fig = plt.figure(figsize=(10, 15))
-ax1 = fig.subplots(3, 1)
+plot_name = './plots/gamma_test_ALL_NN_new_2.png'
+fig = plt.figure(figsize=(12, 10))
+ax1 = fig.subplots(2, 1)
 
-for i in range(3):
+for j in range(3):
+    i = 2 - j
     if i == 0:
         str = 'CF_gamma_single_log_only_res_CBF_u'
     elif i == 1:
@@ -190,16 +191,16 @@ for i in range(3):
 
 
     markers_on = np.arange(0, traj_len[-1], 10)
-    ax = ax1[i]
+    ax = ax1[0]
     if i== 0:
-        ax.plot(traj_len, acc_fail, color = colors[i], linestyle='-', label = r"Failure: $(\~ x)$", marker="o", markevery=markers_on,markersize=10)
-        ax.plot(traj_len, acc_no_fail, color = colors[i], linestyle='-', label = r'No Failure: $(\~ x)$', marker="^", markevery=markers_on,markersize=10)
+        ax.plot(traj_len, acc_fail, color = colors[i], linestyle='-', label = r"[MB]: Failure: $(\~ x)$", marker="o", markevery=markers_on,markersize=10)
+        ax.plot(traj_len, acc_no_fail, color = colors[i], linestyle='-', label = r'[MB]: No Failure: $(\~ x)$', marker="^", markevery=markers_on,markersize=10)
     elif i==1:
-        ax.plot(traj_len, acc_fail, color = colors[i], linestyle='-', label = r'Failure: $(\~ x, x, u)$', marker="o", markevery=markers_on,markersize=10)
-        ax.plot(traj_len, acc_no_fail, color = colors[i], linestyle='-', label = r'No Failure: $(\~ x, x, u)$', marker="^", markevery=markers_on,markersize=10)
+        ax.plot(traj_len, acc_fail, color = colors[i], linestyle='-', label = r'[MB]: Failure: $(\~ x, x, u)$', marker="o", markevery=markers_on,markersize=10)
+        ax.plot(traj_len, acc_no_fail, color = colors[i], linestyle='-', label = r'[MB]: No Failure: $(\~ x, x, u)$', marker="^", markevery=markers_on,markersize=10)
     else:
-        ax.plot(traj_len, acc_fail, color = colors[i], linestyle='-', label = r'Failure: $(x, u)$', marker="o", markevery=markers_on,markersize=10)
-        ax.plot(traj_len, acc_no_fail, color = colors[i], linestyle='-', label = r'No Failure: $(x, u)$', marker="^", markevery=markers_on,markersize=10)
+        ax.plot(traj_len, acc_fail, color = colors[i], linestyle='-', label = r'[Ours]: Failure: $(x, u)$', marker="o", markevery=markers_on,markersize=10)
+        ax.plot(traj_len, acc_no_fail, color = colors[i], linestyle='-', label = r'[Ours]: No Failure: $(x, u)$', marker="^", markevery=markers_on,markersize=10)
 
     if i==0:
         str = 'CF_gamma_single_log_only_res'
@@ -239,17 +240,17 @@ for i in range(3):
         
         acc_no_fail.append(float(a))
     
-    ax2 = ax1[i]
+    ax2 = ax1[1]
 
     if i== 0:
-        ax2.plot(traj_len, acc_fail, color = colors[i], linestyle='--', label = r"Failure: $(\~ x)$", marker="o", markevery=markers_on,markersize=10)
-        ax2.plot(traj_len, acc_no_fail, color = colors[i], linestyle='--', label = r'No Failure: $(\~ x)$', marker="^", markevery=markers_on,markersize=10)
+        ax2.plot(traj_len, acc_fail, color = colors[i], linestyle='--', label = r"[MB]: Failure: $(\~ x)$", marker="o", markevery=markers_on,markersize=10)
+        ax2.plot(traj_len, acc_no_fail, color = colors[i], linestyle='--', label = r'[MB]: No Failure: $(\~ x)$', marker="^", markevery=markers_on,markersize=10)
     elif i==1:
-        ax2.plot(traj_len, acc_fail, color = colors[i], linestyle='--', label = r'Failure: $(\~ x, x, u)$', marker="o", markevery=markers_on,markersize=10)
-        ax2.plot(traj_len, acc_no_fail, color = colors[i], linestyle='--', label = r'No Failure: $(\~ x, x, u)$', marker="^", markevery=markers_on,markersize=10)
+        ax2.plot(traj_len, acc_fail, color = colors[i], linestyle='--', label = r'[MB]: Failure: $(\~ x, x, u)$', marker="o", markevery=markers_on,markersize=10)
+        ax2.plot(traj_len, acc_no_fail, color = colors[i], linestyle='--', label = r'[MB]: No Failure: $(\~ x, x, u)$', marker="^", markevery=markers_on,markersize=10)
     else:
-        ax2.plot(traj_len, acc_fail, color = colors[i], linestyle='--', label = r'Failure: $(x, u)$', marker="o", markevery=markers_on,markersize=10)
-        ax2.plot(traj_len, acc_no_fail, color = colors[i], linestyle='--', label = r'No Failure: $(x, u)$', marker="^", markevery=markers_on,markersize=10)
+        ax2.plot(traj_len, acc_fail, color = colors[i], linestyle='--', label = r'[Ours]: Failure: $(x, u)$', marker="o", markevery=markers_on,markersize=10)
+        ax2.plot(traj_len, acc_no_fail, color = colors[i], linestyle='--', label = r'[Ours]: No Failure: $(x, u)$', marker="^", markevery=markers_on,markersize=10)
 
 plt.xlabel('Length of trajectory with failed actuator', fontsize = 20)
 ax.set_ylabel('Accuracy (CBF u)', fontsize = 20)
@@ -257,12 +258,12 @@ ax2.set_ylabel('Accuracy (LQR u)', fontsize = 20)
 
   
 # plt.title('Failure Test Accuracy', fontsize = 20)
-ax.legend(fontsize=20, ncol=1, loc='upper left', bbox_to_anchor=(1.05, 1.0))
-ax2.legend(fontsize=20, ncol=1, loc='upper left', bbox_to_anchor=(1.05, 1.0))
+ax.legend(fontsize=20, ncol=1, loc='upper left', bbox_to_anchor=(1.05, 0.8))
+ax2.legend(fontsize=20, ncol=1, loc='upper left', bbox_to_anchor=(1.05, 0.8))
 ax.set_xlim(traj_len[0], traj_len[-1])
 ax2.set_xlim(traj_len[0], traj_len[-1])
-ax.set_ylim(0.5, 1.1)
-ax2.set_ylim(0.5, 1.1)
+ax.set_ylim(0.6, 1.05)
+ax2.set_ylim(0.6, 1.05)
 
 # # log y scale
 # ax.set_yscale('log')
