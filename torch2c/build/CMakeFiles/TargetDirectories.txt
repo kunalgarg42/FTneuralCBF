@@ -1,3 +1,0 @@
-/home/kunal/MIT_REALM/Research/fault_tol_control/build/CMakeFiles/rebuild_cache.dir
-/home/kunal/MIT_REALM/Research/fault_tol_control/build/CMakeFiles/edit_cache.dir
-/home/kunal/MIT_REALM/Research/fault_tol_control/build/CMakeFiles/example-app.dir
