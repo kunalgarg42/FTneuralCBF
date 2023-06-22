@@ -60,3 +60,5 @@ git_run.sh
 *stderr
 
 *out
+
+/test/CF_NN_model_tracing.py

@@ -20,7 +20,7 @@ from trainer.constraints_crazy import constraints
 from trainer.datagen import Dataset_with_Grad
 from trainer.trainer import Trainer
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM
 
 xg = torch.tensor([0.0, 0.0, 6.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
@@ -30,7 +30,7 @@ n_state = 12
 m_control = 4
 fault = 1
 
-FT_tol = 0.1
+FT_tol = -0.5
 
 fault_pred_buff = 10
 
@@ -38,10 +38,11 @@ traj_len = config.TRAJ_LEN
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
-fault_control_index = 1
+fault_control_index = 0
+
 fault_duration = config.FAULT_DURATION
 
-fault_known = 1
+fault_known = 0
 
 n_sample = 1
 
@@ -59,7 +60,7 @@ def main():
 
     # NN_controller = NNController_new(n_state=n_state, m_control=m_control)
     NN_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
-    gamma = Gamma(n_state=n_state, m_control=m_control, traj_len=traj_len)
+    gamma = Gamma_linear_LSTM(n_state=n_state, m_control=m_control, traj_len=traj_len)
     # NN_alpha = alpha_param(n_state=n_state)
     FT_cbf = CBF(dynamics, n_state=n_state, m_control=m_control)
     NN_cbf.load_state_dict(
@@ -79,7 +80,8 @@ def main():
         
         gamma.load_state_dict(
             torch.load(
-                "./good_data/data/CF_gamma_NN_weightssingle1.pth",
+                # "./good_data/data/CF_gamma_NN_weightssingle1.pth",
+                './supercloud_data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth',
                 map_location=torch.device("cpu"),
             )
         )
@@ -201,51 +203,43 @@ def main():
 
             u = u.clone().type(torch.float32)
             
-            # u_command = u.clone()
-
             gxu = torch.matmul(gx, u.reshape(m_control, 1))
 
             dx = fx.reshape(1, n_state) + gxu.reshape(1, n_state)
 
             dot_h = (h - h_prev) / dt + 0.01 * h
         
-        if i >= traj_len: # and np.mod(i, 50) == 0:
-            gamma_NN = gamma(state_traj.reshape(n_sample, traj_len, n_state), state_traj_diff.reshape(n_sample, traj_len, n_state), u_traj.reshape(n_sample, traj_len, m_control))
+        if i >= traj_len:
+            gamma_NN = gamma(state_traj.reshape(n_sample, traj_len, n_state), u_traj.reshape(n_sample, traj_len, m_control))
             
             gamma_NN = gamma_NN.detach()
 
             gamma_min = torch.min(gamma_NN)
 
             fault_index_NN = torch.argmin(gamma_NN).numpy()
-            # else:
-            #     gamma_min = 0.0
+            pred_acc = 0.0
+            for control_iter in range(m_control):
+                if fault_start == 1:
+                    if control_iter == fault_control_index:
+                        pred_acc += (gamma_NN[:, control_iter] < 0).float()
+                    else:
+                        pred_acc += (gamma_NN[:, control_iter] > 0).float()
+                else:
+                    pred_acc += torch.sum((gamma_NN[:, control_iter] > 0).float())
 
-            if fault_start == 1:
-                pred_acc = 1 - torch.abs(gamma_NN[:, fault_control_index])
-            else:
-                pred_acc = 1 - torch.abs(gamma_NN[:, fault_control_index] - 1)
-            
+            pred_acc = pred_acc / m_control
+
             if gamma_min >= FT_tol:
                 gamma_NN[0, fault_index_NN] = 1.0
+                # fault_index_NN = -1
                 gamma_min = 1.0
-            # print(gamma_NN)
-            # print(gamma_NN)
-
-            # if fault_index_NN == fault_index_NN_prev:
-            #     fault_count += 1
-            #     gamma_cumulative = (gamma_cumulative + gamma_min) / 2
-                # gamma_cumulative /= 50
-
-            # print(pred_acc)
-            # fault_index_NN_prev = fault_index_NN.copy()
+                # detect = 0
+            else:
+                gamma_NN[0, fault_index_NN] = 0.0
+                
         else:
             gamma_min = 1
 
-        # if fault_count >= 50:
-        #     gamma_cum /= 50
-        #     if gamma_cum > 0.1:
-        #         fault_count = 0
-                
         if gamma_min > FT_tol:
             detect = 0
             fault_index_NN = -1
@@ -464,7 +458,7 @@ def main():
 
     fig.tight_layout(pad=1.15)
     
-    plt.savefig("./plots/plot_CF_gamma_single.png")
+    plt.savefig("./plots/plot_CF_gamma_single_LSTM_new.png")
 
     
 if __name__ == "__main__":

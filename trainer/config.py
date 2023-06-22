@@ -58,3 +58,13 @@ CRAZYFLIE_PARAMS = {
     "CD": 7.9379 * 10**(-12),
     "d": 0.03973,
     "fault": fault,}
+
+CRAZYFLIE_PARAMS_PERT = {
+    "m": 0.01,
+    "Ixx": 1 * 10**(-5),
+    "Iyy": 1 * 10**(-5),
+    "Izz": 2 * 10**(-5),
+    "CT": 3 * 10**(-10),
+    "CD": 7 * 10**(-12),
+    "d": 0.01,
+    "fault": fault,}

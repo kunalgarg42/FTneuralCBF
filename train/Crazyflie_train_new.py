@@ -192,7 +192,6 @@ def main(args):
         if loss_np < 0.001 and i > 500:
             break
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-fault', type=int, default=0)

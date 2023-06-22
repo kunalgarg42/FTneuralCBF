@@ -36,7 +36,6 @@ fault_duration = config.FAULT_DURATION
 
 fault_known = 1
 
-
 def main():
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(
@@ -57,18 +56,19 @@ def main():
         # NN_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weightsCBF.pth'))
         NN_cbf.load_state_dict(
             torch.load(
-                "./good_data/data/CF_cbf_NN_weightsCBF.pth",
+                "./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth",
                 map_location=torch.device("cpu"),
             )
         )
         FT_cbf.load_state_dict(
             torch.load(
-                "./good_data/data/CF_cbf_FT_weightsCBF.pth",
+                "./supercloud_data/CF_cbf_FT_weightsCBF_with_u.pth",
                 map_location=torch.device("cpu"),
             )
         )
         # NN_alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
     except:
+        print("No new weights found, using old weights")
         # NN_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
         NN_cbf.load_state_dict(
             torch.load(
@@ -470,9 +470,9 @@ def main():
 
     fig.tight_layout(pad=1.15)
     if fault_known == 1:
-        plt.savefig("./plots/plot_CF_known_F_all.png")
+        plt.savefig("./plots/plot_CF_known_F_all_new.png")
     else:
-        plt.savefig("./plots/plot_CF_all.png")
+        plt.savefig("./plots/plot_CF_all_new.png")
 
 
 if __name__ == "__main__":
