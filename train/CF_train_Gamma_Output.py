@@ -15,7 +15,7 @@ from trainer import config
 from trainer.datagen import Dataset_with_Grad
 from trainer.trainer import Trainer
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM, Gamma_linear_conv, Gamma_linear_deep_nonconv, Gamma_linear_nonconv, Gamma_linear_LSTM_old, Gamma_linear_LSTM_small
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM_output, Gamma_linear_conv, Gamma_linear_deep_nonconv_output, Gamma_linear_nonconv, Gamma_linear_LSTM_old, Gamma_linear_LSTM_small
 
 torch.backends.cudnn.benchmark = True
 
@@ -47,6 +47,9 @@ x0 = torch.tensor([[2.0,
 
 dt = 0.001
 n_state = 12
+
+y_state = 4
+
 m_control = 4
 
 nominal_params = config.CRAZYFLIE_PARAMS
@@ -68,13 +71,29 @@ gpu_id = 0 # torch.cuda.current_device()
 if platform.uname()[1] == 'realm2':
     gpu_id = 1
 
+if gpu_id >= 0:
+    use_cuda = True
+else:
+    use_cuda = False
+
 def main(args):
+    
+    if use_cuda:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+    device = torch.device('cuda' if use_cuda else 'cpu')
+    print(f'> Training with {device}')
+
     fault = 1
     fault_control_index = args.fault_index
     traj_len = args.traj_len
     gamma_type = args.gamma_type
     # gamma_type = 'LSTM small'
     num_traj_factor = 2
+    
+    if args.use_model == 0:
+        model_factor = 0
+    else:
+        model_factor = 1
 
     if gamma_type == 'LSTM':
         str_data = './data/CF_gamma_NN_class_linear_ALL_faults_no_res_LSTM_new.pth'
@@ -105,9 +124,9 @@ def main(args):
     if gamma_type == 'linear nonconv':
         gamma = Gamma_linear_nonconv(n_state=n_state, m_control=m_control, traj_len=traj_len)
     elif gamma_type == 'deep':
-        gamma = Gamma_linear_deep_nonconv(n_state=n_state, m_control=m_control, traj_len=traj_len)
+        gamma = Gamma_linear_deep_nonconv_output(y_state=y_state, m_control=m_control, traj_len=traj_len, model_factor=model_factor)
     elif gamma_type == 'LSTM':
-        gamma = Gamma_linear_LSTM(n_state=n_state, m_control=m_control, traj_len=traj_len)
+        gamma = Gamma_linear_LSTM_output(y_state=y_state, m_control=m_control)
     elif gamma_type == 'LSTM small':
         gamma = Gamma_linear_LSTM_small(n_state=n_state, m_control=m_control, traj_len=traj_len)
     elif gamma_type == 'LSTM old':
@@ -134,11 +153,11 @@ def main(args):
     cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*300, traj_len=traj_len)
+    dataset = Dataset_with_Grad(y_state=y_state, n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*300, traj_len=traj_len)
     trainer = Trainer(cbf, None, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
-                      fault_control_index=fault_control_index)
+                      fault_control_index=fault_control_index, model_factor=model_factor)
     loss_np = 1.0
     safety_rate = 0.0
 
@@ -176,6 +195,10 @@ def main(args):
         t.tic()
         
         state_traj = torch.zeros(n_sample, int(num_traj_factor * traj_len), n_state)
+
+        output_traj = torch.zeros(n_sample, int(num_traj_factor * traj_len), y_state)
+
+        output_traj_diff = output_traj.clone()
     
         state_traj_diff = state_traj.clone()
 
@@ -191,8 +214,12 @@ def main(args):
             u = u_nominal.clone()
 
             state_traj[:, k, :] = state.clone()
+
+            output_traj[:, k, :] = state[:, :y_state].clone()
             
             state_traj_diff[:, k, :] = state_no_fault.clone() - state.clone()
+
+            output_traj_diff[:, k, :] = state_no_fault[:, :y_state].clone() - state[:, :y_state].clone()
             
             u_traj[:, k, :] = u.clone()
 
@@ -222,12 +249,12 @@ def main(args):
             is_safe = int(torch.sum(util.is_safe(state))) / n_sample
 
             safety_rate = (i * safety_rate + is_safe) / (i + 1)
-                
+
             if k >= traj_len -1:
                 if k == traj_len - 1:
-                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], 0 * state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], 0.5 * torch.ones(n_sample, m_control))
+                    dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :], model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], 0.5 * torch.ones(n_sample, m_control))
                 else:
-                    dataset.add_data(state_traj[:, k-traj_len + 1:k + 1, :], 0 * state_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], (gamma_actual_bs - 0.5))
+                    dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :], model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], (gamma_actual_bs - 0.5))
         
         loss_np, acc_np = trainer.train_gamma()
 
@@ -246,11 +273,13 @@ def main(args):
             if loss_np <= 0.001 and i > 250:
                 break
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-fault_index', type=int, default=1)
     parser.add_argument('-traj_len', type=int, default=100)
-    parser.add_argument('-gamma_type', type=str, default='linear')
+    parser.add_argument('-gamma_type', type=str, default='LSTM')
+    parser.add_argument('-use_model', type=int, default=0)
+    parser.add_argument('--gpu', type=int, default=0)
+
     args = parser.parse_args()
     main(args)

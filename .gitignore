@@ -49,8 +49,14 @@ sept*
 
 git_run.sh
 
-*.sh
+*.sh*
 
 .git_run
 
 .gitignore
+
+*stdout
+
+*stderr
+
+*out

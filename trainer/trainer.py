@@ -28,7 +28,8 @@ class Trainer(object):
                  gpu_id=-1,
                  lr_decay_stepsize=-1,
                  fault=0,
-                 fault_control_index=-1):
+                 fault_control_index=-1,
+                 model_factor=0):
 
         self.params = params
         self.n_state = n_state
@@ -43,6 +44,7 @@ class Trainer(object):
         self.fault = fault
         self.fault_control_index = fault_control_index
         self.num_traj = num_traj
+        self.model_factor = model_factor
         self.cbf_optimizer = torch.optim.Adam(
             self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
         if gamma is not None:
@@ -50,8 +52,9 @@ class Trainer(object):
                 self.gamma.parameters(), lr=5e-4, weight_decay=1e-5)
             # self.gamma_optimizer = FxTS_Momentum(
             #     self.gamma.parameters(), lr=1e-4, momentum=0.2)
-        self.controller_optimizer = torch.optim.Adam(
-            self.controller.parameters(), lr=1e-5, weight_decay=1e-5)
+        if controller is not None:
+            self.controller_optimizer = torch.optim.Adam(
+                self.controller.parameters(), lr=1e-5, weight_decay=1e-5)
         # self.cbf_optimizer = FxTS_Momentum(
         #     self.cbf.parameters(), lr=5e-5, momentum=0.2)
         # self.alpha_optimizer = FxTS_Momentum(
@@ -505,17 +508,24 @@ class Trainer(object):
     
             for i in range(opt_iter):
                 loss = torch.tensor(0.0)
-                
-                state, _, u, gamma_actual = self.dataset.sample_data_all(batch_size, i)
+                if self.model_factor == 0:
+                    state, _, u, gamma_actual = self.dataset.sample_data_all(batch_size, i)
+                else:
+                    state, state_diff, u, gamma_actual = self.dataset.sample_data_all(batch_size, i)
                 
                 if self.gpu_id >= 0:
                     # state_diff = state_diff.cuda(self.gpu_id)
                     state = state.cuda(self.gpu_id)
+                    if self.model_factor == 1:
+                        state_diff = state_diff.cuda(self.gpu_id)
                     u = u.cuda(self.gpu_id)
                     gamma_actual = gamma_actual.cuda(self.gpu_id)
                     loss = loss.cuda(self.gpu_id)
-
-                gamma_data = self.gamma_gen(state, u)
+                if self.model_factor == 0:
+                    gamma_data = self.gamma_gen(state, u)
+                else:
+                    state_data = torch.cat((state, state_diff), dim=-1)
+                    gamma_data = self.gamma_gen(state_data, u)
 
                 for j in range(self.m_control):
                         
@@ -639,7 +649,6 @@ class Trainer(object):
         doth = doth + torch.matmul(torch.abs(LhG).reshape(bs, 1, self.m_control + 1),
                                    uin.reshape(bs, self.m_control + 1, 1))
         if self.fault == 1:
-            
             doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[:, self.fault_control_index].reshape(
                 bs, 1) 
             doth = doth - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * um[:, self.fault_control_index].reshape(

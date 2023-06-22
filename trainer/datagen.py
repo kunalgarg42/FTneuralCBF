@@ -4,7 +4,7 @@ import torch
 
 class Dataset_with_Grad(object):
 
-    def __init__(self, n_state, m_control, train_u, buffer_size=200000, traj_len = 100):
+    def __init__(self, y_state, n_state, m_control, train_u, buffer_size=200000, traj_len = 100):
         self.n_state = n_state
         self.train_u = train_u
         self.m_control = m_control
@@ -12,7 +12,7 @@ class Dataset_with_Grad(object):
         self.traj_len = traj_len
         # self.ns = int(self.buffer_size / self.traj_len)
         self.ns = self.buffer_size
-        self.buffer_data_s = torch.tensor([]).reshape(0, n_state)
+        self.buffer_data_s = torch.tensor([]).reshape(0, y_state)
         self.buffer_data_s_diff = torch.tensor([]).reshape(0, n_state)
         self.buffer_data_u_NN = torch.tensor([]).reshape(0, m_control)
         self.buffer_data_u = torch.tensor([]).reshape(0, 1)
@@ -32,17 +32,7 @@ class Dataset_with_Grad(object):
             u_nominal (m_control,): the nominal control
             state_next (n_state,): state of the agent at the next timestep
         """
-        # if self.buffer_data_s.shape[0] == self.buffer_size and self.n_pts_gamma > 0:
-        # #     s_size = int(self.buffer_size / 2)
-        # #     gamma_size = int(self.n_pts_gamma / 2)
-        # #     self.buffer_data_s = self.buffer_data_s[-s_size:]
-        # #     self.buffer_data_s_diff = self.buffer_data_s_diff[-s_size:]
-        # #     self.buffer_data_u_NN = self.buffer_data_u_NN[-s_size:]
-        # #     self.buffer_data_u = self.buffer_data_u[-gamma_size:]
-        #     self.buffer_data_s = torch.tensor([]).reshape(0, self.n_state)
-        #     self.buffer_data_s_diff = torch.tensor([]).reshape(0, self.n_state)
-        #     self.buffer_data_u_NN = torch.tensor([]).reshape(0, self.m_control)
-        #     self.buffer_data_u = torch.tensor([]).reshape(0, self.m_control)
+
         if self.buffer_data_s.shape[0] == 0:
             self.buffer_data_s = state.clone()
         else:
