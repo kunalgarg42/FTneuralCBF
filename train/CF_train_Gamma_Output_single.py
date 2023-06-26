@@ -15,7 +15,7 @@ from trainer import config
 from trainer.datagen import Dataset_with_Grad
 from trainer.trainer import Trainer
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM_output, Gamma_linear_deep_nonconv_output
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM_output_single, Gamma_linear_deep_nonconv_output_single
 
 torch.backends.cudnn.benchmark = True
 
@@ -46,9 +46,10 @@ x0 = torch.tensor([[2.0,
                     0.0]])
 
 dt = 0.001
+
 n_state = 12
 
-y_state = 6
+y_state = 12
 
 m_control = 4
 
@@ -96,11 +97,11 @@ def main(args):
         model_factor = 1
 
     if gamma_type == 'LSTM':
-        str_data = './data/CF_gamma_LSTM_output' + str(y_state) + '_sigmoid.pth'
-        str_good_data = './good_data/data/CF_gamma_LSTM_output' + str(y_state) + '_sigmoid.pth'
+        str_data = './data/CF_gamma_LSTM_output_single_' + str(y_state) + 'sigmoid.pth'
+        str_good_data = './good_data/data/CF_gamma_LSTM_output_single_' + str(y_state) + 'sigmoid.pth'
     elif gamma_type == 'deep':
-        str_data = './data/CF_gamma_deep_output' + str(y_state) + '_sigmoid.pth'
-        str_good_data = './good_data/data/CF_gamma_deep_output' + str(y_state) + '_sigmoid.pth'
+        str_data = './data/CF_gamma_deep_output_single_' + str(y_state) + 'sigmoid.pth'
+        str_good_data = './good_data/data/CF_gamma_deep_output_single_' + str(y_state) + 'sigmoid.pth'
     else:
         NotImplementedError
 
@@ -113,9 +114,9 @@ def main(args):
               fault_control_index=fault_control_index)
     
     if gamma_type == 'deep':
-        gamma = Gamma_linear_deep_nonconv_output(y_state=y_state, m_control=m_control, traj_len=traj_len, model_factor=model_factor)
+        gamma = Gamma_linear_deep_nonconv_output_single(y_state=y_state, m_control=m_control, traj_len=traj_len, model_factor=model_factor)
     elif gamma_type == 'LSTM':
-        gamma = Gamma_linear_LSTM_output(y_state=y_state, m_control=m_control, model_factor=model_factor)
+        gamma = Gamma_linear_LSTM_output_single(y_state=y_state, m_control=m_control, model_factor=model_factor)
     else:
         NotImplementedError
 
@@ -159,9 +160,9 @@ def main(args):
         gamma_actual_bs = torch.ones(n_sample, m_control)
 
         for j in range(n_sample):
-            temp_var = np.mod(j, 6)
-            if temp_var < 4:
-                gamma_actual_bs[j, temp_var] = 0.0
+            temp_var = np.mod(j, 10)
+            # if temp_var < 4:
+            gamma_actual_bs[j, fault_control_index] = temp_var / 10.0
 
         rand_ind = torch.randperm(n_sample)
 
@@ -241,7 +242,7 @@ def main(args):
                 else:
                     dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :], model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], gamma_actual_bs)
         
-        loss_np, acc_np = trainer.train_gamma()
+        loss_np, acc_np = trainer.train_gamma_single()
 
         time_iter = t.tocvalue()
         print(

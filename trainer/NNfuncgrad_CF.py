@@ -521,7 +521,7 @@ class Gamma_linear_deep_nonconv_output(nn.Module):
         self.fc2 = nn.Linear(128, 64)
         self.fc3 = nn.Linear(64, m_control)
         self.activation = nn.ReLU()
-        self.output_activation = nn.Tanh()
+        self.output_activation = nn.Sigmoid()
 
     def forward(self, y, u):
         """
@@ -546,6 +546,49 @@ class Gamma_linear_deep_nonconv_output(nn.Module):
         x = self.activation(self.fc1(x))
         x = self.activation(self.fc1(x))
         # x = self.activation(self.fc1(x))
+        x = self.activation(self.fc2(x))
+        gamma = self.output_activation(self.fc3(x))
+
+        return gamma
+
+class Gamma_linear_deep_nonconv_output_single(nn.Module):
+
+    def __init__(self, y_state, m_control, traj_len, model_factor, preprocess_func=None):
+        super().__init__()
+        # self.k_obstacle = k_obstacle
+        self.m_control = m_control
+        self.preprocess_func = preprocess_func
+        if model_factor == 0:
+            self.fc0 = nn.Linear((y_state + m_control) * traj_len, 128)
+        else:
+            self.fc0 = nn.Linear((2 * y_state + m_control) * traj_len, 128)
+        self.fc1 = nn.Linear(128, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, m_control)
+        self.activation = nn.ReLU()
+        self.output_activation = nn.Sigmoid()
+
+    def forward(self, y, u):
+        """
+        args:
+            state (bs, traj_len, n_state)
+            u (bs, traj_len, m_control)
+        returns:
+            gamma (bs, m_control)
+        """
+
+        state = torch.cat([y, u], dim=-1)
+        state_shape = state.shape
+
+        state = state.reshape(state_shape[0], state_shape[1] * state_shape[2])
+
+        if self.preprocess_func is not None:
+            state = self.preprocess_func(state)
+        
+        x = self.activation(self.fc0(state))
+        x = self.activation(self.fc1(x))
+        x = self.activation(self.fc1(x))
+        x = self.activation(self.fc1(x))
         x = self.activation(self.fc2(x))
         gamma = self.output_activation(self.fc3(x))
 
@@ -600,20 +643,21 @@ class Gamma_linear_LSTM(nn.Module):
 
 class Gamma_linear_LSTM_output(nn.Module):
 
-    def __init__(self, y_state, m_control, preprocess_func=None):
+    def __init__(self, y_state, m_control, model_factor, preprocess_func=None):
         super().__init__()
         self.n_state = y_state
-        # self.k_obstacle = k_obstacle
         self.m_control = m_control
         self.preprocess_func = preprocess_func
 
-        # self.fc0 = nn.Linear((n_state + m_control) * traj_len, 128)
-        # self.fc1 = nn.Linear(128, 128)
-        self.LSTM = nn.LSTM((y_state + m_control), 128, batch_first=True)
+        if model_factor == 0:
+            self.LSTM = nn.LSTM((y_state + m_control), 128, batch_first=True)
+        else:
+            self.LSTM = nn.LSTM((2 * y_state + m_control), 128, batch_first=True)
+        self.fc1 = nn.Linear(128, 128)
         self.fc2 = nn.Linear(128, 64)
         self.fc3 = nn.Linear(64, m_control)
         self.activation = nn.ReLU()
-        self.output_activation = nn.Tanh()
+        self.output_activation = nn.Sigmoid()
         self.h = []
         self.c = []
         
@@ -621,7 +665,7 @@ class Gamma_linear_LSTM_output(nn.Module):
     def forward(self, y, u):
         """
         args:
-            state (bs, traj_len, n_state)
+            state (bs, traj_len, y_state)
             u (bs, traj_len, m_control)
         returns:
             gamma (bs, m_control)
@@ -631,7 +675,6 @@ class Gamma_linear_LSTM_output(nn.Module):
         
         if self.preprocess_func is not None:
             state = self.preprocess_func(state)
-            # state_error = self.preprocess_func(state_error)
         
         if len(self.h) == 0:
             self.h = torch.zeros(1, state.shape[0], 128).to(state.device)
@@ -644,12 +687,57 @@ class Gamma_linear_LSTM_output(nn.Module):
 
         return gamma
 
+class Gamma_linear_LSTM_output_single(nn.Module):
+
+    def __init__(self, y_state, m_control, model_factor, preprocess_func=None):
+        super().__init__()
+        self.n_state = y_state
+        self.m_control = m_control
+        self.preprocess_func = preprocess_func
+
+        if model_factor == 0:
+            self.LSTM = nn.LSTM((y_state + m_control), 128, batch_first=True)
+        else:
+            self.LSTM = nn.LSTM((2 * y_state + m_control), 128, batch_first=True)
+        self.fc1 = nn.Linear(128, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, m_control)
+        self.activation = nn.ReLU()
+        self.output_activation = nn.Sigmoid()
+        self.h = []
+        self.c = []
+        
+
+    def forward(self, y, u):
+        """
+        args:
+            state (bs, traj_len, y_state)
+            u (bs, traj_len, m_control)
+        returns:
+            gamma (bs, m_control)
+        """
+
+        state = torch.cat([y, u], dim=-1)
+        
+        if self.preprocess_func is not None:
+            state = self.preprocess_func(state)
+        
+        if len(self.h) == 0:
+            self.h = torch.zeros(1, state.shape[0], 128).to(state.device)
+            self.c = torch.zeros(1, state.shape[0], 128).to(state.device)
+
+        x , (self.h, self.c)= self.LSTM(state, (self.h.detach(), self.c.detach()))
+        x = self.activation(x[:, -1, :])
+        x = self.activation(self.fc2(x))
+        gamma = self.output_activation(self.fc3(x))
+
+        return gamma
+    
 class Gamma_linear_LSTM_small(nn.Module):
 
     def __init__(self, n_state, m_control, traj_len, preprocess_func=None):
         super().__init__()
         self.n_state = n_state
-        # self.k_obstacle = k_obstacle
         self.m_control = m_control
         self.preprocess_func = preprocess_func
 
