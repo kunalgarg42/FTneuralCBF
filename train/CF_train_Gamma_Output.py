@@ -50,7 +50,7 @@ x0 = torch.tensor([[2.0,
 dt = 0.001
 n_state = 12
 
-y_state = 12
+y_state = 6
 
 m_control = 4
 
@@ -60,7 +60,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 200
+n_sample = 1000
 
 fault = nominal_params["fault"]
 
@@ -74,18 +74,27 @@ if platform.uname()[1] == 'realm2':
     gpu_id = 1
 
 def main(args):
-    gpu_id = args.gpu
+    if platform.uname()[1] == 'realm2':
+        gpu_id = args.gpu
 
-    if gpu_id >= 0:
-        use_cuda = True
-    else:
-        use_cuda = False
+        if gpu_id >= 0:
+            use_cuda = True
+        else:
+            use_cuda = False
 
-    if gpu_id >= 0:
-        device = torch.device(args.gpu if use_cuda else 'cpu')
+        if gpu_id >= 0:
+            device = torch.device(args.gpu if use_cuda else 'cpu')
+        else:
+            device = torch.device('cpu')
+        print(f'> Training with {device}')
+
     else:
-        device = torch.device('cpu')
-    print(f'> Training with {device}')
+        gpu_id = args.gpu
+        use_cuda = torch.cuda.is_available() and not args.cpu
+        if use_cuda:
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+        device = torch.device('cuda' if use_cuda else 'cpu')
+        print(f'> Training with {device}')
 
     fault = 1
     fault_control_index = args.fault_index
@@ -162,18 +171,23 @@ def main(args):
 
         gamma_actual_bs = torch.ones(n_sample, m_control)
 
+        # for j in range(n_sample):
+        #     temp_var = np.mod(j, 25)
+        #     if temp_var < 21:
+        #         id_fault = np.mod(temp_var, 4)
+        #         mag_fault = np.mod(temp_var, 5) / 5
+        #         gamma_actual_bs[j, id_fault] = mag_fault
+
         for j in range(n_sample):
-            temp_var = np.mod(j, 25)
-            if temp_var < 21:
-                id_fault = np.mod(temp_var, 4)
-                mag_fault = np.mod(temp_var, 5) / 5
-                gamma_actual_bs[j, id_fault] = mag_fault
+            temp_var = np.mod(j, 6)
+            if temp_var < 4:
+                gamma_actual_bs[j, temp_var] = 0.0
 
         rand_ind = torch.randperm(n_sample)
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
-        state = dynamics.sample_safe(n_sample) + torch.randn(n_sample, n_state) * 2
+        state = dynamics.sample_safe(n_sample) + torch.randn(n_sample, n_state) * 1
 
         for k in range(n_state):
             if k > 5:
@@ -275,7 +289,8 @@ if __name__ == '__main__':
     parser.add_argument('-traj_len', type=int, default=100)
     parser.add_argument('-gamma_type', type=str, default='LSTM')
     parser.add_argument('-use_model', type=int, default=0)
-    parser.add_argument('--gpu', type=int, default=-1)
+    parser.add_argument('--gpu', type=int, default=0)
+    parser.add_argument('--cpu', type=bool, default=False)
 
     args = parser.parse_args()
     main(args)

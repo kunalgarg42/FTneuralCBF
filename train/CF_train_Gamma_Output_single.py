@@ -78,11 +78,27 @@ else:
     use_cuda = False
 
 def main(args):
-    
-    if use_cuda:
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
-    device = torch.device('cuda' if use_cuda else 'cpu')
-    print(f'> Training with {device}')
+    if platform.uname()[1] == 'realm2':
+        gpu_id = args.gpu
+
+        if gpu_id >= 0:
+            use_cuda = True
+        else:
+            use_cuda = False
+
+        if gpu_id >= 0:
+            device = torch.device(args.gpu if use_cuda else 'cpu')
+        else:
+            device = torch.device('cpu')
+        print(f'> Training with {device}')
+
+    else:
+        gpu_id = args.gpu
+        use_cuda = torch.cuda.is_available() and not args.cpu
+        if use_cuda:
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+        device = torch.device('cuda' if use_cuda else 'cpu')
+        print(f'> Training with {device}')
 
     fault = 1
     fault_control_index = args.fault_index
@@ -143,7 +159,7 @@ def main(args):
     trainer = Trainer(cbf, None, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
-                      fault_control_index=fault_control_index, model_factor=model_factor)
+                      fault_control_index=fault_control_index, model_factor=model_factor, device=device)
     loss_np = 1.0
     safety_rate = 0.0
 
@@ -168,7 +184,7 @@ def main(args):
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
-        state = dynamics.sample_safe(n_sample) # + torch.randn(n_sample, n_state) * 2
+        state = dynamics.sample_safe(n_sample) + torch.randn(n_sample, n_state) * 1
 
         for k in range(n_state):
             if k > 5:
@@ -266,6 +282,7 @@ if __name__ == '__main__':
     parser.add_argument('-gamma_type', type=str, default='LSTM')
     parser.add_argument('-use_model', type=int, default=0)
     parser.add_argument('--gpu', type=int, default=0)
+    parser.add_argument('--cpu', type=bool, default=False)
 
     args = parser.parse_args()
     main(args)

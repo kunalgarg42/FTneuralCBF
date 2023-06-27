@@ -497,13 +497,10 @@ class Trainer(object):
         opt_count = 500
         
         # acc = 0.0
-        acc_np = torch.zeros(1, 2 * self.m_control)
-        acc_ind_temp = torch.zeros(1, 2 * self.m_control)
+        acc_np = torch.zeros(1, 2 * self.m_control).to(self.device)
+        acc_ind_temp = torch.zeros(1, 2 * self.m_control).to(self.device)
         
-        if self.gpu_id >= 0:
-            acc_np = acc_np.cuda(self.gpu_id)
-            acc_ind_temp = acc_ind_temp.cuda(self.gpu_id)
-            self.gamma.to(torch.device(self.gpu_id))
+        self.gamma.to(self.device)
 
         for _ in range(opt_count):
             # self.gpu_id = np.mod(iter, 4)
@@ -537,7 +534,7 @@ class Trainer(object):
 
                     if index_num > 0:
                         acc_ind_temp[0, j] = torch.sum((torch.abs(gamma_data[index_fault, j] - gamma_actual[index_fault, j]) < eps).float()) / (index_num + 1e-5)
-                        loss += torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault, j] - gamma_actual[index_fault, j]) - eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)
+                        loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault, j] - gamma_actual[index_fault, j]) - eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)
                         # loss += torch.sum(nn.BCEWithLogitsLoss(reduction='none')(gamma_data[index_fault, j], gamma_actual[index_fault, j])) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5) 
                         # loss += 10 * torch.sum(nn.ReLU()(gamma_data[index_fault, j] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)
 
@@ -552,7 +549,7 @@ class Trainer(object):
                         # acc_ind_temp[0, self.m_control + j] = torch.sum((gamma_data[index_no_fault, j]> 0.9).float()) / (index_num + 1e-5)
                         acc_ind_temp[0, self.m_control + j] = torch.sum((torch.abs(gamma_data[index_no_fault, j] - gamma_actual[index_no_fault, j]) < eps).float()) / (index_num + 1e-5)
                         # loss += torch.sum(nn.BCEWithLogitsLoss(reduction='none')(gamma_data[index_no_fault, j], gamma_actual[index_no_fault, j])) / (index_num + 1e-5) / (acc_ind_temp[0, self.m_control + j].detach() + 1e-5)
-                        loss += torch.sum(nn.ReLU()(torch.abs(gamma_data[index_no_fault, j] - gamma_actual[index_no_fault, j]) - eps)) / (index_num + 1e-5) / (acc_ind_temp[0, self.m_control + j].detach() + 1e-5)
+                        loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_no_fault, j] - gamma_actual[index_no_fault, j]) - eps)) / (index_num + 1e-5) / (acc_ind_temp[0, self.m_control + j].detach() + 1e-5)
                         # loss += 10 * torch.sum(nn.ReLU()(-gamma_data[index_no_fault, j] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, self.m_control + j].detach() + 1e-5)
                     else:
                         acc_ind_temp[0, self.m_control + j] = torch.tensor(1.0)
@@ -591,10 +588,13 @@ class Trainer(object):
         acc_np = torch.zeros(1, 2 * self.m_control)
         acc_ind_temp = torch.zeros(1, 2 * self.m_control)
         
-        if self.gpu_id >= 0:
-            self.gamma.to(torch.device(self.gpu_id))
-            acc_np = acc_np.cuda(self.gpu_id)
-            acc_ind_temp = acc_ind_temp.cuda(self.gpu_id)
+        # if self.gpu_id >= 0:
+        #     self.gamma.to(torch.device(self.gpu_id))
+        #     acc_np = acc_np.cuda(self.gpu_id)
+        #     acc_ind_temp = acc_ind_temp.cuda(self.gpu_id)
+        self.gamma.to(self.device)
+        acc_np = acc_np.to(self.device)
+        acc_ind_temp = acc_ind_temp.to(self.device)
 
         for _ in range(opt_count):
     
@@ -606,12 +606,17 @@ class Trainer(object):
                     state, state_diff, u, gamma_actual = self.dataset.sample_data_all(batch_size, i)
                 
                 if self.gpu_id >= 0:
-                    state = state.cuda(self.gpu_id)
+                    # state = state.cuda(self.gpu_id)
+                    state = state.to(self.device)
                     if self.model_factor == 1:
-                        state_diff = state_diff.cuda(self.gpu_id)
-                    u = u.cuda(self.gpu_id)
-                    gamma_actual = gamma_actual.cuda(self.gpu_id)
-                    loss = loss.cuda(self.gpu_id)
+                        # state_diff = state_diff.cuda(self.gpu_id)
+                        state_diff = state_diff.to(self.device)
+                    # u = u.cuda(self.gpu_id)
+                    u = u.to(self.device)
+                    # gamma_actual = gamma_actual.cuda(self.gpu_id)
+                    gamma_actual = gamma_actual.to(self.device)
+                    # loss = loss.cuda(self.gpu_id)
+                    loss = loss.to(self.device)
                 if self.model_factor == 0:
                     gamma_data = self.gamma_gen(state, u)
                 else:
