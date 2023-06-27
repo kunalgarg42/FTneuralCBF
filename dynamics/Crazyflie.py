@@ -300,9 +300,9 @@ class CrazyFlies(ControlAffineSystemNew):
         upper_limit[CrazyFlies.U] = 10.0
         upper_limit[CrazyFlies.V] = 10.0
         upper_limit[CrazyFlies.W] = 10.0
-        upper_limit[CrazyFlies.PSI] = np.pi / 3
+        upper_limit[CrazyFlies.PSI] = np.pi
         upper_limit[CrazyFlies.THETA] = np.pi / 3
-        upper_limit[CrazyFlies.PHI] = np.pi
+        upper_limit[CrazyFlies.PHI] = np.pi / 3
         upper_limit[CrazyFlies.R] = 2
         upper_limit[CrazyFlies.Q] = 2
         upper_limit[CrazyFlies.P] = 2

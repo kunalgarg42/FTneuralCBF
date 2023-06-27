@@ -17,6 +17,8 @@ from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM_output, Gamma_linear_deep_nonconv_output
 
+import matplotlib.pyplot as plt
+
 torch.backends.cudnn.benchmark = True
 
 xg = torch.tensor([[0.0,
@@ -48,7 +50,7 @@ x0 = torch.tensor([[2.0,
 dt = 0.001
 n_state = 12
 
-y_state = 6
+y_state = 12
 
 m_control = 4
 
@@ -58,7 +60,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 1000
+n_sample = 200
 
 fault = nominal_params["fault"]
 
@@ -71,16 +73,18 @@ gpu_id = 0 # torch.cuda.current_device()
 if platform.uname()[1] == 'realm2':
     gpu_id = 1
 
-if gpu_id >= 0:
-    use_cuda = True
-else:
-    use_cuda = False
-
 def main(args):
-    
-    if use_cuda:
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
-    device = torch.device('cuda' if use_cuda else 'cpu')
+    gpu_id = args.gpu
+
+    if gpu_id >= 0:
+        use_cuda = True
+    else:
+        use_cuda = False
+
+    if gpu_id >= 0:
+        device = torch.device(args.gpu if use_cuda else 'cpu')
+    else:
+        device = torch.device('cpu')
     print(f'> Training with {device}')
 
     fault = 1
@@ -142,7 +146,7 @@ def main(args):
     trainer = Trainer(cbf, None, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
-                      fault_control_index=fault_control_index, model_factor=model_factor)
+                      fault_control_index=fault_control_index, model_factor=model_factor, device=device)
     loss_np = 1.0
     safety_rate = 0.0
 
@@ -159,15 +163,17 @@ def main(args):
         gamma_actual_bs = torch.ones(n_sample, m_control)
 
         for j in range(n_sample):
-            temp_var = np.mod(j, 6)
-            if temp_var < 4:
-                gamma_actual_bs[j, temp_var] = 0.0
+            temp_var = np.mod(j, 25)
+            if temp_var < 21:
+                id_fault = np.mod(temp_var, 4)
+                mag_fault = np.mod(temp_var, 5) / 5
+                gamma_actual_bs[j, id_fault] = mag_fault
 
         rand_ind = torch.randperm(n_sample)
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
-        state = dynamics.sample_safe(n_sample) # + torch.randn(n_sample, n_state) * 2
+        state = dynamics.sample_safe(n_sample) + torch.randn(n_sample, n_state) * 2
 
         for k in range(n_state):
             if k > 5:
@@ -240,7 +246,12 @@ def main(args):
                     dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :], model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], torch.ones(n_sample, m_control))
                 else:
                     dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :], model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], gamma_actual_bs)
-        
+                # if k > 1.5 * traj_len:
+                #     plt.figure()
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 3])
+                #     plt.savefig('test.png')
+                #     print(asas)
+
         loss_np, acc_np = trainer.train_gamma()
 
         time_iter = t.tocvalue()
@@ -264,7 +275,7 @@ if __name__ == '__main__':
     parser.add_argument('-traj_len', type=int, default=100)
     parser.add_argument('-gamma_type', type=str, default='LSTM')
     parser.add_argument('-use_model', type=int, default=0)
-    parser.add_argument('--gpu', type=int, default=0)
+    parser.add_argument('--gpu', type=int, default=-1)
 
     args = parser.parse_args()
     main(args)
