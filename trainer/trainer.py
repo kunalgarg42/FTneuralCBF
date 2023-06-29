@@ -484,10 +484,15 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
 
-    def train_gamma(self, batch_size=20000, opt_iter=10, eps=0.01, eps_deriv=0.01):
+    def train_gamma(self, gamma_type=None, batch_size=100000, opt_iter=10, eps=0.01, eps_deriv=0.01):
         loss_np = 0.0
         
         traj_len = self.traj_len
+
+        if gamma_type == 'deep':
+            batch_size = 200000
+        else:
+            batch_size = 60000
 
         if batch_size > self.dataset.n_pts:
             batch_size = self.dataset.n_pts
@@ -526,33 +531,50 @@ class Trainer(object):
                     state_data = torch.cat((state, state_diff), dim=-1)
                     gamma_data = self.gamma_gen(state_data, u)
 
-                for j in range(self.m_control):
+                index_fault = gamma_actual < 0.5
+
+                index_no_fault = gamma_actual >= 0.5
+
+                index_num = torch.sum(index_fault.float(), dim=0)
+                index_num_no_fault = torch.sum(index_no_fault.float(), dim=0)
+
+                acc_ind_temp[0, 0:self.m_control] = torch.sum((torch.abs(gamma_data - gamma_actual) < eps).float() * index_fault.float(), dim=0) / (torch.sum(index_fault.float(), dim=0) + 1e-5)
+                acc_ind_temp[0, self.m_control:2 * self.m_control] = torch.sum((torch.abs(gamma_data - gamma_actual) < eps).float() * index_no_fault.float(), dim=0) / (torch.sum(index_no_fault.float(), dim=0) + 1e-5)
+                
+                index_ones = torch.cat((index_num == 0, index_num_no_fault == 0), dim=0)
+
+                acc_ind_temp[0, index_ones] = torch.ones(torch.sum(index_ones).item()).to(self.device)
+
+                loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault] - gamma_actual[index_fault]) - eps)) / (torch.sum(index_fault.float()) + 1e-5) / (torch.sum(acc_ind_temp[0, 0:self.m_control]).item() + 1e-5)
+                loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_no_fault] - gamma_actual[index_no_fault]) - eps)) / (torch.sum(index_no_fault.float()) + 1e-5) / (torch.sum(acc_ind_temp[0, self.m_control:2 * self.m_control]).item() + 1e-5)
+
+                # for j in range(self.m_control):
                         
-                    index_fault = gamma_actual[:, j] < 0.95
+                #     index_fault = gamma_actual[:, j] < 0.95
                     
-                    index_num = torch.sum(index_fault.float())
+                #     index_num = torch.sum(index_fault.float())
 
-                    if index_num > 0:
-                        acc_ind_temp[0, j] = torch.sum((torch.abs(gamma_data[index_fault, j] - gamma_actual[index_fault, j]) < eps).float()) / (index_num + 1e-5)
-                        loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault, j] - gamma_actual[index_fault, j]) - eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)
-                        # loss += torch.sum(nn.BCEWithLogitsLoss(reduction='none')(gamma_data[index_fault, j], gamma_actual[index_fault, j])) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5) 
-                        # loss += 10 * torch.sum(nn.ReLU()(gamma_data[index_fault, j] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)
+                #     if index_num > 0:
+                #         acc_ind_temp[0, j] = torch.sum((torch.abs(gamma_data[index_fault, j] - gamma_actual[index_fault, j]) < eps).float()) / (index_num + 1e-5)
+                #         # loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault, j] - gamma_actual[index_fault, j]) - eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)
+                #         loss += torch.sum(nn.BCEWithLogitsLoss(reduction='none')(gamma_data[index_fault, j], gamma_actual[index_fault, j])) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5) 
+                #         # loss += 10 * torch.sum(nn.ReLU()(gamma_data[index_fault, j] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)
 
-                    else:
-                        acc_ind_temp[0, j] = torch.tensor(1.0)
+                #     else:
+                #         acc_ind_temp[0, j] = torch.tensor(1.0)
 
-                    index_no_fault = gamma_actual[:, j] > 0.05
+                #     index_no_fault = gamma_actual[:, j] > 0.05
 
-                    index_num = torch.sum(index_no_fault.float())
+                #     index_num = torch.sum(index_no_fault.float())
                     
-                    if index_num > 0:
-                        # acc_ind_temp[0, self.m_control + j] = torch.sum((gamma_data[index_no_fault, j]> 0.9).float()) / (index_num + 1e-5)
-                        acc_ind_temp[0, self.m_control + j] = torch.sum((torch.abs(gamma_data[index_no_fault, j] - gamma_actual[index_no_fault, j]) < eps).float()) / (index_num + 1e-5)
-                        # loss += torch.sum(nn.BCEWithLogitsLoss(reduction='none')(gamma_data[index_no_fault, j], gamma_actual[index_no_fault, j])) / (index_num + 1e-5) / (acc_ind_temp[0, self.m_control + j].detach() + 1e-5)
-                        loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_no_fault, j] - gamma_actual[index_no_fault, j]) - eps)) / (index_num + 1e-5) / (acc_ind_temp[0, self.m_control + j].detach() + 1e-5)
-                        # loss += 10 * torch.sum(nn.ReLU()(-gamma_data[index_no_fault, j] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, self.m_control + j].detach() + 1e-5)
-                    else:
-                        acc_ind_temp[0, self.m_control + j] = torch.tensor(1.0)
+                #     if index_num > 0:
+                #         # acc_ind_temp[0, self.m_control + j] = torch.sum((gamma_data[index_no_fault, j]> 0.9).float()) / (index_num + 1e-5)
+                #         acc_ind_temp[0, self.m_control + j] = torch.sum((torch.abs(gamma_data[index_no_fault, j] - gamma_actual[index_no_fault, j]) < eps).float()) / (index_num + 1e-5)
+                #         loss += torch.sum(nn.BCEWithLogitsLoss(reduction='none')(gamma_data[index_no_fault, j], gamma_actual[index_no_fault, j])) / (index_num + 1e-5) / (acc_ind_temp[0, self.m_control + j].detach() + 1e-5)
+                #         # loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_no_fault, j] - gamma_actual[index_no_fault, j]) - eps)) / (index_num + 1e-5) / (acc_ind_temp[0, self.m_control + j].detach() + 1e-5)
+                #         # loss += 10 * torch.sum(nn.ReLU()(-gamma_data[index_no_fault, j] + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, self.m_control + j].detach() + 1e-5)
+                #     else:
+                #         acc_ind_temp[0, self.m_control + j] = torch.tensor(1.0)
 
                 self.gamma_optimizer.zero_grad(set_to_none=True)
 
@@ -563,7 +585,7 @@ class Trainer(object):
                 acc_np += acc_ind_temp.detach()
 
                 loss_np += loss.detach()
-                
+                                
         loss_np = loss_np.cpu().numpy()
         
         acc_np = acc_np.cpu().numpy()
@@ -574,7 +596,13 @@ class Trainer(object):
 
         return loss_np, acc_np
 
-    def train_gamma_single(self, batch_size=20000, opt_iter=10, eps = 0.01):
+    def train_gamma_single(self, gamma_type=None, batch_size=100000, opt_iter=10, eps=0.01, eps_deriv=0.01):
+        
+        if gamma_type == 'deep':
+            batch_size = 200000
+        else:
+            batch_size = 50000
+
         loss_np = 0.0
         
         if batch_size > self.dataset.n_pts:
@@ -623,27 +651,42 @@ class Trainer(object):
                     state_data = torch.cat((state, state_diff), dim=-1)
                     gamma_data = self.gamma_gen(state_data, u)
 
-                          
-                for j in range(self.m_control):
-                    index_fault = gamma_actual[:, j] < 1.0
-                    
-                    index_num = torch.sum(index_fault.float())
-                    
-                    if index_num > 0:
-                        acc_ind_temp[0, j] = torch.sum((torch.abs(gamma_data[index_fault, j] - gamma_actual[index_fault, j]) < eps).float()) / (index_num + 1e-5)
-                        loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault, j] - gamma_actual[index_fault, j]) - eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)
-                    else:
-                        acc_ind_temp[0, j] = torch.tensor(1.0)
+                index_fault = gamma_actual < 1.0
+                index_no_fault = gamma_actual > 0.95
+                
+                index_num = torch.sum(index_fault.float(), dim=0)
+                index_num_no_fault = torch.sum(index_no_fault.float(), dim=0)
 
-                    index_no_fault = gamma_actual[:, j] > 0.9
+                loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault] - gamma_actual[index_fault]) - eps)) / (torch.sum(index_fault.float()) + 1e-5)
+                loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_no_fault] - gamma_actual[index_no_fault]) - eps)) / (torch.sum(index_no_fault.float()) + 1e-5)
 
-                    index_num = torch.sum(index_no_fault.float())
+                acc_ind_temp[0, 0:self.m_control] = torch.sum((torch.abs(gamma_data - gamma_actual) < eps).float() * index_fault.float(), dim=0) / (torch.sum(index_fault.float(), dim=0) + 1e-5)
+                acc_ind_temp[0, self.m_control:2 * self.m_control] = torch.sum((torch.abs(gamma_data - gamma_actual) < eps).float() * index_no_fault.float(), dim=0) / (torch.sum(index_no_fault.float(), dim=0) + 1e-5)
+                
+                index_ones = torch.cat((index_num == 0, index_num_no_fault == 0), dim=0)
+
+                acc_ind_temp[0, index_ones] = torch.ones(torch.sum(index_ones).item()).to(self.device)
+
+                # for j in range(self.m_control):
+                #     index_fault = gamma_actual[:, j] < 1.0
                     
-                    if index_num > 0:
-                        acc_ind_temp[0, j + self.m_control] = torch.sum((gamma_data[index_no_fault, j] > 0.9 + eps).float()) / (index_num + 1e-5)
-                        loss += 10 * torch.sum(nn.ReLU()( - gamma_data[index_fault, j] + 0.9 + eps)) / (index_num + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)                    
-                    else:
-                        acc_ind_temp[0, j + self.m_control] = torch.tensor(1.0)
+                #     index_num = torch.sum(index_fault.float())
+                    
+                #     if index_num > 0:
+                #         acc_ind_temp[0, j] = torch.sum((torch.abs(gamma_data[index_fault, j] - gamma_actual[index_fault, j]) < eps).float()) / (index_num + 1e-5)
+                #         loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault, j] - gamma_actual[index_fault, j]) - eps)) / (index_num + 1e-5)
+                #     else:
+                #         acc_ind_temp[0, j] = torch.tensor(1.0)
+
+                #     index_no_fault = gamma_actual[:, j] > 0.9
+
+                #     index_num = torch.sum(index_no_fault.float())
+                    
+                #     if index_num > 0:
+                #         acc_ind_temp[0, j + self.m_control] = torch.sum((gamma_data[index_no_fault, j] > 1 - eps).float()) / (index_num + 1e-5)
+                #         loss += 10 * torch.sum(nn.ReLU()( - gamma_data[index_fault, j] + 1 - eps)) / (index_num + 1e-5)                   
+                #     else:
+                #         acc_ind_temp[0, j + self.m_control] = torch.tensor(1.0)
 
                 self.gamma_optimizer.zero_grad(set_to_none=True)
 
@@ -655,7 +698,6 @@ class Trainer(object):
 
                 loss_np += loss.detach()
 
-            # torch.cuda.empty_cache()
                 
         loss_np = loss_np.cpu().numpy()
         

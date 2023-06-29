@@ -45,7 +45,7 @@ x0 = torch.tensor([[2.0,
                     0.0,
                     0.0]])
 
-dt = 0.001
+dt = 0.002
 
 n_state = 12
 
@@ -104,7 +104,6 @@ def main(args):
     fault_control_index = args.fault_index
     traj_len = args.traj_len
     gamma_type = args.gamma_type
-    # gamma_type = 'LSTM small'
     num_traj_factor = 2
     
     if args.use_model == 0:
@@ -155,7 +154,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(y_state=y_state, n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*300, traj_len=traj_len)
+    dataset = Dataset_with_Grad(y_state=y_state, n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*750, traj_len=traj_len)
     trainer = Trainer(cbf, None, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
@@ -176,15 +175,18 @@ def main(args):
         gamma_actual_bs = torch.ones(n_sample, m_control)
 
         for j in range(n_sample):
-            temp_var = np.mod(j, 10)
+            temp_var = np.mod(j, 15)
             # if temp_var < 4:
-            gamma_actual_bs[j, fault_control_index] = temp_var / 10.0
+            if temp_var < 10:
+                gamma_actual_bs[j, fault_control_index] = temp_var / 10.0
 
         rand_ind = torch.randperm(n_sample)
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
-        state = dynamics.sample_safe(n_sample) + torch.randn(n_sample, n_state) * 1
+        state = dynamics.sample_safe(n_sample // 2) + torch.randn(n_sample // 2, n_state) * 1
+
+        state = torch.cat((state, state), dim=0)
 
         for k in range(n_state):
             if k > 5:
@@ -257,8 +259,8 @@ def main(args):
                     dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :], model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], torch.ones(n_sample, m_control))
                 else:
                     dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :], model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], gamma_actual_bs)
-        
-        loss_np, acc_np = trainer.train_gamma_single()
+
+        loss_np, acc_np = trainer.train_gamma_single(gamma_type)
 
         time_iter = t.tocvalue()
         print(
