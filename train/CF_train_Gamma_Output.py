@@ -49,6 +49,8 @@ x0 = torch.tensor([[2.0,
 
 dt = 0.005
 
+dt = 0.002
+
 n_state = 12
 
 y_state = 6
@@ -265,7 +267,30 @@ def main(args):
                     dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :].cpu(), model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :].cpu(), u_traj[:, k-traj_len + 1:k + 1, :].cpu(), gamma_actual_bs.cpu())
                 # if k > 1.5 * traj_len:
                 #     plt.figure()
-                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 3])
+                #     plt.subplot(3, 4, 1)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 0].T)
+                #     plt.subplot(3, 4, 2)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 1].T)
+                #     plt.subplot(3, 4, 3)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 2].T)
+                #     plt.subplot(3, 4, 4)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 3].T)
+                #     plt.subplot(3, 4, 5)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 4].T)
+                #     plt.subplot(3, 4, 6)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 5].T)
+                #     plt.subplot(3, 4, 7)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 6].T)
+                #     plt.subplot(3, 4, 8)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 7].T)  
+                #     plt.subplot(3, 4, 9)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 8].T)
+                #     plt.subplot(3, 4, 10)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 9].T)
+                #     plt.subplot(3, 4, 11)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 10].T)
+                #     plt.subplot(3, 4, 12)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 11].T)
                 #     plt.savefig('test.png')
                 #     print(asas)
 
