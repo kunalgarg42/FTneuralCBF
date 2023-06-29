@@ -17,7 +17,7 @@ from trainer.trainer import Trainer
 from trainer.utils import Utils
 from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM_output, Gamma_linear_deep_nonconv_output
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 torch.backends.cudnn.benchmark = True
 
@@ -98,6 +98,7 @@ def main(args):
         print(f'> Training with {device}')
 
     fault = 1
+    dt = args.dt
     fault_control_index = args.fault_index
     traj_len = args.traj_len
     gamma_type = args.gamma_type
@@ -291,6 +292,7 @@ if __name__ == '__main__':
     parser.add_argument('-use_model', type=int, default=0)
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--cpu', type=bool, default=False)
+    parser.add_argument('--dt', type=float, default=0.002)
 
     args = parser.parse_args()
     main(args)
