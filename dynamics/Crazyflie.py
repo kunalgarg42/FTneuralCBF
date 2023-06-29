@@ -432,8 +432,8 @@ class CrazyFlies(ControlAffineSystemNew):
         """
         # Extract batch size and set up a tensor for holding the result
         batch_size = x.shape[0]
-        f = torch.zeros((batch_size, self.n_dims, 1))
-        f = f.type_as(x)
+        f = torch.zeros((batch_size, self.n_dims, 1)).type_as(x).to(x.device)
+        
 
         # Extract the needed parameters
         m, Ixx, Iyy, Izz, CT, CD, d = params["m"], params["Ixx"], params["Iyy"], params["Izz"], params["CT"], params[
@@ -502,8 +502,7 @@ class CrazyFlies(ControlAffineSystemNew):
         """
         # Extract batch size and set up a tensor for holding the result
         batch_size = x.shape[0]
-        g = torch.zeros((batch_size, self.n_dims, self.n_controls))
-        g = g.type_as(x)
+        g = torch.zeros((batch_size, self.n_dims, self.n_controls)).type_as(x).to(x.device)
 
         # Extract the needed parameters
         m, Ixx, Iyy, Izz, CT, CD, d = params["m"], params["Ixx"], params["Iyy"], params["Izz"], params["CT"], params[
@@ -555,18 +554,20 @@ class CrazyFlies(ControlAffineSystemNew):
             u_nominal: bs x self.n_controls tensor of controls
         """
         # Compute nominal control from feedback + equilibrium control
-        K = self.K.type_as(x)
+        K = self.K.type_as(x).to(x.device)
         if op_point is None:
-            op_point = self.goal
+            op_point = self.goal.type_as(x).to(x.device)
 
-        goal = op_point.squeeze().type_as(x)
+        goal = op_point.squeeze().type_as(x).to(x.device)
         u_nominal = -(K @ (x - goal).T).T
 
         # Adjust for the equilibrium setpoint
-        u = u_nominal + self.u_eq().type_as(x)
+        u = u_nominal + self.u_eq().type_as(x).to(x.device)
 
         # Clamp given the control limits
         upper_u_lim, lower_u_lim = self.control_limits()
+        upper_u_lim = upper_u_lim.type_as(x).to(x.device)
+        lower_u_lim = lower_u_lim.type_as(x).to(x.device)
         for dim_idx in range(self.n_controls):
             u[:, dim_idx] = torch.clamp(
                 u[:, dim_idx],

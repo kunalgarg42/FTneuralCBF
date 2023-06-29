@@ -47,7 +47,8 @@ x0 = torch.tensor([[2.0,
                     0.0,
                     0.0]])
 
-dt = 0.001
+dt = 0.002
+
 n_state = 12
 
 y_state = 6
@@ -151,7 +152,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(y_state=y_state, n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*300, traj_len=traj_len)
+    dataset = Dataset_with_Grad(y_state=y_state, n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*500, traj_len=traj_len)
     trainer = Trainer(cbf, None, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
@@ -159,35 +160,36 @@ def main(args):
     loss_np = 1.0
     safety_rate = 0.0
 
-    sm, sl = dynamics.state_limits()
-    
     loss_current = 0.1
 
+    device_traj = 'cpu'
+
+    sm, sl = dynamics.state_limits()
+
+    sm = sm.to(device_traj)
+    sl = sl.to(device_traj)
+    
     for i in range(1000):
+        t.tic()
         
-        new_goal = dynamics.sample_safe(1)
+        new_goal = dynamics.sample_safe(1).to(device_traj)
 
-        new_goal = new_goal.reshape(n_state, 1)
+        new_goal = new_goal.reshape(n_state, 1).to(device_traj)
 
-        gamma_actual_bs = torch.ones(n_sample, m_control)
-
-        # for j in range(n_sample):
-        #     temp_var = np.mod(j, 25)
-        #     if temp_var < 21:
-        #         id_fault = np.mod(temp_var, 4)
-        #         mag_fault = np.mod(temp_var, 5) / 5
-        #         gamma_actual_bs[j, id_fault] = mag_fault
+        gamma_actual_bs = torch.ones(n_sample, m_control).to(device_traj)
 
         for j in range(n_sample):
             temp_var = np.mod(j, 6)
             if temp_var < 4:
-                gamma_actual_bs[j, temp_var] = 0.0
+                gamma_actual_bs[j, temp_var] = torch.zeros(1).to(device_traj)
 
-        rand_ind = torch.randperm(n_sample)
+        rand_ind = torch.randperm(n_sample).to(device_traj)
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
-        state = dynamics.sample_safe(n_sample) + torch.randn(n_sample, n_state) * 1
+        state = dynamics.sample_safe(n_sample // 2).to(device_traj) + torch.randn(n_sample // 2, n_state).to(device_traj) * 1
+
+        state = torch.cat((state, state), dim=0)
 
         for k in range(n_state):
             if k > 5:
@@ -196,18 +198,16 @@ def main(args):
         state_no_fault = state.clone()
 
         u_nominal = dynamics.u_nominal(state)
-        
-        t.tic()
-        
-        state_traj = torch.zeros(n_sample, int(num_traj_factor * traj_len), n_state)
+                
+        state_traj = torch.zeros(n_sample, int(num_traj_factor * traj_len), n_state).to(device_traj)
 
-        output_traj = torch.zeros(n_sample, int(num_traj_factor * traj_len), y_state)
+        output_traj = torch.zeros(n_sample, int(num_traj_factor * traj_len), y_state).to(device_traj)
 
         output_traj_diff = output_traj.clone()
     
         state_traj_diff = state_traj.clone()
 
-        u_traj = torch.zeros(n_sample, int(num_traj_factor * traj_len), m_control)
+        u_traj = torch.zeros(n_sample, int(num_traj_factor * traj_len), m_control).to(device_traj)
 
         for k in range(int(traj_len * num_traj_factor)):
             
@@ -257,16 +257,16 @@ def main(args):
 
             if k >= traj_len -1:
                 if k == traj_len - 1:
-                    dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :], model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], torch.ones(n_sample, m_control))
+                    dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :].cpu(), model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :].cpu(), u_traj[:, k-traj_len + 1:k + 1, :].cpu(), torch.ones(n_sample, m_control))
                 else:
-                    dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :], model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], gamma_actual_bs)
+                    dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :].cpu(), model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :].cpu(), u_traj[:, k-traj_len + 1:k + 1, :].cpu(), gamma_actual_bs.cpu())
                 # if k > 1.5 * traj_len:
                 #     plt.figure()
                 #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 3])
                 #     plt.savefig('test.png')
                 #     print(asas)
 
-        loss_np, acc_np = trainer.train_gamma()
+        loss_np, acc_np = trainer.train_gamma(gamma_type)
 
         time_iter = t.tocvalue()
         print(
