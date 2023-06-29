@@ -47,7 +47,8 @@ x0 = torch.tensor([[2.0,
                     0.0,
                     0.0]])
 
-dt = 0.001
+dt = 0.002
+
 n_state = 12
 
 y_state = 6
@@ -187,7 +188,9 @@ def main(args):
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
-        state = dynamics.sample_safe(n_sample) + torch.randn(n_sample, n_state) * 1
+        state = dynamics.sample_safe(n_sample // 2) + torch.randn(n_sample // 2, n_state) * 1
+
+        state = torch.cat((state, state), dim=0)
 
         for k in range(n_state):
             if k > 5:
@@ -262,7 +265,30 @@ def main(args):
                     dataset.add_data(output_traj[:, k-traj_len + 1:k + 1, :], model_factor * output_traj_diff[:, k-traj_len + 1:k + 1, :], u_traj[:, k-traj_len + 1:k + 1, :], gamma_actual_bs)
                 # if k > 1.5 * traj_len:
                 #     plt.figure()
-                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 3])
+                #     plt.subplot(3, 4, 1)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 0].T)
+                #     plt.subplot(3, 4, 2)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 1].T)
+                #     plt.subplot(3, 4, 3)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 2].T)
+                #     plt.subplot(3, 4, 4)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 3].T)
+                #     plt.subplot(3, 4, 5)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 4].T)
+                #     plt.subplot(3, 4, 6)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 5].T)
+                #     plt.subplot(3, 4, 7)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 6].T)
+                #     plt.subplot(3, 4, 8)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 7].T)  
+                #     plt.subplot(3, 4, 9)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 8].T)
+                #     plt.subplot(3, 4, 10)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 9].T)
+                #     plt.subplot(3, 4, 11)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 10].T)
+                #     plt.subplot(3, 4, 12)
+                #     plt.plot(state_traj[:, k-traj_len + 1:k + 1, 11].T)
                 #     plt.savefig('test.png')
                 #     print(asas)
 
