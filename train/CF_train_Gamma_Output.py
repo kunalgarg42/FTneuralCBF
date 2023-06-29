@@ -47,7 +47,7 @@ x0 = torch.tensor([[2.0,
                     0.0,
                     0.0]])
 
-dt = 0.002
+dt = 0.005
 
 n_state = 12
 
@@ -61,7 +61,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 1000
+n_sample = 1200
 
 fault = nominal_params["fault"]
 
@@ -161,7 +161,7 @@ def main(args):
     loss_np = 1.0
     safety_rate = 0.0
 
-    loss_current = 0.1
+    loss_current = 1.0
 
     device_traj = 'cpu'
 
@@ -188,9 +188,11 @@ def main(args):
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
-        state = dynamics.sample_safe(n_sample // 2).to(device_traj) + torch.randn(n_sample // 2, n_state).to(device_traj) * 1
+        state = dynamics.sample_safe(n_sample // 6).to(device_traj) + torch.randn(n_sample // 6, n_state).to(device_traj) * 1
 
-        state = torch.cat((state, state), dim=0)
+        state = state.repeat_interleave(6, dim=0)
+
+        state = state[rand_ind, :]
 
         for k in range(n_state):
             if k > 5:

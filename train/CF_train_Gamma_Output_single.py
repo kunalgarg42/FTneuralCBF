@@ -59,7 +59,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 1000
+n_sample = 2200
 
 fault = nominal_params["fault"]
 
@@ -78,6 +78,7 @@ else:
     use_cuda = False
 
 def main(args):
+    dt = args.dt
     if platform.uname()[1] == 'realm2':
         gpu_id = args.gpu
 
@@ -106,10 +107,7 @@ def main(args):
     gamma_type = args.gamma_type
     num_traj_factor = 2
     
-    if args.use_model == 0:
-        model_factor = 0
-    else:
-        model_factor = 1
+    model_factor = args.use_model
 
     if gamma_type == 'LSTM':
         str_data = './data/CF_gamma_LSTM_output_single_' + str(y_state) + 'sigmoid.pth'
@@ -119,7 +117,6 @@ def main(args):
         str_good_data = './good_data/data/CF_gamma_deep_output_single_' + str(y_state) + 'sigmoid.pth'
     else:
         NotImplementedError
-
 
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
@@ -164,7 +161,7 @@ def main(args):
 
     sm, sl = dynamics.state_limits()
     
-    loss_current = 0.1
+    loss_current = 1
 
     for i in range(1000):
         
@@ -175,7 +172,7 @@ def main(args):
         gamma_actual_bs = torch.ones(n_sample, m_control)
 
         for j in range(n_sample):
-            temp_var = np.mod(j, 15)
+            temp_var = np.mod(j, 11)
             # if temp_var < 4:
             if temp_var < 10:
                 gamma_actual_bs[j, fault_control_index] = temp_var / 10.0
@@ -184,9 +181,11 @@ def main(args):
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
-        state = dynamics.sample_safe(n_sample // 2) + torch.randn(n_sample // 2, n_state) * 1
+        state = dynamics.sample_safe(n_sample // 11) + torch.randn(n_sample // 11, n_state) * 1
 
-        state = torch.cat((state, state), dim=0)
+        state = state.repeat_interleave(11, dim=0)
+
+        state = state[rand_ind, :]
 
         for k in range(n_state):
             if k > 5:
@@ -285,6 +284,7 @@ if __name__ == '__main__':
     parser.add_argument('-use_model', type=int, default=0)
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--cpu', type=bool, default=False)
+    parser.add_argument('--dt', type=float, default=0.002)
 
     args = parser.parse_args()
     main(args)
