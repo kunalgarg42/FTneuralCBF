@@ -110,11 +110,11 @@ def main(args):
     model_factor = args.use_model
 
     if gamma_type == 'LSTM':
-        str_data = './data/CF_gamma_LSTM_output_single_' + str(y_state) + 'sigmoid.pth'
-        str_good_data = './good_data/data/CF_gamma_LSTM_output_single_' + str(y_state) + 'sigmoid.pth'
+        str_data = './data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
+        str_good_data = './good_data/data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
     elif gamma_type == 'deep':
-        str_data = './data/CF_gamma_deep_output_single_' + str(y_state) + 'sigmoid.pth'
-        str_good_data = './good_data/data/CF_gamma_deep_output_single_' + str(y_state) + 'sigmoid.pth'
+        str_data = './data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
+        str_good_data = './good_data/data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
     else:
         NotImplementedError
 
