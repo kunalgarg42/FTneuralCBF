@@ -63,7 +63,10 @@ class Dataset_with_Grad(object):
 
     @property
     def n_pts(self):
-        return self.buffer_data_s.shape[0]
+        if self.buffer_data_s.shape[0] == 0:
+            return self.buffer_data_s_diff.shape[0]
+        else:
+            return self.buffer_data_s.shape[0]
 
     @property
     def n_pts_gamma(self):
@@ -161,3 +164,34 @@ class Dataset_with_Grad(object):
             gamma = self.buffer_data_u[indices]
 
             return s, s_diff, u, gamma
+
+    def sample_only_res(self, batch_size, index):
+            """
+            Sample batch_size data points from the data buffers.
+
+            args:
+                batch_size: how many points to sample
+                index: the index of the batch to sample (so that we can sample without
+                    replacement)
+            returns:
+                a random selection of batch_size data points, sampled without replacement.
+            """
+
+            indices_init = index * batch_size
+            indices_end = (index + 1) * batch_size
+
+            # If the end of the range exceeds the number of available data points,
+            # shift both the start and the end back until the batch fits
+            if indices_end > self.n_pts:
+                extra_pts_needed = indices_end - self.n_pts
+                indices_init -= extra_pts_needed
+                indices_end -= extra_pts_needed
+
+            # Get the slice of randomly permuted indices
+            indices = self.permuted_indices[indices_init:indices_end]
+
+            s_diff = self.buffer_data_s_diff[indices, :]
+
+            gamma = self.buffer_data_u[indices]
+
+            return s_diff, gamma

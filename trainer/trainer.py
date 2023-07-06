@@ -599,7 +599,8 @@ class Trainer(object):
 
         return loss_np, acc_np
 
-    def train_gamma_single(self, gamma_type=None, batch_size=10000, opt_iter=10, eps=0.01, eps_deriv=0.01):
+    def train_gamma_only_res(self, gamma_type=None, batch_size=10000, opt_iter=10, eps=0.01, eps_deriv=0.01):
+        loss_np = 0.0
         
         if gamma_type == 'deep':
             batch_size = 500000
@@ -607,6 +608,78 @@ class Trainer(object):
                 batch_size = 700000
         else:
             batch_size = 50000
+
+        if batch_size > self.dataset.n_pts:
+            batch_size = self.dataset.n_pts
+        
+        opt_iter = int(self.dataset.n_pts / batch_size)
+        
+        opt_count = 400
+        
+        # acc = 0.0
+        acc_np = torch.zeros(1, 2 * self.m_control).to(self.device)
+        acc_ind_temp = torch.zeros(1, 2 * self.m_control).to(self.device)
+        
+        self.gamma.to(self.device)
+
+        for _ in range(opt_count):
+            # self.gpu_id = np.mod(iter, 4)
+    
+            for i in range(opt_iter):
+                loss = torch.tensor(0.0)
+                
+                state_diff, gamma_actual = self.dataset.sample_only_res(batch_size, i)
+
+                state_diff = state_diff.to(self.device)
+                gamma_actual = gamma_actual.to(self.device)
+                loss = loss.to(self.device)
+                gamma_data = self.gamma(state_diff)
+                
+                index_fault = gamma_actual < 0.5
+
+                index_no_fault = gamma_actual >= 0.5
+
+                index_num = torch.sum(index_fault.float(), dim=0)
+                index_num_no_fault = torch.sum(index_no_fault.float(), dim=0)
+
+                acc_ind_temp[0, 0:self.m_control] = torch.sum((torch.abs(gamma_data - gamma_actual) < eps).float() * index_fault.float(), dim=0) / (torch.sum(index_fault.float(), dim=0) + 1e-5)
+                acc_ind_temp[0, self.m_control:2 * self.m_control] = torch.sum((torch.abs(gamma_data - gamma_actual) < eps).float() * index_no_fault.float(), dim=0) / (torch.sum(index_no_fault.float(), dim=0) + 1e-5)
+                
+                index_ones = torch.cat((index_num == 0, index_num_no_fault == 0), dim=0)
+
+                acc_ind_temp[0, index_ones] = torch.ones(torch.sum(index_ones).item()).to(self.device)
+
+                loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault] - gamma_actual[index_fault]) - eps)) / (torch.sum(index_fault.float()) + 1e-5) / (torch.sum(acc_ind_temp[0, 0:self.m_control]).item() + 1e-5)
+                loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_no_fault] - gamma_actual[index_no_fault]) - eps)) / (torch.sum(index_no_fault.float()) + 1e-5) / (torch.sum(acc_ind_temp[0, self.m_control:2 * self.m_control]).item() + 1e-5)
+                
+                self.gamma_optimizer.zero_grad(set_to_none=True)
+
+                loss.backward()
+
+                self.gamma_optimizer.step()
+
+                acc_np += acc_ind_temp.detach()
+
+                loss_np += loss.detach()
+                                
+        loss_np = loss_np.cpu().numpy()
+        
+        acc_np = acc_np.cpu().numpy()
+        
+        loss_np /= opt_iter * opt_count
+        
+        acc_np /= opt_count * opt_iter
+
+        return loss_np, acc_np
+    
+    def train_gamma_single(self, gamma_type=None, batch_size=10000, opt_iter=10, eps=0.01, eps_deriv=0.01):
+        
+        if gamma_type == 'deep':
+            batch_size = 500000
+            if self.model_factor == 0:
+                batch_size = 700000
+        else:
+            batch_size = 60000
             
         loss_np = 0.0
         
@@ -615,7 +688,7 @@ class Trainer(object):
         
         opt_iter = int(self.dataset.n_pts / batch_size)
         
-        opt_count = 500
+        opt_count = 400
         
         # acc = 0.0
         acc_np = torch.zeros(1, 2 * self.m_control)
@@ -669,9 +742,14 @@ class Trainer(object):
 
                 acc_ind_temp[0, index_ones] = torch.ones(torch.sum(index_ones).item()).to(self.device)
 
-                loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault] - gamma_actual[index_fault]) - eps)) / (torch.sum(index_fault.float()) + 1e-5) / (torch.sum(acc_ind_temp[0, 0:self.m_control].detach()) + 1e-5)
-                loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_no_fault] - gamma_actual[index_no_fault]) - eps)) / (torch.sum(index_no_fault.float()) + 1e-5) / (torch.sum(acc_ind_temp[0, self.m_control:2 * self.m_control].detach()) + 1e-5)
-
+                # loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault] - gamma_actual[index_fault]) - eps)) / (torch.sum(index_fault.float()) + 1e-5) / (torch.sum(acc_ind_temp[0, 0:self.m_control].detach()) + 1e-5)
+                # loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_no_fault] - gamma_actual[index_no_fault]) - eps)) / (torch.sum(index_no_fault.float()) + 1e-5) / (torch.sum(acc_ind_temp[0, self.m_control:2 * self.m_control].detach()) + 1e-5)
+                # loss = 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault] - gamma_actual[index_fault]) - eps) / (acc_ind_temp[0:self.m_control] + 1e-5)) / (torch.sum(index_fault.float()) + 1e-5)
+                # loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_no_fault] - gamma_actual[index_no_fault]) - eps) / (acc_ind_temp[self.m_control:2 * self.m_control] + 1e-5)) / (torch.sum(index_no_fault.float()) + 1e-5)
+                for j in range(self.m_control):
+                    loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_fault[:, j], j] - gamma_actual[index_fault[:, j], j]) - eps)) / (index_num[j] + 1e-5) / (acc_ind_temp[0, j].detach() + 1e-5)                
+                    loss += 10 * torch.sum(nn.ReLU()(torch.abs(gamma_data[index_no_fault[:, j], j] - gamma_actual[index_no_fault[:, j], j]) - eps)) / (index_num_no_fault[j] + 1e-5) / (acc_ind_temp[0, j + self.m_control].detach() + 1e-5)
+                
                 # for j in range(self.m_control):
                 #     index_fault = gamma_actual[:, j] < 1.0
                     
