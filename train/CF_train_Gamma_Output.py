@@ -113,14 +113,13 @@ def main(args):
         model_factor = 1
 
     if gamma_type == 'LSTM':
-        str_data = './data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
-        str_good_data = './good_data/data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
+        str_data = './data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
+        str_good_data = './good_data/data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
     elif gamma_type == 'deep':
-        str_data = './data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
-        str_good_data = './good_data/data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
+        str_data = './data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
+        str_good_data = './good_data/data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
     else:
         NotImplementedError
-
 
     nominal_params["fault"] = fault
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
@@ -171,6 +170,8 @@ def main(args):
 
     sm = sm.to(device_traj)
     sl = sl.to(device_traj)
+
+    ind_y = torch.tensor([1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1]).bool().to(device_traj)
     
     for i in range(1000):
         t.tic()
@@ -225,11 +226,11 @@ def main(args):
 
             state_traj[:, k, :] = state.clone()
 
-            output_traj[:, k, :] = state[:, :y_state].clone()
+            output_traj[:, k, :] = state[:, ind_y].clone()
             
             state_traj_diff[:, k, :] = state_no_fault.clone() - state.clone()
 
-            output_traj_diff[:, k, :] = state_no_fault[:, :y_state].clone() - state[:, :y_state].clone()
+            output_traj_diff[:, k, :] = state_no_fault[:, ind_y].clone() - state[:, ind_y].clone()
             
             u_traj[:, k, :] = u.clone()
 
