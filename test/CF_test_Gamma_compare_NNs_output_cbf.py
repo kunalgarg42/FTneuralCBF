@@ -3,7 +3,7 @@ import sys
 import torch
 import numpy as np
 import argparse
-
+import tqdm
 import matplotlib.pyplot as plt
 
 sys.path.insert(1, os.path.abspath('..'))
@@ -67,86 +67,95 @@ gpu_id = 3
 gamma_type = 'LSTM'
 
 def main(args):
-    use_saved_data = 0
+    use_saved_data = args.use_saved_data
     fault_control_index = args.fault_index
     use_nom = args.use_nom
-    model_factor = args.use_model
+    model_factor = 1
     dt = args.dt
     rates = args.rates
+
+    gamma_type = args.gamma_type
 
     if use_saved_data == 1:
         try:
             if rates == 0:
-                acc_final = torch.load('./log_files/acc_output_model_' + str(model_factor) + '.pt')
+                acc_final = torch.load('./log_files/acc_output_model_' + str(model_factor) + '_'+ gamma_type + '_cbf.pt')
             else:
-                acc_final = torch.load('./log_files/acc_output_model_' + str(model_factor) + '_rates.pt')
+                acc_final = torch.load('./log_files/acc_output_model_' + str(model_factor) + '_' + gamma_type + '_rates_cbf.pt')
         except:
             use_saved_data = 0
-
-    if rates == 0:
-        ind_y = torch.tensor([1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]).bool()
     else:
-        ind_y = torch.tensor([1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1]).bool()
-
-    gpu_id = args.gpu
-    use_cuda = torch.cuda.is_available() and not args.cpu
-    if use_cuda:
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
-    else:
-        gpu_id = -1
-    device = torch.device('cuda' if use_cuda else 'cpu')
-    print(f'> Testing with {device}')
-
-    acc_final = torch.zeros(3, 2, traj_len)
-
-    dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
-    util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
-                fault_control_index=fault_control_index)
-    cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
-            fault_control_index=fault_control_index)
-    try:
-        if gpu_id >= 0:
-            cbf.load_state_dict(torch.load('./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth'))
-        else:
-            cbf.load_state_dict(torch.load('./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
-    except:
-        try:
-            if gpu_id >= 0:
-                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_with_u.pth'))
-            else:
-                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
-        except:
-            if gpu_id >= 0:
-                cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u.pth'))
-            else:
-                cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
-    
-    cbf.eval()
-
-    sm, sl = dynamics.state_limits()
-
-    if use_nom == 1:
-        n_sample = 10000
-    else:
-        n_sample = 1000
-    
-    if use_nom == 1:
-        nsample_factor = 1
-    else:
-        nsample_factor = 1
-
-    n_sample_iter = int(n_sample / nsample_factor)
+        acc_final = torch.zeros(4, 2, traj_len)
 
     if use_saved_data == 0:
-        print('Generating new accuracy data')
+        
+        acc_final = torch.zeros(4, 2, traj_len)
 
-        for gamma_iter in range(2):
-            if gamma_iter == 0:
-                gamma_type = 'LSTM'
-            elif gamma_iter == 1:
-                gamma_type = 'deep'
+        print('Generating new accuracy data')
+        if rates == 0:
+            ind_y = torch.tensor([1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]).bool()
+        else:
+            ind_y = torch.tensor([1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1]).bool()
+
+        gpu_id = args.gpu
+        use_cuda = torch.cuda.is_available() and not args.cpu
+        if use_cuda:
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+        else:
+            gpu_id = -1
+        device = torch.device('cuda' if use_cuda else 'cpu')
+        print(f'> Testing with {device}')
+
+
+        dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
+        util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
+                    fault_control_index=fault_control_index)
+        cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
+                fault_control_index=fault_control_index)
+        try:
+            if gpu_id >= 0:
+                cbf.load_state_dict(torch.load('./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth'))
             else:
-                NotImplementedError
+                cbf.load_state_dict(torch.load('./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
+        except:
+            try:
+                if gpu_id >= 0:
+                    cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_with_u.pth'))
+                else:
+                    cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
+            except:
+                if gpu_id >= 0:
+                    cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u.pth'))
+                else:
+                    cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
+        
+        cbf.eval()
+
+        sm, sl = dynamics.state_limits()
+
+        for gamma_iter in tqdm.trange(4):
+            if gamma_iter == 0 or gamma_iter == 2:
+                model_factor = 0
+            elif gamma_iter == 1 or gamma_iter == 3:
+                model_factor = 1
+
+            if gamma_iter == 0 or gamma_iter == 1:
+                use_nom = 1
+            elif gamma_iter == 2 or gamma_iter == 3:
+                use_nom = 0
+
+            if use_nom == 1:
+                n_sample = 10000
+            else:
+                n_sample = 10000
+            
+            if use_nom == 1:
+                nsample_factor = 1
+            else:
+                nsample_factor = 1
+
+            n_sample_iter = int(n_sample / nsample_factor)
+
             if rates == 0:
                 if gamma_type == 'LSTM':
                     str_data = './data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
@@ -196,7 +205,7 @@ def main(args):
             else:
                 gamma.load_state_dict(torch.load(str_data))
             
-            gamma.eval()
+            gamma.eval().to(device)
 
             gamma_actual_bs = torch.ones(n_sample_iter, m_control)
 
@@ -205,7 +214,6 @@ def main(args):
                 if temp_var < 4:
                     gamma_actual_bs[j, temp_var] = 0.0
 
-            
             rand_ind = torch.randperm(n_sample_iter)
 
             gamma_actual_bs = gamma_actual_bs[rand_ind, :]
@@ -236,7 +244,7 @@ def main(args):
 
             new_goal = new_goal.reshape(n_state, 1)
 
-            for k in range(Eval_steps):
+            for k in tqdm.trange(Eval_steps):
 
                 u_nominal = dynamics.u_nominal(state, op_point=new_goal)
 
@@ -245,7 +253,12 @@ def main(args):
 
                 if use_nom == 0:
                     h, grad_h = cbf.V_with_jacobian(state.reshape(n_sample_iter, n_state, 1))
-                    u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
+                    u = torch.zeros(n_sample_iter, m_control)
+                    cbf_bs = 100
+                    for j in range(n_sample_iter // cbf_bs):
+                        batch_ind = np.arange(j * cbf_bs, (j + 1) * cbf_bs)
+                        u[batch_ind] = util.fault_controller(u_nominal[batch_ind], fx[batch_ind], gx[batch_ind], h[batch_ind], grad_h[batch_ind])
+                    # u = util.fault_controller(u_nominal, fx, gx, h, grad_h)
                 else:
                     u = u_nominal.clone()
 
@@ -280,12 +293,12 @@ def main(args):
 
                 if k >= traj_len - 1:
                     if model_factor == 0:
-                        gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, ind_y], u_traj[:, k - traj_len + 1:k + 1, :])
+                        gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, ind_y].to(device), u_traj[:, k - traj_len + 1:k + 1, :].to(device))
                     else:
                         state_data = torch.cat((state_traj[:, k - traj_len + 1:k + 1, ind_y], state_traj_diff[:, k-traj_len + 1:k+1, ind_y]), dim=-1)
-                        gamma_NN = gamma(state_data, u_traj[:, k - traj_len + 1:k + 1, :])
+                        gamma_NN = gamma(state_data.to(device), u_traj[:, k - traj_len + 1:k + 1, :].to(device))
 
-                    gamma_pred = gamma_NN.reshape(n_sample_iter, m_control).clone().detach()
+                    gamma_pred = gamma_NN.reshape(n_sample_iter, m_control).clone().detach().cpu()
 
                     acc_ind = torch.zeros(1, m_control * 2)
 
@@ -296,7 +309,7 @@ def main(args):
                         index_num = torch.sum(index_fault.float())
 
                         if index_num > 0:
-                            acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0.02).float()) / (index_num + 1e-5)
+                            acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0.1).float()) / (index_num + 1e-5)
                         else:
                             acc_ind[0, j] = 1
                         
@@ -305,21 +318,28 @@ def main(args):
                         index_num = torch.sum(index_no_fault.float())
 
                         if index_num > 0:
-                            acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0.95).float()) / (index_num + 1e-5)
+                            acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0.9).float()) / (index_num + 1e-5)
                         else:
                             acc_ind[0, j + m_control] = 1
                     
                     acc_final[gamma_iter, 0, k-traj_len+1] = torch.min(acc_ind[0, 0:m_control])
                     acc_final[gamma_iter, 1, k-traj_len+1] = torch.min(acc_ind[0, m_control:])
+    
+        if rates == 0:
+            torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '_'+ gamma_type + '_cbf.pt')
+        else:
+            torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '_' + gamma_type + '_rates_cbf.pt')
     else:
-        print('Using previos accuracy data')
-            
-    fig = plt.figure(figsize=(10, 6))
-    ax = fig.subplots(1, 1)
+        print('Using previous accuracy data')
+
+    fig = plt.figure(figsize=(20, 15))
+    ax = fig.subplots(2, 1)
+    ax1 = ax[0]
+    ax2 = ax[1]
     if rates == 0:
-        plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor)  + '.png'
+        plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor)  + '_' + gamma_type + '_cbf.png'
     else:
-        plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor) + '_rates.png'
+        plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor) + '_' + gamma_type + '_rates_cbf.png'
 
     # ax = axes[0]
 
@@ -327,42 +347,58 @@ def main(args):
 
     markers_on = np.arange(0, step[-1], 10)
 
-    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+    colors = ['b', 'r', 'b', 'r', 'm', 'y', 'k', 'w']
 
-    for gamma_iter in range(2):
+    for gamma_iter in range(4):
         if gamma_iter == 0:
-            gamma_type = 'LSTM'
+            gamma_type = 'Model-free'
         elif gamma_iter == 1:
-            gamma_type = 'Linear MLP'
-
+            gamma_type = 'Model-based'
+        else:
+            continue
 
         acc_fail = acc_final[gamma_iter, 0, :]
         acc_no_fail = acc_final[gamma_iter, 1, :]
 
-        ax.plot(step, acc_fail, color = colors[gamma_iter], linestyle='-', label = 'Failure: ' + gamma_type, marker="o", markevery=markers_on,markersize=10)
-        ax.plot(step, acc_no_fail, color = colors[gamma_iter], linestyle='--', label = 'No Failure: ' + gamma_type, marker="^", markevery=markers_on,markersize=10)
+        ax1.plot(step, acc_fail, color = colors[gamma_iter], linestyle='-', label = 'Failure: ' + gamma_type, marker="o", markevery=markers_on,markersize=20, linewidth=3)
+        ax1.plot(step, acc_no_fail, color = colors[gamma_iter], linestyle='--', label = 'No Failure: ' + gamma_type, marker="^", markevery=markers_on,markersize=20, linewidth=3)
+        ax1.set_ylabel('Accuracy (LQR)', fontsize = 35)
+        ax1.set_xlim(step[0], step[-1])
+        ax1.set_ylim(0.4, 1.01)
+        ax1.tick_params(axis = "x", labelsize = 25)
+        ax1.tick_params(axis = "y", labelsize = 25)
+        ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize = 30)
+    for gamma_iter in range(4):
+        if gamma_iter == 2:
+            gamma_type = 'Model-free'
+        elif gamma_iter == 3:
+            gamma_type = 'Model-based'
+        else:
+            continue
 
-    plt.xlabel('Length of trajectory with failed actuator', fontsize = 20)
-    plt.ylabel('Accuracy', fontsize = 20)
+        acc_fail = acc_final[gamma_iter, 0, :]
+        acc_no_fail = acc_final[gamma_iter, 1, :]
+
+        ax2.plot(step, acc_fail, color = colors[gamma_iter], linestyle='-', label = 'Failure: ' + gamma_type, marker="o", markevery=markers_on,markersize=20, linewidth=3)
+        ax2.plot(step, acc_no_fail, color = colors[gamma_iter], linestyle='--', label = 'No Failure: ' + gamma_type, marker="^", markevery=markers_on,markersize=20, linewidth=3)
+        ax2.set_ylabel('Accuracy (CBF)', fontsize = 35)
+        ax2.set_xlim(step[0], step[-1])
+        ax2.set_ylim(0.4, 1.01)
+        ax2.tick_params(axis = "x", labelsize = 25)
+        ax2.tick_params(axis = "y", labelsize = 25)
+        ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize = 30)
+
+    plt.xlabel('Length of trajectory with failed actuator', fontsize = 35)
     
     # plt.title('Failure Test Accuracy', fontsize = 20)
-    plt.legend(fontsize=20, ncol = 2, loc='upper center', bbox_to_anchor=(0.5, 1.3))
-    ax.set_xlim(step[0], step[-1])
-    if model_factor == 1:
-        ax.set_ylim(0.7, 1.05)
-    else:
-        ax.set_ylim(0.5, 1.05)
-    ax.tick_params(axis = "x", labelsize = 15)
-    ax.tick_params(axis = "y", labelsize = 15)
+    # plt.legend(fontsize=20, ncol = 1, loc='right' , bbox_to_anchor=(0.5, 1.3))
+    
     plt.tight_layout()
 
     plt.savefig(plot_name)
 
     print("saved file:", plot_name)
-    if rates == 0:
-        torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '.pt')
-    else:
-        torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '_rates.pt')
+    
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -374,5 +410,7 @@ if __name__ == '__main__':
     parser.add_argument('--dt', type=float, default=0.002)
     parser.add_argument('--use_nom', type =int, default=1)
     parser.add_argument('--rates', type =int, default=1)
+    parser.add_argument('--gamma_type', type=str, default='deep')
+    parser.add_argument('--use_saved_data', type=int, default=1)
     args = parser.parse_args()
     main(args)

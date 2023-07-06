@@ -13,7 +13,7 @@ from pytictoc import TicToc
 from dynamics.Crazyflie import CrazyFlies
 from trainer import config
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma_linear_deep_nonconv_output, Gamma_linear_LSTM_output
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_deep_nonconv_output_single, Gamma_linear_LSTM_output_single
 
 xg = torch.tensor([[0.0,
                     0.0,
@@ -42,9 +42,10 @@ x0 = torch.tensor([[2.0,
                     0.0]])
 
 dt = 0.001
+
 n_state = 12
 
-y_state = 6
+y_state = 12
 
 m_control = 4
 
@@ -67,26 +68,10 @@ gpu_id = 3
 gamma_type = 'LSTM'
 
 def main(args):
-    use_saved_data = 0
     fault_control_index = args.fault_index
     use_nom = args.use_nom
     model_factor = args.use_model
     dt = args.dt
-    rates = args.rates
-
-    if use_saved_data == 1:
-        try:
-            if rates == 0:
-                acc_final = torch.load('./log_files/acc_output_model_' + str(model_factor) + '.pt')
-            else:
-                acc_final = torch.load('./log_files/acc_output_model_' + str(model_factor) + '_rates.pt')
-        except:
-            use_saved_data = 0
-
-    if rates == 0:
-        ind_y = torch.tensor([1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]).bool()
-    else:
-        ind_y = torch.tensor([1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1]).bool()
 
     gpu_id = args.gpu
     use_cuda = torch.cuda.is_available() and not args.cpu
@@ -105,30 +90,22 @@ def main(args):
     cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
             fault_control_index=fault_control_index)
     try:
-        if gpu_id >= 0:
-            cbf.load_state_dict(torch.load('./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth'))
-        else:
-            cbf.load_state_dict(torch.load('./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
+        cbf.load_state_dict(torch.load('./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth'))
     except:
         try:
-            if gpu_id >= 0:
-                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_with_u.pth'))
-            else:
-                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
+            cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_with_u.pth'))
         except:
-            if gpu_id >= 0:
-                cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u.pth'))
-            else:
-                cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
-    
+            cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u.pth'))
     cbf.eval()
 
     sm, sl = dynamics.state_limits()
 
     if use_nom == 1:
         n_sample = 10000
+        # sys.stdout = open('./log_files/log_gamma_train_LQR_' + gamma_type + '.txt', 'w')
     else:
         n_sample = 1000
+        # sys.stdout = open('./log_files/log_gamma_train_CBF_' + gamma_type + '.txt', 'w')
     
     if use_nom == 1:
         nsample_factor = 1
@@ -136,10 +113,9 @@ def main(args):
         nsample_factor = 1
 
     n_sample_iter = int(n_sample / nsample_factor)
-
-    if use_saved_data == 0:
-        print('Generating new accuracy data')
-
+    try:
+        acc_final = torch.load('./log_files/acc_final_NN_no_CNN.pt')
+    except:
         for gamma_iter in range(2):
             if gamma_iter == 0:
                 gamma_type = 'LSTM'
@@ -147,31 +123,22 @@ def main(args):
                 gamma_type = 'deep'
             else:
                 NotImplementedError
-            if rates == 0:
-                if gamma_type == 'LSTM':
-                    str_data = './data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
-                    str_good_data = './good_data/data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
-                    str_supercloud_data = './supercloud_data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
-                elif gamma_type == 'deep':
-                    str_data = './data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
-                    str_good_data = './good_data/data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
-                    str_supercloud_data = './supercloud_data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
-                else:
-                    NotImplementedError
+
+            if gamma_type == 'LSTM':
+                str_data = './data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
+                str_good_data = './good_data/data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
+                str_supercloud_data = './supercloud_data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
+            elif gamma_type == 'deep':
+                str_data = './data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
+                str_good_data = './good_data/data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
+                str_supercloud_data = './supercloud_data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
             else:
-                if gamma_type == 'LSTM':
-                    str_data = './data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
-                    str_good_data = './good_data/data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
-                elif gamma_type == 'deep':
-                    str_data = './data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
-                    str_good_data = './good_data/data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
-                else:
-                    NotImplementedError
+                NotImplementedError
             
             if gamma_type == 'deep':
-                gamma = Gamma_linear_deep_nonconv_output(y_state=y_state, m_control=m_control, traj_len=traj_len, model_factor=model_factor)
+                gamma = Gamma_linear_deep_nonconv_output_single(y_state=y_state, m_control=m_control, traj_len=traj_len, model_factor=model_factor)
             elif gamma_type == 'LSTM':
-                gamma = Gamma_linear_LSTM_output(y_state=y_state, m_control=m_control, model_factor=model_factor)
+                gamma = Gamma_linear_LSTM_output_single(y_state=y_state, m_control=m_control, model_factor=model_factor)
             else:
                 NotImplementedError
             
@@ -197,15 +164,17 @@ def main(args):
                 gamma.load_state_dict(torch.load(str_data))
             
             gamma.eval()
+                
+            acc0 = torch.zeros(traj_len + 1, 1)
+            acc1 = torch.zeros(traj_len + 1, 1)
 
             gamma_actual_bs = torch.ones(n_sample_iter, m_control)
 
-            for j in range(n_sample_iter):
-                temp_var = np.mod(j, 5)
-                if temp_var < 4:
-                    gamma_actual_bs[j, temp_var] = 0.0
+            for j in range(n_sample):
+                temp_var = np.mod(j, 11)
+                if temp_var < 10:
+                    gamma_actual_bs[j, fault_control_index] = temp_var / 10.0
 
-            
             rand_ind = torch.randperm(n_sample_iter)
 
             gamma_actual_bs = gamma_actual_bs[rand_ind, :]
@@ -279,10 +248,13 @@ def main(args):
                         state[ind_sl, j2] = sl[j2].repeat(torch.sum(ind_sl),)
 
                 if k >= traj_len - 1:
+                    # if gamma_type == 'linear conv':
+                    #     gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :], 0 * state_traj[:, k - traj_len + 1:k + 1, :], u_traj[:, k - traj_len + 1:k + 1, :])
+                    # else:
                     if model_factor == 0:
-                        gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, ind_y], u_traj[:, k - traj_len + 1:k + 1, :])
+                        gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, :y_state], u_traj[:, k - traj_len + 1:k + 1, :])
                     else:
-                        state_data = torch.cat((state_traj[:, k - traj_len + 1:k + 1, ind_y], state_traj_diff[:, k-traj_len + 1:k+1, ind_y]), dim=-1)
+                        state_data = torch.cat((state_traj[:, k - traj_len + 1:k + 1, :y_state], state_traj_diff[:, k-traj_len + 1:k+1, :y_state]), dim=-1)
                         gamma_NN = gamma(state_data, u_traj[:, k - traj_len + 1:k + 1, :])
 
                     gamma_pred = gamma_NN.reshape(n_sample_iter, m_control).clone().detach()
@@ -291,35 +263,32 @@ def main(args):
 
                     for j in range(m_control):
                         
-                        index_fault = gamma_actual_bs[:, j] < 0.5
+                        index_fault = gamma_actual_bs[:, j] < 0.95
 
                         index_num = torch.sum(index_fault.float())
 
                         if index_num > 0:
-                            acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0.02).float()) / (index_num + 1e-5)
+                            acc_ind[0, j] =  torch.sum((torch.abs(gamma_pred[index_fault, j] - gamma_actual_bs[index_fault, j]) - 0.01).float()) / (index_num + 1e-5)
                         else:
                             acc_ind[0, j] = 1
                         
-                        index_no_fault = gamma_actual_bs[:, j] > 0.5
+                        index_no_fault = gamma_actual_bs[:, j] > 0.95
                         
                         index_num = torch.sum(index_no_fault.float())
 
-                        if index_num > 0:
+                        if index_num > 0.95:
                             acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0.95).float()) / (index_num + 1e-5)
                         else:
                             acc_ind[0, j + m_control] = 1
                     
                     acc_final[gamma_iter, 0, k-traj_len+1] = torch.min(acc_ind[0, 0:m_control])
                     acc_final[gamma_iter, 1, k-traj_len+1] = torch.min(acc_ind[0, m_control:])
-    else:
-        print('Using previos accuracy data')
+
             
     fig = plt.figure(figsize=(10, 6))
     ax = fig.subplots(1, 1)
-    if rates == 0:
-        plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor)  + '.png'
-    else:
-        plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor) + '_rates.png'
+    
+    plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor)  + '_single.png'
 
     # ax = axes[0]
 
@@ -335,7 +304,6 @@ def main(args):
         elif gamma_iter == 1:
             gamma_type = 'Linear MLP'
 
-
         acc_fail = acc_final[gamma_iter, 0, :]
         acc_no_fail = acc_final[gamma_iter, 1, :]
 
@@ -346,23 +314,17 @@ def main(args):
     plt.ylabel('Accuracy', fontsize = 20)
     
     # plt.title('Failure Test Accuracy', fontsize = 20)
-    plt.legend(fontsize=20, ncol = 2, loc='upper center', bbox_to_anchor=(0.5, 1.3))
+    plt.legend(fontsize=20, ncol = 2, loc='upper center', bbox_to_anchor=(0.5, 1.2))
     ax.set_xlim(step[0], step[-1])
-    if model_factor == 1:
-        ax.set_ylim(0.7, 1.05)
-    else:
-        ax.set_ylim(0.5, 1.05)
+    # ax.set_ylim(0.5, 1)
     ax.tick_params(axis = "x", labelsize = 15)
     ax.tick_params(axis = "y", labelsize = 15)
-    plt.tight_layout()
 
     plt.savefig(plot_name)
 
     print("saved file:", plot_name)
-    if rates == 0:
-        torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '.pt')
-    else:
-        torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '_rates.pt')
+
+    torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '_single.pt')
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -373,6 +335,5 @@ if __name__ == '__main__':
     parser.add_argument('--cpu', type=bool, default=False)
     parser.add_argument('--dt', type=float, default=0.002)
     parser.add_argument('--use_nom', type =int, default=1)
-    parser.add_argument('--rates', type =int, default=1)
     args = parser.parse_args()
     main(args)
