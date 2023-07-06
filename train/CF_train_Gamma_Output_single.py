@@ -49,7 +49,7 @@ dt = 0.002
 
 n_state = 12
 
-y_state = 12
+y_state = 6
 
 m_control = 4
 
@@ -110,11 +110,11 @@ def main(args):
     model_factor = args.use_model
 
     if gamma_type == 'LSTM':
-        str_data = './data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
-        str_good_data = './good_data/data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
+        str_data = './data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
+        str_good_data = './good_data/data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
     elif gamma_type == 'deep':
-        str_data = './data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
-        str_good_data = './good_data/data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + 'sigmoid.pth'
+        str_data = './data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
+        str_good_data = './good_data/data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
     else:
         NotImplementedError
 
@@ -151,7 +151,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(y_state=y_state, n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*750, traj_len=traj_len)
+    dataset = Dataset_with_Grad(y_state=y_state, n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*300, traj_len=traj_len)
     trainer = Trainer(cbf, None, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
@@ -162,6 +162,8 @@ def main(args):
     sm, sl = dynamics.state_limits()
     
     loss_current = 1
+
+    ind_y = torch.tensor([1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1]).bool()
 
     for i in range(1000):
         
@@ -218,11 +220,11 @@ def main(args):
 
             state_traj[:, k, :] = state.clone()
 
-            output_traj[:, k, :] = state[:, :y_state].clone()
+            output_traj[:, k, :] = state[:, ind_y].clone()
             
             state_traj_diff[:, k, :] = state_no_fault.clone() - state.clone()
 
-            output_traj_diff[:, k, :] = state_no_fault[:, :y_state].clone() - state[:, :y_state].clone()
+            output_traj_diff[:, k, :] = state_no_fault[:, ind_y].clone() - state[:, ind_y].clone()
             
             u_traj[:, k, :] = u.clone()
 
