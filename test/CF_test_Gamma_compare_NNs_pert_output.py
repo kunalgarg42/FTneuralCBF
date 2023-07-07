@@ -114,13 +114,11 @@ def main(args):
         cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
     cbf.eval()
 
-    
-
     n_sample_iter = int(n_sample / nsample_factor)
 
     acc_final = torch.zeros(4, 2, traj_len)
 
-    state0 = dynamics.sample_safe(n_sample_iter // 6)
+    state0 = dynamics.sample_safe(n_sample_iter // 6) + torch.rand(n_sample_iter // 6, n_state) * 1
 
     state0 = state0.repeat_interleave(6, dim=0)
 
@@ -280,7 +278,7 @@ def main(args):
                     index_num = torch.sum(index_fault.float())
 
                     if index_num > 0:
-                        acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0.02).float()) / (index_num + 1e-5)
+                        acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0.1).float()) / (index_num + 1e-5)
                     else:
                         acc_ind[0, j] = 1
                     
@@ -289,7 +287,7 @@ def main(args):
                     index_num = torch.sum(index_no_fault.float())
 
                     if index_num > 0:
-                        acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0.95).float()) / (index_num + 1e-5)
+                        acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0.9).float()) / (index_num + 1e-5)
                     else:
                         acc_ind[0, j + m_control] = 1
                 

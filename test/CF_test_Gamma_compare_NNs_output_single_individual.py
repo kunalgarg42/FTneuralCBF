@@ -82,12 +82,13 @@ def main(args):
     device = torch.device('cuda' if use_cuda else 'cpu')
     print(f'> Testing with {device}')
 
-    acc_final = torch.zeros(2, 2, traj_len)
+    acc_final = torch.zeros(2, 11, traj_len)
 
-    use_previos_data = 0
+    use_previos_data = 1
+
     if use_previos_data == 1:
         try:
-            acc_final = torch.load('./log_files/acc_output_model_' + str(model_factor) + '_single.pt')
+            acc_final = torch.load('./log_files/acc_output_model_' + str(model_factor) + '_single_ind.pt')
         except:
             use_previos_data = 0
 
@@ -188,6 +189,8 @@ def main(args):
 
             state0 = state0.repeat_interleave(11, dim=0)
 
+            state0 = state0[rand_ind, :]
+
             state_traj = torch.zeros(n_sample_iter, Eval_steps, n_state) 
 
             state_traj_diff = state_traj.clone()   
@@ -261,69 +264,56 @@ def main(args):
 
                     gamma_pred = gamma_NN.reshape(n_sample_iter, m_control).clone().detach().cpu()
 
-                    acc_ind = torch.zeros(1, m_control * 2)
+                    acc_ind = torch.zeros(1, 11)
 
-                    for j in range(m_control):
+                    for j in range(11):
                         
-                        index_fault = gamma_actual_bs[:, j] < 0.95
+                        index_fault = gamma_actual_bs[:, fault_control_index]  == j / 10
 
                         index_num = torch.sum(index_fault.float())
 
-                        if index_num > 0:
-                            acc_ind[0, j] =  torch.sum((torch.abs(gamma_pred[index_fault, j] - gamma_actual_bs[index_fault, j]) < 0.01).float()) / (index_num + 1e-5)
-                        else:
-                            acc_ind[0, j] = 1
-                        
-                        index_no_fault = gamma_actual_bs[:, j] > 0.95
-                        
-                        index_num = torch.sum(index_no_fault.float())
+                        acc_ind[0, j] =  torch.sum((torch.abs(gamma_pred[index_fault, fault_control_index] - gamma_actual_bs[index_fault, fault_control_index]) < 0.01).float()) / (index_num + 1e-5)
 
-                        if index_num > 0.95:
-                            acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0.95).float()) / (index_num + 1e-5)
-                        else:
-                            acc_ind[0, j + m_control] = 1
-                    
-                    acc_final[gamma_iter, 0, k-traj_len+1] = torch.min(acc_ind[0, 0:m_control])
-                    acc_final[gamma_iter, 1, k-traj_len+1] = torch.min(acc_ind[0, m_control:])
-
-        torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '_single.pt')
+                        acc_final[gamma_iter, j, k-traj_len+1] = acc_ind[0, j]
+                        
+        torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '_single_ind.pt')
     else:
         print('Using previous data')
+        
 
-    fig = plt.figure(figsize=(10, 6))
-    ax = fig.subplots(1, 1)
+    fig = plt.figure(figsize=(20, 20))
+    ax = fig.subplots(2, 1)
     
-    plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor)  + '_single.png'
-
-    # ax = axes[0]
+    plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor)  + '_single_ind.png'
 
     step = np.arange(0, traj_len, 1)
 
     markers_on = np.arange(0, step[-1], 10)
 
-    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'tab:orange', 'tab:purple', 'tab:brown', 'tab:pink']
 
     for gamma_iter in range(2):
         if gamma_iter == 0:
             gamma_type = 'LSTM'
         elif gamma_iter == 1:
             gamma_type = 'Linear MLP'
+        for k in range(11):
+            acc_fail = acc_final[gamma_iter, k, :]
 
-        acc_fail = acc_final[gamma_iter, 0, :]
-        acc_no_fail = acc_final[gamma_iter, 1, :]
-
-        ax.plot(step, acc_fail, color = colors[gamma_iter], linestyle='-', label = 'Failure: ' + gamma_type, marker="o", markevery=markers_on,markersize=10)
-        ax.plot(step, acc_no_fail, color = colors[gamma_iter], linestyle='--', label = 'No Failure: ' + gamma_type, marker="^", markevery=markers_on,markersize=10)
-
-    plt.xlabel('Length of trajectory with failed actuator', fontsize = 20)
-    plt.ylabel('Accuracy', fontsize = 20)
+            ax[gamma_iter].plot(step, acc_fail, color = colors[k], linestyle='-', label = 'Failure: ' + gamma_type + 'Fault degree: ' + str(round(k / 10, 2)), marker="o", markevery=markers_on,markersize=10, linewidth=3)
+            
+        ax[gamma_iter].set_xlabel('Length of trajectory with failed actuator', fontsize = 30)
+        ax[gamma_iter].set_ylabel('Accuracy', fontsize = 30)
+        
+        
+        # plt.title('Failure Test Accuracy', fontsize = 20)
+        ax[gamma_iter].legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize = 30)
+        ax[gamma_iter].set_xlim(step[0], step[-1])
+        # ax[gamma_iter].set_ylim(0.5, 1)
+        ax[gamma_iter].tick_params(axis = "x", labelsize = 25)
+        ax[gamma_iter].tick_params(axis = "y", labelsize = 25)
     
-    # plt.title('Failure Test Accuracy', fontsize = 20)
-    plt.legend(fontsize=20, ncol = 2, loc='upper center', bbox_to_anchor=(0.5, 1.2))
-    ax.set_xlim(step[0], step[-1])
-    # ax.set_ylim(0.5, 1)
-    ax.tick_params(axis = "x", labelsize = 15)
-    ax.tick_params(axis = "y", labelsize = 15)
+    plt.tight_layout()
 
     plt.savefig(plot_name)
 

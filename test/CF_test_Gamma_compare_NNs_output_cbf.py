@@ -145,9 +145,9 @@ def main(args):
                 use_nom = 0
 
             if use_nom == 1:
-                n_sample = 10000
+                n_sample = 24000
             else:
-                n_sample = 10000
+                n_sample = 12000
             
             if use_nom == 1:
                 nsample_factor = 1
@@ -210,7 +210,7 @@ def main(args):
             gamma_actual_bs = torch.ones(n_sample_iter, m_control)
 
             for j in range(n_sample_iter):
-                temp_var = np.mod(j, 5)
+                temp_var = np.mod(j, 6)
                 if temp_var < 4:
                     gamma_actual_bs[j, temp_var] = 0.0
 
@@ -218,7 +218,9 @@ def main(args):
 
             gamma_actual_bs = gamma_actual_bs[rand_ind, :]
 
-            state0 = dynamics.sample_safe(n_sample_iter)
+            state0 = dynamics.sample_safe(n_sample_iter // 6) + 1 * torch.randn(n_sample_iter // 6, n_state)
+
+            state0 = state0.repeat_interleave(6, dim=0)
 
             state_traj = torch.zeros(n_sample_iter, Eval_steps, n_state) 
 
@@ -298,7 +300,7 @@ def main(args):
                         state_data = torch.cat((state_traj[:, k - traj_len + 1:k + 1, ind_y], state_traj_diff[:, k-traj_len + 1:k+1, ind_y]), dim=-1)
                         gamma_NN = gamma(state_data.to(device), u_traj[:, k - traj_len + 1:k + 1, :].to(device))
 
-                    gamma_pred = gamma_NN.reshape(n_sample_iter, m_control).clone().detach().cpu()
+                    gamma_pred = gamma_NN.reshape(n_sample_iter, m_control).clone().detach()
 
                     acc_ind = torch.zeros(1, m_control * 2)
 
@@ -309,7 +311,7 @@ def main(args):
                         index_num = torch.sum(index_fault.float())
 
                         if index_num > 0:
-                            acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0.1).float()) / (index_num + 1e-5)
+                            acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0.05).float()) / (index_num + 1e-5)
                         else:
                             acc_ind[0, j] = 1
                         
@@ -318,7 +320,7 @@ def main(args):
                         index_num = torch.sum(index_no_fault.float())
 
                         if index_num > 0:
-                            acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0.9).float()) / (index_num + 1e-5)
+                            acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0.95).float()) / (index_num + 1e-5)
                         else:
                             acc_ind[0, j + m_control] = 1
                     

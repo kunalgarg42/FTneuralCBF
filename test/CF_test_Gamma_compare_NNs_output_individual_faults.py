@@ -13,7 +13,7 @@ from pytictoc import TicToc
 from dynamics.Crazyflie import CrazyFlies
 from trainer import config
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma_linear_deep_nonconv_output_single, Gamma_linear_LSTM_output_single
+from trainer.NNfuncgrad_CF import CBF, Gamma_linear_deep_nonconv_output, Gamma_linear_LSTM_output
 
 xg = torch.tensor([[0.0,
                     0.0,
@@ -42,7 +42,6 @@ x0 = torch.tensor([[2.0,
                     0.0]])
 
 dt = 0.001
-
 n_state = 12
 
 y_state = 6
@@ -65,13 +64,31 @@ t = TicToc()
 
 gpu_id = 0
 
-gamma_type = 'deep'
+gamma_type = 'LSTM'
 
 def main(args):
+    use_saved_data = 0
     fault_control_index = args.fault_index
     use_nom = args.use_nom
     model_factor = args.use_model
     dt = args.dt
+    rates = args.rates
+
+    if use_saved_data == 1:
+        try:
+            if rates == 0:
+                acc_final = torch.load('./log_files/acc_output_model_' + str(model_factor) + '_ind.pt')
+            else:
+                acc_final = torch.load('./log_files/acc_output_model_' + str(model_factor) + '_rates_ind.pt')
+        except:
+            use_saved_data = 0
+    else:
+        acc_final = torch.zeros(2, 2 * m_control, traj_len)
+
+    if rates == 0:
+        ind_y = torch.tensor([1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]).bool()
+    else:
+        ind_y = torch.tensor([1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1]).bool()
 
     gpu_id = args.gpu
     use_cuda = torch.cuda.is_available() and not args.cpu
@@ -82,48 +99,47 @@ def main(args):
     device = torch.device('cuda' if use_cuda else 'cpu')
     print(f'> Testing with {device}')
 
-    acc_final = torch.zeros(2, 2, traj_len)
-
-    use_previos_data = 0
-    if use_previos_data == 1:
-        try:
-            acc_final = torch.load('./log_files/acc_output_model_' + str(model_factor) + '_single.pt')
-        except:
-            use_previos_data = 0
-
-    if use_previos_data == 0:
-        print('Generating new data')
-
-        dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
-        util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
-                    fault_control_index=fault_control_index)
-        cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
+    dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
+    util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                 fault_control_index=fault_control_index)
-        try:
+    cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
+            fault_control_index=fault_control_index)
+    try:
+        if gpu_id >= 0:
             cbf.load_state_dict(torch.load('./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth'))
-        except:
-            try:
+        else:
+            cbf.load_state_dict(torch.load('./supercloud_data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
+    except:
+        try:
+            if gpu_id >= 0:
                 cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_with_u.pth'))
-            except:
+            else:
+                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
+        except:
+            if gpu_id >= 0:
                 cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u.pth'))
-        cbf.eval()
-
-        sm, sl = dynamics.state_limits()
-
-        if use_nom == 1:
-            n_sample = 22000
-        else:
-            n_sample = 1100
-        
-        if use_nom == 1:
-            nsample_factor = 1
-        else:
-            nsample_factor = 1
-
-        ind_y = torch.tensor([1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1]).bool()
-
-        n_sample_iter = int(n_sample / nsample_factor)
+            else:
+                cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u.pth', map_location=torch.device('cpu')))
     
+    cbf.eval()
+
+    sm, sl = dynamics.state_limits()
+
+    if use_nom == 1:
+        n_sample = 100000
+    else:
+        n_sample = 1000
+    
+    if use_nom == 1:
+        nsample_factor = 1
+    else:
+        nsample_factor = 1
+
+    n_sample_iter = int(n_sample / nsample_factor)
+
+    if use_saved_data == 0:
+        print('Generating new accuracy data')
+
         for gamma_iter in tqdm.trange(2):
             if gamma_iter == 0:
                 gamma_type = 'LSTM'
@@ -131,22 +147,31 @@ def main(args):
                 gamma_type = 'deep'
             else:
                 NotImplementedError
-
-            if gamma_type == 'LSTM':
-                str_data = './data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
-                str_good_data = './good_data/data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
-                str_supercloud_data = './supercloud_data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
-            elif gamma_type == 'deep':
-                str_data = './data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
-                str_good_data = './good_data/data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
-                str_supercloud_data = './supercloud_data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
+            if rates == 0:
+                if gamma_type == 'LSTM':
+                    str_data = './data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
+                    str_good_data = './good_data/data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
+                    str_supercloud_data = './supercloud_data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
+                elif gamma_type == 'deep':
+                    str_data = './data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
+                    str_good_data = './good_data/data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
+                    str_supercloud_data = './supercloud_data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_sigmoid.pth'
+                else:
+                    NotImplementedError
             else:
-                NotImplementedError
+                if gamma_type == 'LSTM':
+                    str_data = './data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
+                    str_good_data = './good_data/data/CF_gamma_LSTM_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
+                elif gamma_type == 'deep':
+                    str_data = './data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
+                    str_good_data = './good_data/data/CF_gamma_deep_output' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
+                else:
+                    NotImplementedError
             
             if gamma_type == 'deep':
-                gamma = Gamma_linear_deep_nonconv_output_single(y_state=y_state, m_control=m_control, traj_len=traj_len, model_factor=model_factor)
+                gamma = Gamma_linear_deep_nonconv_output(y_state=y_state, m_control=m_control, traj_len=traj_len, model_factor=model_factor)
             elif gamma_type == 'LSTM':
-                gamma = Gamma_linear_LSTM_output_single(y_state=y_state, m_control=m_control, model_factor=model_factor)
+                gamma = Gamma_linear_LSTM_output(y_state=y_state, m_control=m_control, model_factor=model_factor)
             else:
                 NotImplementedError
             
@@ -175,18 +200,18 @@ def main(args):
 
             gamma_actual_bs = torch.ones(n_sample_iter, m_control)
 
-            for j in range(n_sample):
-                temp_var = np.mod(j, 11)
-                if temp_var < 10:
-                    gamma_actual_bs[j, fault_control_index] = temp_var / 10.0
+            for j in range(n_sample_iter):
+                temp_var = np.mod(j, 5)
+                if temp_var < 4:
+                    gamma_actual_bs[j, temp_var] = 0.0
 
             rand_ind = torch.randperm(n_sample_iter)
 
             gamma_actual_bs = gamma_actual_bs[rand_ind, :]
 
-            state0 = dynamics.sample_safe(n_sample_iter // 11) + torch.randn(n_sample_iter // 11, n_state) * 1
+            state0 = dynamics.sample_safe(n_sample_iter // 5) + 0.1 * torch.randn(n_sample_iter // 5, n_state)
 
-            state0 = state0.repeat_interleave(11, dim=0)
+            state0 = state0.repeat_interleave(5, dim=0)
 
             state_traj = torch.zeros(n_sample_iter, Eval_steps, n_state) 
 
@@ -205,6 +230,8 @@ def main(args):
             u_nominal = dynamics.u_nominal(state)
             
             t.tic()
+
+            # print('length of failure, acc fail , acc no fail')
 
             new_goal = dynamics.sample_safe(1)
 
@@ -259,75 +286,85 @@ def main(args):
                         state_data = torch.cat((state_traj[:, k - traj_len + 1:k + 1, ind_y], state_traj_diff[:, k-traj_len + 1:k+1, ind_y]), dim=-1)
                         gamma_NN = gamma(state_data.to(device), u_traj[:, k - traj_len + 1:k + 1, :].to(device))
 
-                    gamma_pred = gamma_NN.reshape(n_sample_iter, m_control).clone().detach().cpu()
+                    gamma_pred = gamma_NN.reshape(n_sample_iter, m_control).clone().detach()
 
                     acc_ind = torch.zeros(1, m_control * 2)
 
                     for j in range(m_control):
                         
-                        index_fault = gamma_actual_bs[:, j] < 0.95
+                        index_fault = gamma_actual_bs[:, j] < 0.5
 
                         index_num = torch.sum(index_fault.float())
 
                         if index_num > 0:
-                            acc_ind[0, j] =  torch.sum((torch.abs(gamma_pred[index_fault, j] - gamma_actual_bs[index_fault, j]) < 0.01).float()) / (index_num + 1e-5)
+                            acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0.1).float()) / (index_num + 1e-5)
                         else:
                             acc_ind[0, j] = 1
                         
-                        index_no_fault = gamma_actual_bs[:, j] > 0.95
+                        index_no_fault = gamma_actual_bs[:, j] > 0.5
                         
                         index_num = torch.sum(index_no_fault.float())
 
-                        if index_num > 0.95:
-                            acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0.95).float()) / (index_num + 1e-5)
+                        if index_num > 0:
+                            acc_ind[0, j + m_control] =  torch.sum((gamma_pred[index_no_fault, j] > 0.9).float()) / (index_num + 1e-5)
                         else:
                             acc_ind[0, j + m_control] = 1
                     
-                    acc_final[gamma_iter, 0, k-traj_len+1] = torch.min(acc_ind[0, 0:m_control])
-                    acc_final[gamma_iter, 1, k-traj_len+1] = torch.min(acc_ind[0, m_control:])
-
-        torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '_single.pt')
+                        acc_final[gamma_iter, j, k-traj_len+1] = acc_ind[0, j]
+                        acc_final[gamma_iter, j + m_control, k-traj_len+1] = acc_ind[0, j + m_control]
+        if rates == 0:
+            torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '_ind.pt')
+        else:
+            torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '_rates_ind.pt')
     else:
-        print('Using previous data')
-
-    fig = plt.figure(figsize=(10, 6))
-    ax = fig.subplots(1, 1)
-    
-    plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor)  + '_single.png'
-
-    # ax = axes[0]
+        print('Using previos accuracy data')
+            
+    fig = plt.figure(figsize=(28, 20))
+    ax = fig.subplots(2, 2)
+    if rates == 0:
+        plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor)  + '_ind.png'
+    else:
+        plot_name = './plots/' + 'CF_gamma_compare_output_model_' + str(model_factor) + '_rates_ind.png'
 
     step = np.arange(0, traj_len, 1)
 
     markers_on = np.arange(0, step[-1], 10)
 
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+    
+    for k in range(m_control):
+        axk = ax[k // 2, k % 2]
+        for gamma_iter in range(2):
+            if gamma_iter == 0:
+                gamma_type = 'LSTM'
+            elif gamma_iter == 1:
+                gamma_type = 'Linear MLP'
 
-    for gamma_iter in range(2):
-        if gamma_iter == 0:
-            gamma_type = 'LSTM'
-        elif gamma_iter == 1:
-            gamma_type = 'Linear MLP'
+            acc_fail = acc_final[gamma_iter, k, :]
+            acc_no_fail = acc_final[gamma_iter, k + m_control, :]
 
-        acc_fail = acc_final[gamma_iter, 0, :]
-        acc_no_fail = acc_final[gamma_iter, 1, :]
+            axk.plot(step, acc_fail, color = colors[gamma_iter], linestyle='-', label = 'Failure: ' + gamma_type + ' actuator #'+ str(k), marker="o", markevery=markers_on,markersize=20, linewidth=3)
+            axk.plot(step, acc_no_fail, color = colors[gamma_iter], linestyle='--', label = 'No Failure: ' + gamma_type + ' actuator #'+ str(k), marker="^", markevery=markers_on,markersize=20, linewidth=3)
+            axk.set_xlim(step[0], step[-1])
+            if model_factor == 1:
+                axk.set_ylim(0.3, 1.01)
+            else:
+                axk.set_ylim(0.5, 1.01)
+            axk.tick_params(axis = "x", labelsize = 25)
+            axk.tick_params(axis = "y", labelsize = 25)
 
-        ax.plot(step, acc_fail, color = colors[gamma_iter], linestyle='-', label = 'Failure: ' + gamma_type, marker="o", markevery=markers_on,markersize=10)
-        ax.plot(step, acc_no_fail, color = colors[gamma_iter], linestyle='--', label = 'No Failure: ' + gamma_type, marker="^", markevery=markers_on,markersize=10)
-
-    plt.xlabel('Length of trajectory with failed actuator', fontsize = 20)
-    plt.ylabel('Accuracy', fontsize = 20)
+            axk.set_xlabel('Length of trajectory with failed actuator', fontsize = 30)
+            axk.set_ylabel('Accuracy', fontsize = 30)
     
     # plt.title('Failure Test Accuracy', fontsize = 20)
-    plt.legend(fontsize=20, ncol = 2, loc='upper center', bbox_to_anchor=(0.5, 1.2))
-    ax.set_xlim(step[0], step[-1])
-    # ax.set_ylim(0.5, 1)
-    ax.tick_params(axis = "x", labelsize = 15)
-    ax.tick_params(axis = "y", labelsize = 15)
+            axk.legend(fontsize=25, ncol = 2, loc='upper center', bbox_to_anchor=(0.5, 1.3))
+    
+    plt.tight_layout()
 
     plt.savefig(plot_name)
 
-    print("saved file:", plot_name) 
+    print("saved file:", plot_name)
+    
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -336,7 +373,8 @@ if __name__ == '__main__':
     parser.add_argument('-use_model', type=int, default=0)
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--cpu', type=bool, default=False)
-    parser.add_argument('--dt', type=float, default=0.002)
+    parser.add_argument('--dt', type=float, default=0.005)
     parser.add_argument('--use_nom', type =int, default=1)
+    parser.add_argument('--rates', type =int, default=1)
     args = parser.parse_args()
     main(args)

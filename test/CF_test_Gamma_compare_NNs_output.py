@@ -67,7 +67,7 @@ gpu_id = 3
 gamma_type = 'LSTM'
 
 def main(args):
-    use_saved_data = 0
+    use_saved_data = 1
     fault_control_index = args.fault_index
     use_nom = args.use_nom
     model_factor = args.use_model
@@ -140,7 +140,7 @@ def main(args):
     if use_saved_data == 0:
         print('Generating new accuracy data')
 
-        for gamma_iter in range(2):
+        for gamma_iter in range(3):
             if gamma_iter == 0:
                 gamma_type = 'LSTM'
             elif gamma_iter == 1:
@@ -280,12 +280,13 @@ def main(args):
 
                 if k >= traj_len - 1:
                     if model_factor == 0:
-                        gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, ind_y], u_traj[:, k - traj_len + 1:k + 1, :])
+                        gamma_NN = gamma(state_traj[:, k - traj_len + 1:k + 1, ind_y].to(device), u_traj[:, k - traj_len + 1:k + 1, :].to(device))
                     else:
                         state_data = torch.cat((state_traj[:, k - traj_len + 1:k + 1, ind_y], state_traj_diff[:, k-traj_len + 1:k+1, ind_y]), dim=-1)
-                        gamma_NN = gamma(state_data, u_traj[:, k - traj_len + 1:k + 1, :])
+                        gamma_NN = gamma(state_data.to(device), u_traj[:, k - traj_len + 1:k + 1, :].to(device))
 
                     gamma_pred = gamma_NN.reshape(n_sample_iter, m_control).clone().detach()
+
 
                     acc_ind = torch.zeros(1, m_control * 2)
 
@@ -296,7 +297,7 @@ def main(args):
                         index_num = torch.sum(index_fault.float())
 
                         if index_num > 0:
-                            acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0.02).float()) / (index_num + 1e-5)
+                            acc_ind[0, j] =  torch.sum((gamma_pred[index_fault, j] < 0.05).float()) / (index_num + 1e-5)
                         else:
                             acc_ind[0, j] = 1
                         
