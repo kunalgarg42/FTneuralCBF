@@ -679,7 +679,7 @@ class Trainer(object):
             if self.model_factor == 0:
                 batch_size = 700000
         else:
-            batch_size = 60000
+            batch_size = 50000
             
         loss_np = 0.0
         
