@@ -62,3 +62,11 @@ git_run.sh
 *out
 
 /test/CF_NN_model_tracing.py
+
+/good_plots/
+
+/test/.ipynb_checkpoints/
+
+*ipynb_checkpoints
+
+/plot_code/
