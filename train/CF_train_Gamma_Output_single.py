@@ -49,7 +49,7 @@ dt = 0.002
 
 n_state = 12
 
-y_state = 6
+y_state = 12
 
 m_control = 4
 
@@ -163,7 +163,9 @@ def main(args):
     
     loss_current = 1
 
-    ind_y = torch.tensor([1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1]).bool()
+    ind_y = torch.tensor([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).bool()
+
+    assert ind_y.shape[0] == n_state
 
     for i in range(1000):
         
