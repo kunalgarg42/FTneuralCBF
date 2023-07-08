@@ -4,6 +4,7 @@ import torch.distributions as td
 import math
 import scipy
 import numpy as np
+import osqp
 from qpsolvers import solve_qp
 from osqp import OSQP
 from scipy.sparse import identity
@@ -15,6 +16,17 @@ from trainer.constraints_crazy import LfLg_new
 
 t = TicToc()
 
+m = osqp.OSQP()
+
+P = torch.eye(1250)
+q = np.array([1]*1250).reshape(1250)
+A = torch.ones(11, 1250)
+u = np.array([1]*11).reshape(11)
+
+P = csc_matrix(P)
+A = scipy.sparse.csc.csc_matrix(A)
+
+m.setup(P=P, q=q, A=A, u=u, verbose=False)
 
 class Utils(object):
 
@@ -306,28 +318,25 @@ class Utils(object):
         A_mat = scipy.sparse.csc.csc_matrix(A_mat)
 
         B_mat = np.array(B_mat)
-        
-            # B = np.array(B)
 
-            # # print(A)
-            # A = scipy.sparse.csc.csc_matrix(A)
+        # m.update(q=F_mat, u=B_mat)
+
+        # m.update(Ax=A_mat.data)
+
+        # res = m.solve()
+        # u = res.x
+
+        # if u is None:
+        #     u_neural = u_nominal.clone()
+        # else:
+        #     u = torch.tensor(u).reshape(bs, m_control + 1).type_as(u_nominal)
+        #     u_neural = u[:, :m_control]
         try:
             u = solve_qp(Q_mat, F_mat, A_mat, B_mat, solver="osqp")
-            u = torch.tensor(u)
-            u_neural[i, :] = u[0:self.m_control].reshape(1, m_control)
+            u = torch.tensor(u).reshape(bs, m_control + 1).type_as(u_nominal)
+            u_neural = u[:, :m_control]
         except:
             u_neural = u_nominal.clone()
-
-            # if u is None:
-            #     u_neural[i, :] = u_nominal[i, :].reshape(m_control)
-            # else:
-            #     for j in range(m_control):
-            #         if u[j] < ul[j]:
-            #             u[j] = ul[j].clone()
-            #         if u[j] > um[j]:
-            #             u[j] = um[j].clone()
-            #     u = torch.tensor(u)
-            #     u_neural[i, :] = u[0:self.m_control].reshape(1, m_control)
             
         return u_neural.reshape(bs, m_control)
     
@@ -396,12 +405,10 @@ class Utils(object):
         
         A = scipy.sparse.csc.csc_matrix(A)
 
-
         try:
             u = solve_qp(Q, F, A, B, solver="osqp")
         except:
             u = None
-    # , lb = lb.reshape(self.m_control + 1, 1, 1), ub = ub.reshape(self.m_control + 1, 1, 1),
 
         if u is None:
             u_neural = u_nominal

@@ -675,9 +675,9 @@ class Trainer(object):
     def train_gamma_single(self, gamma_type=None, batch_size=10000, opt_iter=10, eps=0.01, eps_deriv=0.01):
         
         if gamma_type == 'deep':
-            batch_size = 500000
+            batch_size = 700000
             if self.model_factor == 0:
-                batch_size = 700000
+                batch_size = 1000000
         else:
             batch_size = 50000
             
