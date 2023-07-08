@@ -59,7 +59,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 2200
+n_sample = 1000
 
 fault = nominal_params["fault"]
 
@@ -110,11 +110,11 @@ def main(args):
     model_factor = args.use_model
 
     if gamma_type == 'LSTM':
-        str_data = './data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
-        str_good_data = './good_data/data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
+        str_data = './data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_complete_sigmoid.pth'
+        str_good_data = './good_data/data/CF_gamma_LSTM_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_complete_sigmoid.pth'
     elif gamma_type == 'deep':
-        str_data = './data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
-        str_good_data = './good_data/data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_sigmoid.pth'
+        str_data = './data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_complete_sigmoid.pth'
+        str_good_data = './good_data/data/CF_gamma_deep_output_single_' + str(y_state) + '_model_' + str(model_factor) + '_rates_complete_sigmoid.pth'
     else:
         NotImplementedError
 
@@ -136,14 +136,14 @@ def main(args):
         try:
             gamma.load_state_dict(torch.load(str_good_data))
             gamma.eval()
-            if gamma_type == 'LSTM' or gamma_type == 'LSTM old' or gamma_type == 'LSTM small':
+            if gamma_type == 'LSTM':
                 gamma.train()
         except:
             print("No good data available")
             try:
                 gamma.load_state_dict(torch.load(str_data))
                 gamma.eval()
-                if gamma_type == 'LSTM' or gamma_type == 'LSTM old' or gamma_type == 'LSTM small':
+                if gamma_type == 'LSTM':
                     gamma.train()
             except:
                 print("No pre-train data available")
@@ -151,7 +151,7 @@ def main(args):
     cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
     cbf.eval()
 
-    dataset = Dataset_with_Grad(y_state=y_state, n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*300, traj_len=traj_len)
+    dataset = Dataset_with_Grad(y_state=y_state, n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*1000, traj_len=traj_len)
     trainer = Trainer(cbf, None, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
@@ -176,18 +176,16 @@ def main(args):
         gamma_actual_bs = torch.ones(n_sample, m_control)
 
         for j in range(n_sample):
-            temp_var = np.mod(j, 11)
-            # if temp_var < 4:
-            if temp_var < 10:
-                gamma_actual_bs[j, fault_control_index] = temp_var / 10.0
+            temp_var = np.mod(j, 2)
+            gamma_actual_bs[j, fault_control_index] = temp_var
 
         rand_ind = torch.randperm(n_sample)
 
         gamma_actual_bs = gamma_actual_bs[rand_ind, :]
         
-        state = dynamics.sample_safe(n_sample // 11) + torch.randn(n_sample // 11, n_state) * 1
+        state = dynamics.sample_safe(n_sample // 2) + torch.randn(n_sample // 2, n_state) * 1
 
-        state = state.repeat_interleave(11, dim=0)
+        state = state.repeat_interleave(2, dim=0)
 
         state = state[rand_ind, :]
 
