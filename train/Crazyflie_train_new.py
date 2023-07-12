@@ -55,7 +55,7 @@ print(fault)
 init_add = 1  # int(input("init data add? (0 -> no, 1 -> yes): "))
 print(init_add)
 
-init_param = 0  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
+init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 print(init_param)
 
 train_u = 0  # int(input("Train only CBF (0) or both CBF and u (1): "))
@@ -65,7 +65,7 @@ n_sample = 10000
 
 fault = nominal_params["fault"]
 
-fault_control_index = 0
+fault_control_index = 1
 
 t = TicToc()
 
@@ -77,6 +77,30 @@ if platform.uname()[1] == 'realm2':
 def main(args):
     fault = args.fault
     nominal_params["fault"] = fault
+    dt = args.dt
+
+    if platform.uname()[1] == 'realm2':
+        gpu_id = args.gpu
+
+        if gpu_id >= 0:
+            use_cuda = True
+        else:
+            use_cuda = False
+
+        if gpu_id >= 0:
+            device = torch.device(args.gpu if use_cuda else 'cpu')
+        else:
+            device = torch.device('cpu')
+        print(f'> Training with {device}')
+
+    else:
+        gpu_id = args.gpu
+        use_cuda = torch.cuda.is_available() and not args.cpu
+        if use_cuda:
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+        device = torch.device('cuda' if use_cuda else 'cpu')
+        print(f'> Training with {device}')
+
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)
@@ -87,13 +111,11 @@ def main(args):
     if init_param == 1:
         try:
             if fault == 0:
-                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_with_u.pth'))
-                nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
-                # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights.pth'))
-                # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_NN_weights.pth'))
+                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_NN_weightsCBF_with_u_new.pth'))
+                nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_NN_weights_new.pth'))
             else:
-                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF.pth'))
-                nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
+                cbf.load_state_dict(torch.load('./good_data/data/CF_cbf_FT_weightsCBF_with_u_new.pth'))
+                nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights_new.pth'))
                 # nn_controller.load_state_dict(torch.load('./good_data/data/CF_controller_FT_weights.pth'))
                 # alpha.load_state_dict(torch.load('./good_data/data/CF_alpha_FT_weights.pth'))
             cbf.eval()
@@ -103,13 +125,13 @@ def main(args):
             print("No good data available")
             try:
                 if fault == 0:
-                    cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u.pth'))
-                    nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
+                    cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF_with_u_new.pth'))
+                    nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights_new.pth'))
                     # nn_controller.load_state_dict(torch.load('./data/CF_controller_NN_weights.pth'))
                     # alpha.load_state_dict(torch.load('./data/CF_alpha_NN_weights.pth'))
                 else:
-                    cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF_with_u.pth'))
-                    nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
+                    cbf.load_state_dict(torch.load('./data/CF_cbf_FT_weightsCBF_with_u_new.pth'))
+                    nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights_new.pth'))
                     # nn_controller.load_state_dict(torch.load('./data/CF_controller_FT_weights.pth'))
                     # alpha.load_state_dict(torch.load('./data/CF_alpha_FT_weights.pth'))
                 cbf.eval()
@@ -118,11 +140,11 @@ def main(args):
             except:
                 print("No pre-train data available")
 
-    dataset = Dataset_with_Grad(n_state=n_state, m_control=m_control, train_u=train_u)
-    trainer = Trainer(cbf, nn_controller, dataset, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
+    dataset = Dataset_with_Grad(y_state=n_state, n_state=n_state, m_control=m_control, train_u=1, buffer_size=n_sample*10000, traj_len=1)
+    trainer = Trainer(cbf, nn_controller, dataset, gamma=None, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
-                      fault=fault, gpu_id=gpu_id,
-                      fault_control_index=fault_control_index)
+                      fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=0,
+                      fault_control_index=fault_control_index, model_factor=0, device=device)
     loss_np = 1.0
     safety_rate = 0.0
     goal_reached = 0.0
@@ -173,27 +195,30 @@ def main(args):
             'loss_deriv_dang, {:.3f}, loss_deriv_mid, {:.3f}, time, {:.3f} '.format(
                 i, loss_np, safety_rate, goal_reached, acc_np, loss_h_safe, loss_h_dang,
                 loss_deriv_safe, loss_deriv_dang, loss_deriv_mid, time_iter))
-        if loss_np <= loss_current:
+        if loss_np <= loss_current and i > 5:
             loss_current = loss_np.copy()
             if fault == 0:
-                torch.save(cbf.state_dict(), './data/CF_cbf_NN_weightsCBF_with_u.pth')
-                torch.save(nn_controller.state_dict(), './data/CF_controller_NN_weights.pth')
+                torch.save(cbf.state_dict(), './data/CF_cbf_NN_weightsCBF_with_u_new.pth')
+                torch.save(nn_controller.state_dict(), './data/CF_controller_NN_weights_new.pth')
             else:
-                torch.save(cbf.state_dict(), './data/CF_cbf_FT_weightsCBF_with_u.pth')
-                torch.save(nn_controller.state_dict(), './data/CF_controller_FT_weights.pth')
+                torch.save(cbf.state_dict(), './data/CF_cbf_FT_weightsCBF_with_u_new.pth')
+                torch.save(nn_controller.state_dict(), './data/CF_controller_FT_weights_new.pth')
         if loss_np < 0.01 and loss_np < loss_current and i > 50:
             loss_current = loss_np.copy()
             if fault == 0:
-                torch.save(cbf.state_dict(), './good_data/data/CF_cbf_NN_weightsCBF_with_u.pth')
-                torch.save(nn_controller.state_dict(), './good_data/data/CF_controller_NN_weights.pth')
+                torch.save(cbf.state_dict(), './good_data/data/CF_cbf_NN_weightsCBF_with_u_new.pth')
+                torch.save(nn_controller.state_dict(), './good_data/data/CF_controller_NN_weights_new.pth')
             else:
-                torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weightsCBF_with_u.pth')
-                torch.save(nn_controller.state_dict(), './good_data/data/CF_controller_FT_weights.pth')
+                torch.save(cbf.state_dict(), './good_data/data/CF_cbf_FT_weightsCBF_with_u_new.pth')
+                torch.save(nn_controller.state_dict(), './good_data/data/CF_controller_FT_weights_new.pth')
         if loss_np < 0.001 and i > 500:
             break
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-fault', type=int, default=0)
+    parser.add_argument('--fault', type=int, default=0)
+    parser.add_argument('--gpu', type=int, default=0)
+    parser.add_argument('--dt', type=float, default=0.001)
+    parser.add_argument('--cpu', type=bool, default=False)
     args = parser.parse_args()
     main(args)

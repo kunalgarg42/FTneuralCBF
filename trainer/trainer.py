@@ -46,8 +46,9 @@ class Trainer(object):
         self.fault_control_index = fault_control_index
         self.num_traj = num_traj
         self.model_factor = model_factor
-        self.cbf_optimizer = torch.optim.Adam(
-            self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
+        if cbf is not None:
+            self.cbf_optimizer = torch.optim.Adam(
+                self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
         if gamma is not None:
             self.gamma_optimizer = torch.optim.Adam(
                 self.gamma.parameters(), lr=5e-4, weight_decay=1e-5)
@@ -361,7 +362,7 @@ class Trainer(object):
 
         return loss_np, acc_np, loss_h_safe_np, loss_h_dang_np, loss_deriv_safe_np, loss_deriv_dang_np, loss_deriv_mid_np
     
-    def train_cbf_and_u(self, goal, batch_size=15000, opt_iter=20, eps=0.1, eps_deriv=0.03):
+    def train_cbf_and_u(self, goal, batch_size=50000, opt_iter=20, eps=0.1, eps_deriv=0.03):
         loss_np = 0.0
         loss_h_safe_np = 0.0
         loss_h_dang_np = 0.0
@@ -372,8 +373,10 @@ class Trainer(object):
         # loss_u_np = 0.0
         loss_alpha_np = 0.0
         acc_np = np.zeros((5,), dtype=np.float32)
-        # print("training only CBF")
-        # t.tic()
+
+        if batch_size > self.dataset.n_pts:
+            batch_size = self.dataset.n_pts
+
         um, _ = self.dyn.control_limits()
         um = um.reshape(1, self.m_control).repeat(batch_size, 1)
         # ul = ul.reshape(1, self.m_control).repeat(batch_size, 1)
@@ -381,15 +384,12 @@ class Trainer(object):
         um = um.type(torch.FloatTensor)
         # ul = ul.type(torch.FloatTensor)
         if self.gpu_id >= 0:
-            um = um.cuda(self.gpu_id)
+            um = um.to(self.device)
             # ul = ul.cuda(self.gpu_id)
-        
-        if batch_size > self.dataset.n_pts:
-            batch_size = self.dataset.n_pts
         
         opt_iter = int(self.dataset.n_pts / batch_size)
 
-        opt_count = 100
+        opt_count = 500
         for _ in range(opt_count):
             for i in range(opt_iter):
 
@@ -398,10 +398,10 @@ class Trainer(object):
                 u_nominal = self.dyn.u_nominal(state, op_point=goal)
 
                 if self.gpu_id >= 0:
-                    state = state.cuda(self.gpu_id)
-                    self.cbf.to(torch.device(self.gpu_id))
-                    self.controller.to(torch.device(self.gpu_id))
-                    u_nominal = u_nominal.cuda(self.gpu_id).type_as(state)
+                    state = state.to(self.device)
+                    self.cbf.to(self.device)
+                    self.controller.to(self.device)
+                    u_nominal = u_nominal.to(self.device)
 
                 safe_mask, dang_mask, mid_mask = self.get_mask(state)
 
@@ -448,9 +448,13 @@ class Trainer(object):
 
                 self.cbf_optimizer.zero_grad(set_to_none=True)
 
+                self.controller_optimizer.zero_grad(set_to_none=True)
+
                 loss.backward()
 
                 self.cbf_optimizer.step()
+
+                self.controller_optimizer.step()
 
                 # log statics
                 acc_np[0] += acc_h_safe.detach().cpu()
@@ -846,20 +850,18 @@ class Trainer(object):
         gx = self.dyn._g(state, self.params)
         vec_ones = 10 * torch.ones(bs, 1)
         if self.gpu_id >= 0:
-            fx = fx.cuda(self.gpu_id)
-            gx = gx.cuda(self.gpu_id)
-            vec_ones = vec_ones.cuda(self.gpu_id)
+            fx = fx.to(self.device)
+            gx = gx.to(self.device)
+            vec_ones = vec_ones.to(self.device)
 
         doth = torch.matmul(grad_h, fx)
 
         LhG = torch.matmul(grad_h, gx).reshape(bs, self.m_control)
         LhG = torch.hstack((LhG, h))
 
-
         # uin = um.reshape(self.m_control + 1, bs) * \
         #       (sign_grad_h > 0).reshape(self.m_control + 1, bs) - ul.reshape(self.m_control + 1, bs) * (
         #               sign_grad_h <= 0).reshape(self.m_control + 1, bs)
-    
 
         uin = torch.cat((unn, vec_ones), dim=1).reshape(bs, self.m_control + 1)
         
@@ -868,7 +870,7 @@ class Trainer(object):
         if self.fault == 1:
             doth = doth.reshape(bs, 1) - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * uin[:, self.fault_control_index].reshape(
                 bs, 1) 
-            doth = doth - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * um[:, self.fault_control_index].reshape(
+            doth = doth - torch.abs(LhG[:, self.fault_control_index]).reshape(bs, 1) * um[:bs, self.fault_control_index].reshape(
                 bs, 1)
 
         return doth.reshape(1, bs)

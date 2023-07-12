@@ -15,7 +15,7 @@ from trainer import config
 from trainer.datagen import Dataset_with_Grad
 from trainer.trainer import Trainer
 from trainer.utils import Utils
-from trainer.NNfuncgrad_CF import CBF, Gamma_linear_LSTM_output_single, Gamma_linear_deep_nonconv_output_single
+from trainer.NNfuncgrad_CF import Gamma_linear_LSTM_output_single, Gamma_linear_deep_nonconv_output_single
 
 torch.backends.cudnn.benchmark = True
 
@@ -49,7 +49,7 @@ dt = 0.002
 
 n_state = 12
 
-y_state = 6
+y_state = 12
 
 m_control = 4
 
@@ -59,7 +59,7 @@ fault = nominal_params["fault"]
 
 init_param = 1  # int(input("use previous weights? (0 -> no, 1 -> yes): "))
 
-n_sample = 2200
+n_sample = 1100
 
 fault = nominal_params["fault"]
 
@@ -122,8 +122,6 @@ def main(args):
     dynamics = CrazyFlies(x=x0, goal=xg, nominal_params=nominal_params, dt=dt)
     util = Utils(n_state=n_state, m_control=m_control, dyn=dynamics, params=nominal_params, fault=fault,
                  fault_control_index=fault_control_index)
-    cbf = CBF(dynamics=dynamics, n_state=n_state, m_control=m_control, fault=fault,
-              fault_control_index=fault_control_index)
     
     if gamma_type == 'deep':
         gamma = Gamma_linear_deep_nonconv_output_single(y_state=y_state, m_control=m_control, traj_len=traj_len, model_factor=model_factor)
@@ -147,12 +145,9 @@ def main(args):
                     gamma.train()
             except:
                 print("No pre-train data available")
-    
-    cbf.load_state_dict(torch.load('./data/CF_cbf_NN_weightsCBF.pth'))
-    cbf.eval()
 
-    dataset = Dataset_with_Grad(y_state=y_state, n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*300, traj_len=traj_len)
-    trainer = Trainer(cbf, None, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
+    dataset = Dataset_with_Grad(y_state=y_state, n_state=n_state, m_control=m_control, train_u=0, buffer_size=n_sample*500, traj_len=traj_len)
+    trainer = Trainer(None, None, dataset, gamma=gamma, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=traj_len,
                       fault_control_index=fault_control_index, model_factor=model_factor, device=device)
@@ -163,7 +158,7 @@ def main(args):
     
     loss_current = 1
 
-    ind_y = torch.tensor([1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1]).bool()
+    ind_y = torch.tensor([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).bool()
 
     assert ind_y.shape[0] == n_state
 
@@ -178,8 +173,8 @@ def main(args):
         for j in range(n_sample):
             temp_var = np.mod(j, 11)
             # if temp_var < 4:
-            if temp_var < 10:
-                gamma_actual_bs[j, fault_control_index] = temp_var / 10.0
+            # if temp_var < 10:
+            gamma_actual_bs[j, fault_control_index] = temp_var / 10.0
 
         rand_ind = torch.randperm(n_sample)
 

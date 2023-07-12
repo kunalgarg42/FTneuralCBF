@@ -71,6 +71,8 @@ R[10][10] = 0.0
 
 Rot_mat = torch.zeros(4, n_state, n_state)
 Rot_mat[0, :, :] = torch.eye(n_state)
+
+##pred3 for motor 0
 Rot_mat[1,:, :] = R.T
 Rot_mat[2, :, :] = torch.matmul(Rot_mat[1, :, :], R).T
 Rot_mat[3, :, :] = torch.matmul(Rot_mat[2, :, :], R).T
@@ -84,6 +86,35 @@ Rot_u_inv = torch.tensor([[0.0, 0.0, 0.0, 1.0],
                       [1.0, 0.0, 0.0, 0.0],
                       [0.0, 1.0, 0.0, 0.0],
                       [0.0, 0.0, 1.0, 0.0]]).T
+
+##pred2 for motor 3
+# Rot_mat[1,:, :] = R.T
+# Rot_mat[2, :, :] = torch.matmul(Rot_mat[1, :, :], R.T)
+# Rot_mat[3, :, :] = torch.matmul(Rot_mat[2, :, :], R.T)
+
+# Rot_u = torch.tensor([[0.0, 1.0, 0.0, 0.0], 
+#                       [0.0, 0.0, 1.0, 0.0],
+#                       [0.0, 0.0, 0.0, 1.0],
+#                       [1.0, 0.0, 0.0, 0.0]])
+
+# Rot_u_inv = torch.tensor([[0.0, 0.0, 0.0, 1.0], 
+#                       [1.0, 0.0, 0.0, 0.0],
+#                       [0.0, 1.0, 0.0, 0.0],
+#                       [0.0, 0.0, 1.0, 0.0]]).T
+##pred1 for motor 2
+# Rot_mat[1,:, :] = R.T
+# Rot_mat[2, :, :] = torch.matmul(Rot_mat[1, :, :], R)
+# Rot_mat[3, :, :] = torch.matmul(Rot_mat[2, :, :], R.T)
+
+# Rot_u = torch.tensor([[0.0, 1.0, 0.0, 0.0], 
+#                       [0.0, 0.0, 1.0, 0.0],
+#                       [0.0, 0.0, 0.0, 1.0],
+#                       [1.0, 0.0, 0.0, 0.0]]).T
+
+# Rot_u_inv = torch.tensor([[0.0, 0.0, 0.0, 1.0], 
+#                       [1.0, 0.0, 0.0, 0.0],
+#                       [0.0, 1.0, 0.0, 0.0],
+#                       [0.0, 0.0, 1.0, 0.0]]).T
 
 nominal_params = config.CRAZYFLIE_PARAMS
 
@@ -148,7 +179,7 @@ def main(args):
         sm, sl = dynamics.state_limits()
 
         if use_nom == 1:
-            n_sample = 200
+            n_sample = 20000
         else:
             n_sample = 1100
         
@@ -213,16 +244,19 @@ def main(args):
             gamma_actual_bs = torch.ones(n_sample_iter, m_control)
 
             for j in range(n_sample):
-                temp_var = np.mod(j, 2)
-                gamma_actual_bs[j, fault_control_index] = temp_var
+                temp_var = np.mod(j, 5)
+                if temp_var < 4:
+                    gamma_actual_bs[j, temp_var] = 0.0
 
             rand_ind = torch.randperm(n_sample_iter)
 
             gamma_actual_bs = gamma_actual_bs[rand_ind, :]
 
-            state0 = dynamics.sample_safe(n_sample_iter // 2) + torch.randn(n_sample_iter // 2, n_state) * 1
+            state0 = dynamics.sample_safe(n_sample_iter // 5) + torch.randn(n_sample_iter // 5, n_state) * 1
 
-            state0 = state0.repeat_interleave(2, dim=0)
+            state0 = state0.repeat_interleave(5, dim=0)
+
+            state0 = state0[rand_ind, :]
 
             state_traj = torch.zeros(n_sample, Eval_steps, n_state)
     
@@ -386,12 +420,12 @@ def main(args):
 
                     gamma_overall = torch.min(torch.cat([gamma_pred.reshape(n_sample, 1, m_control), gamma_pred1.reshape(n_sample, 1, m_control), 
                                                         gamma_pred2.reshape(n_sample, 1, m_control), gamma_pred3.reshape(n_sample, 1, m_control)], dim=1).reshape(n_sample, 4, 4), dim=1).values
-                                        
+                    
                     for j in range(m_control):
                         index_fault = gamma_actual_bs[:, j] == 0
                         index_num = torch.sum(index_fault.float())
                         if index_num > 0:
-                            acc_ind[0, j] = torch.sum((torch.abs(gamma_actual_bs[index_fault, j] - gamma_overall[index_fault, j]) < 0.1).float()) / (index_num + 1e-5)
+                            acc_ind[0, j] = 1 - torch.sum((torch.abs(gamma_actual_bs[index_fault, j] - gamma_overall[index_fault, j])).float()) / (index_num + 1e-5)
                         else:
                             acc_ind[0, j] = 1.0
 
@@ -401,7 +435,7 @@ def main(args):
                     
                     acc_ind[0, -1] = torch.sum(gamma_overall[index_no_fault, :]) / (index_num + 1e-5) / m_control
 
-                    print('{}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy()))
+                    # print('{}, {}'.format(np.max([np.min([k - (traj_len - 2), traj_len]), 0]), acc_ind[0].numpy()))
                     
                     acc_ind = torch.zeros(1, m_control * 2)
                     acc_ind_temp = torch.zeros(4)
@@ -435,7 +469,17 @@ def main(args):
                     
                         acc_final[gamma_iter, j, k-traj_len+1] = acc_ind[0, j]
                         acc_final[gamma_iter, j + m_control, k-traj_len+1] = acc_ind[0, j + m_control]
-
+                    # np.set_printoptions(precision=2)
+                    # print(np.array(gamma_pred))
+                    # print(gamma_pred[:, fault_control_index].T)
+                    # print(gamma_pred1[:, fault_control_index].T)
+                    # print(gamma_pred2[:, fault_control_index].T)
+                    # print(gamma_pred3[:, fault_control_index].T)
+                    # print(np.array(gamma_pred2))
+                    # print(np.array(gamma_pred3))
+                    # print(gamma_overall)
+                    # print(gamma_actual_bs[:, fault_control_index].T)
+                    # print(Asasas)
         torch.save(acc_final, './log_files/acc_output_model_' + str(model_factor) + '_single_complete_rotate.pt')
     else:
         print('Using previous data')

@@ -84,7 +84,7 @@ def main(args):
 
     acc_final = torch.zeros(4, 11, traj_len)
 
-    use_previos_data = 0
+    use_previos_data = 1
 
     gamma_type = 'LSTM'
 
@@ -100,7 +100,7 @@ def main(args):
             if gamma_iter == 0 or gamma_iter == 2:
                 nominal_params = config.CRAZYFLIE_PARAMS
             else:
-                nominal_params = config.CRAZYFLIE_PARAMS_PERT
+                nominal_params = config.CRAZYFLIE_PARAMS_PERT_2
  
             if gamma_iter == 0 or gamma_iter == 1:
                 model_factor == 0
@@ -161,14 +161,12 @@ def main(args):
                         gamma.load_state_dict(torch.load(str_supercloud_data, map_location=torch.device('cpu')))
                     else:
                         gamma.load_state_dict(torch.load(str_supercloud_data))
-                    print("Using supercloud data")
                 except:
                     try:
                         if gpu_id == -1:
                             gamma.load_state_dict(torch.load(str_good_data, map_location=torch.device('cpu')))
                         else:
                             gamma.load_state_dict(torch.load(str_good_data))
-                        print("Using good data")
                     except:
                         if gpu_id == -1:
                             gamma.load_state_dict(torch.load(str_data, map_location=torch.device('cpu')))
@@ -180,7 +178,7 @@ def main(args):
             
             gamma.eval().to(device)
 
-            if gamma_iter == 0:
+            if gamma_iter % 2 == 0:
                 gamma_actual_bs = torch.ones(n_sample_iter, m_control)
 
                 for j in range(n_sample):
@@ -192,7 +190,7 @@ def main(args):
 
                 gamma_actual_bs = gamma_actual_bs[rand_ind, :]
            
-                state0 = dynamics.sample_safe(n_sample_iter // 11) + torch.randn(n_sample_iter // 11, n_state) * 1
+                state0 = dynamics.sample_safe(n_sample_iter // 11) + torch.randn(n_sample_iter // 11, n_state) * 2
 
                 state0 = state0.repeat_interleave(11, dim=0)
 
@@ -320,11 +318,11 @@ def main(args):
             else:
                 ax[gamma_iter].plot(step, acc_fail, color = colors[k], linestyle='--', label = '$\Theta$: ' + str(round(k / 10, 2)) + ' [' + param + ']', marker="^", markevery=markers_on,markersize=10, linewidth=3)
         if gamma_iter == 1:    
-            ax[gamma_iter].set_xlabel('Length of trajectory with failed actuator', fontsize = 35)
+            ax[gamma_iter].set_xlabel('Length of trajectory with failed actuator', fontsize = 40)
         if model_factor == 0:
-            ax[gamma_iter].set_ylabel('Accuracy: [Model Free]', fontsize = 35)
+            ax[gamma_iter].set_ylabel('Accuracy: [Model Free]', fontsize = 40)
         else:
-            ax[gamma_iter].set_ylabel('Accuracy: [Model Based]', fontsize = 35)
+            ax[gamma_iter].set_ylabel('Accuracy: [Model Based]', fontsize = 40)
         
         
         # plt.title('Failure Test Accuracy', fontsize = 20)
