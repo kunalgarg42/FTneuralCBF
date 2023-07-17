@@ -140,7 +140,7 @@ def main(args):
             except:
                 print("No pre-train data available")
 
-    dataset = Dataset_with_Grad(y_state=n_state, n_state=n_state, m_control=m_control, train_u=1, buffer_size=n_sample*10000, traj_len=1)
+    dataset = Dataset_with_Grad(y_state=n_state, n_state=n_state, m_control=m_control, train_u=1, buffer_size=n_sample*20000, traj_len=1)
     trainer = Trainer(cbf, nn_controller, dataset, gamma=None, n_state=n_state, m_control=m_control, j_const=2, dyn=dynamics,
                       dt=dt, action_loss_weight=0.001, params=nominal_params,
                       fault=fault, gpu_id=gpu_id, num_traj=n_sample, traj_len=0,

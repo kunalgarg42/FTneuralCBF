@@ -389,7 +389,7 @@ class Trainer(object):
         
         opt_iter = int(self.dataset.n_pts / batch_size)
 
-        opt_count = 500
+        opt_count = 100
         for _ in range(opt_count):
             for i in range(opt_iter):
 
