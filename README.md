@@ -1,6 +1,8 @@
 ## Introduction
 
-FTneuralCBF is a toolbox for designing NN-based fault-tolerant control as well as fault-detection and isolation (FDI) mechanisms. For more details, please refer to the paper: (TBD)
+FTneuralCBF is a toolbox for designing NN-based fault-tolerant control as well as fault-detection and isolation (FDI) mechanisms. For more details, please refer to the paper: 
+
+Garg, K., Dawson, C., Xu, K., Ornik, M., & Fan, C. (2023). Model-free neural fault detection and isolation for safe control. IEEE Control Systems Letters, 7, 3169-3174.
 
 ## Installation
 
